@@ -1,0 +1,6 @@
+node_modules
+node_modules-interrupted
+dist
+.env
+*.log
+apps/api/src/generated/prisma

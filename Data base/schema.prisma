@@ -1,0 +1,528 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InstitutionType {
+  BANK
+  FINANCIAL_INSTITUTION
+  COOPERATIVE
+  OTHER
+}
+
+enum InstitutionRequestStatus {
+  EMAIL_PENDING
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  BLOCKED
+}
+
+enum PlatformRole {
+  PLATFORM_ADMIN
+  OPERATOR
+}
+
+enum TenantRole {
+  INSTITUTION_ADMIN
+  ANALYST
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  ENDED
+}
+
+enum ClientType {
+  PERSON
+  COMPANY
+}
+
+enum DocumentType {
+  CI
+  NIT
+  PASSPORT
+  OTHER
+}
+
+enum CreditPurpose {
+  WORKING_CAPITAL
+  GREEN_PROJECT
+  BUSINESS_INVESTMENT
+  EQUIPMENT
+  OTHER
+}
+
+enum ProductCategory {
+  MICRO_CREDIT
+  GREEN_CREDIT
+  SME_CREDIT
+  OTHER
+}
+
+enum ApplicantScope {
+  PERSON
+  COMPANY
+  BOTH
+}
+
+enum EvaluationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  INCOMPLETE
+  FAILED
+}
+
+enum IntegrationKind {
+  BANK
+  CREDIT_BUREAU
+  FINTECH
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  DEGRADED
+  INACTIVE
+}
+
+enum SourceResultStatus {
+  SUCCESS
+  NO_DATA
+  UNAVAILABLE
+  ERROR
+}
+
+enum RecommendationOutcome {
+  RECOMMENDED
+  NOT_COMPATIBLE
+}
+
+enum UsageMetric {
+  EVALUATION
+  SCORING
+}
+
+model Plan {
+  id                  String   @id @default(uuid()) @db.Uuid
+  code                String   @unique @db.VarChar(50)
+  name                String   @db.VarChar(100)
+  description         String?  @db.VarChar(500)
+  evaluationsPerMonth Int?
+  maxUsers             Int?
+  scoringEnabled      Boolean  @default(false)
+  active               Boolean @default(true)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+
+  requests      InstitutionRequest[]
+  subscriptions TenantSubscription[]
+}
+
+model InstitutionRequest {
+  id              String                   @id @default(uuid()) @db.Uuid
+  institutionName String                   @db.VarChar(180)
+  taxId           String                   @db.VarChar(40)
+  institutionType InstitutionType
+  contactName     String                   @db.VarChar(140)
+  contactRole     String                   @db.VarChar(120)
+  contactEmail    String                   @db.VarChar(254)
+  contactPhone    String?                  @db.VarChar(40)
+  requestedPlanId String?                  @db.Uuid
+  status          InstitutionRequestStatus @default(EMAIL_PENDING)
+  emailVerifiedAt DateTime?                @db.Timestamptz(6)
+  reviewedAt      DateTime?                @db.Timestamptz(6)
+  reviewedById    String?                  @db.Uuid
+  rejectionReason String?                  @db.VarChar(500)
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
+
+  requestedPlan    Plan?                    @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
+  reviewedBy       User?                    @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  verificationTokens EmailVerificationToken[]
+  provisionedTenant Tenant?
+
+  @@index([status, createdAt])
+  @@index([taxId])
+  @@index([contactEmail])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  requestId String   @db.Uuid
+  tokenHash String   @unique @db.VarChar(128)
+  expiresAt DateTime @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  request InstitutionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, expiresAt])
+}
+
+model User {
+  id              String        @id @default(uuid()) @db.Uuid
+  email           String        @unique @db.VarChar(254)
+  fullName        String        @db.VarChar(160)
+  passwordHash    String?       @db.VarChar(255)
+  status          UserStatus    @default(INVITED)
+  platformRole    PlatformRole?
+  emailVerifiedAt DateTime?     @db.Timestamptz(6)
+  lastLoginAt     DateTime?     @db.Timestamptz(6)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
+
+  memberships       TenantMembership[]
+  reviewedRequests  InstitutionRequest[] @relation("RequestReviewer")
+  auditEvents       AuditLog[] @relation("AuditActor")
+}
+
+model Tenant {
+  id                   String          @id @default(uuid()) @db.Uuid
+  slug                 String          @unique @db.VarChar(80)
+  legalName            String          @db.VarChar(180)
+  taxId                String          @unique @db.VarChar(40)
+  institutionType      InstitutionType
+  status               TenantStatus    @default(ACTIVE)
+  createdFromRequestId String?         @unique @db.Uuid
+  createdAt            DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @db.Timestamptz(6)
+
+  createdFromRequest InstitutionRequest? @relation(fields: [createdFromRequestId], references: [id], onDelete: SetNull)
+  memberships       TenantMembership[]
+  subscriptions     TenantSubscription[]
+  integrations      TenantIntegration[]
+  products          FinancialProduct[]
+  clients           Client[]
+  evaluations       Evaluation[]
+  sourceResults     EvaluationSourceResult[]
+  financialProfiles FinancialProfile[]
+  profileSources    ProfileSource[]
+  recommendations   EvaluationRecommendation[]
+  recommendationReasons RecommendationReason[]
+  usageRecords      UsageRecord[]
+  auditLogs         AuditLog[]
+}
+
+model TenantMembership {
+  id        String           @id @default(uuid()) @db.Uuid
+  tenantId  String           @db.Uuid
+  userId    String           @db.Uuid
+  role      TenantRole
+  status    MembershipStatus @default(INVITED)
+  createdAt DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations MembershipInvitation[]
+  createdEvaluations Evaluation[] @relation("EvaluationCreator")
+
+  @@unique([tenantId, userId])
+  @@unique([tenantId, id])
+  @@index([userId, status])
+  @@index([tenantId, role, status])
+}
+
+model MembershipInvitation {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  membershipId String   @db.Uuid
+  tokenHash    String   @unique @db.VarChar(128)
+  expiresAt    DateTime @db.Timestamptz(6)
+  acceptedAt   DateTime? @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  membership TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Cascade)
+
+  @@index([tenantId, membershipId, expiresAt])
+}
+
+model TenantSubscription {
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @db.Uuid
+  planId    String             @db.Uuid
+  status    SubscriptionStatus @default(ACTIVE)
+  startsAt  DateTime           @default(now()) @db.Timestamptz(6)
+  endsAt    DateTime?          @db.Timestamptz(6)
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@index([planId, status])
+}
+
+model IntegrationProvider {
+  id        String            @id @default(uuid()) @db.Uuid
+  code      String            @unique @db.VarChar(60)
+  name      String            @db.VarChar(140)
+  kind      IntegrationKind
+  status    IntegrationStatus @default(ACTIVE)
+  createdAt DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenantIntegrations TenantIntegration[]
+  sourceResults      EvaluationSourceResult[]
+}
+
+model TenantIntegration {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @db.Uuid
+  providerId     String            @db.Uuid
+  enabled        Boolean           @default(false)
+  status         IntegrationStatus @default(ACTIVE)
+  lastHealthAt   DateTime?         @db.Timestamptz(6)
+  lastErrorCode  String?           @db.VarChar(100)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  provider IntegrationProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, providerId])
+  @@index([tenantId, enabled, status])
+}
+
+model FinancialProduct {
+  id                         String          @id @default(uuid()) @db.Uuid
+  tenantId                   String          @db.Uuid
+  name                       String          @db.VarChar(160)
+  category                   ProductCategory
+  applicantScope             ApplicantScope
+  minAmount                  Decimal         @db.Decimal(14, 2)
+  maxAmount                  Decimal         @db.Decimal(14, 2)
+  maxDebtToIncome            Decimal?        @db.Decimal(6, 4)
+  minMonthlyDisposableIncome Decimal?        @db.Decimal(14, 2)
+  allowsRecentArrears        Boolean         @default(false)
+  active                     Boolean         @default(true)
+  createdAt                  DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purposes        FinancialProductPurpose[]
+  recommendations EvaluationRecommendation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, name])
+  @@index([tenantId, active, category])
+}
+
+model FinancialProductPurpose {
+  tenantId  String        @db.Uuid
+  productId String        @db.Uuid
+  purpose   CreditPurpose
+
+  product FinancialProduct @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([tenantId, productId, purpose])
+  @@index([tenantId, purpose])
+}
+
+model Client {
+  id               String       @id @default(uuid()) @db.Uuid
+  tenantId         String       @db.Uuid
+  type             ClientType
+  documentType     DocumentType
+  documentNumber   String       @db.VarChar(60)
+  name             String       @db.VarChar(180)
+  email            String?      @db.VarChar(254)
+  phone            String?      @db.VarChar(40)
+  address          String?      @db.VarChar(250)
+  economicActivity String?      @db.VarChar(180)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluations Evaluation[]
+
+  @@unique([tenantId, documentType, documentNumber])
+  @@unique([tenantId, id])
+  @@index([tenantId, name])
+  @@index([tenantId, createdAt])
+}
+
+model Evaluation {
+  id                    String           @id @default(uuid()) @db.Uuid
+  tenantId              String           @db.Uuid
+  clientId              String           @db.Uuid
+  createdByMembershipId String           @db.Uuid
+  idempotencyKey        String           @unique @db.VarChar(80)
+  purpose               CreditPurpose
+  requestedAmount       Decimal          @db.Decimal(14, 2)
+  status                 EvaluationStatus @default(DRAFT)
+  consentGivenAt         DateTime?        @db.Timestamptz(6)
+  applicantSnapshot     Json
+  startedAt              DateTime?        @db.Timestamptz(6)
+  completedAt            DateTime?        @db.Timestamptz(6)
+  failureCode            String?          @db.VarChar(100)
+  failureMessage         String?          @db.VarChar(500)
+  ruleVersion            String?          @db.VarChar(60)
+  createdAt              DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client    Client           @relation(fields: [tenantId, clientId], references: [tenantId, id], onDelete: Restrict)
+  createdBy TenantMembership @relation("EvaluationCreator", fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  sourceResults EvaluationSourceResult[]
+  profile       FinancialProfile?
+  recommendations EvaluationRecommendation[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, clientId, createdAt])
+  @@index([tenantId, createdByMembershipId, createdAt])
+}
+
+model EvaluationSourceResult {
+  id                String             @id @default(uuid()) @db.Uuid
+  tenantId          String             @db.Uuid
+  evaluationId      String             @db.Uuid
+  providerId        String             @db.Uuid
+  status            SourceResultStatus
+  attemptCount      Int                @default(1)
+  externalReference String?            @db.VarChar(120)
+  errorCode         String?            @db.VarChar(100)
+  normalizedPayload Json?
+  requestedAt       DateTime           @default(now()) @db.Timestamptz(6)
+  respondedAt       DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation Evaluation          @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  provider   IntegrationProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  profileSources ProfileSource[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, evaluationId, providerId])
+  @@index([tenantId, status, requestedAt])
+}
+
+model FinancialProfile {
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @db.Uuid
+  evaluationId          String   @db.Uuid
+  averageMonthlyIncome  Decimal? @db.Decimal(14, 2)
+  averageMonthlyExpenses Decimal? @db.Decimal(14, 2)
+  disposableIncome      Decimal? @db.Decimal(14, 2)
+  totalDebt             Decimal? @db.Decimal(14, 2)
+  activeCredits         Int?
+  debtToIncome          Decimal? @db.Decimal(6, 4)
+  hasRecentArrears      Boolean?
+  completeness          Decimal  @default(0) @db.Decimal(5, 4)
+  profileVersion        String   @db.VarChar(60)
+  calculatedAt          DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation  Evaluation  @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  sources     ProfileSource[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, evaluationId])
+  @@index([tenantId, calculatedAt])
+}
+
+model ProfileSource {
+  id             String @id @default(uuid()) @db.Uuid
+  tenantId       String @db.Uuid
+  profileId      String @db.Uuid
+  sourceResultId String @db.Uuid
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  profile      FinancialProfile       @relation(fields: [tenantId, profileId], references: [tenantId, id], onDelete: Restrict)
+  sourceResult EvaluationSourceResult @relation(fields: [tenantId, sourceResultId], references: [tenantId, id], onDelete: Restrict)
+
+  @@unique([tenantId, profileId, sourceResultId])
+  @@index([tenantId, sourceResultId])
+}
+
+model EvaluationRecommendation {
+  id           String                @id @default(uuid()) @db.Uuid
+  tenantId     String                @db.Uuid
+  evaluationId String                @db.Uuid
+  productId    String                @db.Uuid
+  outcome      RecommendationOutcome
+  ruleVersion  String                @db.VarChar(60)
+  evaluatedAt  DateTime              @default(now()) @db.Timestamptz(6)
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation  Evaluation       @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  product     FinancialProduct @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  reasons     RecommendationReason[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, evaluationId, productId])
+  @@index([tenantId, evaluationId, outcome])
+}
+
+model RecommendationReason {
+  id               String  @id @default(uuid()) @db.Uuid
+  tenantId         String  @db.Uuid
+  recommendationId String  @db.Uuid
+  code             String  @db.VarChar(80)
+  message          String  @db.VarChar(300)
+  passed           Boolean
+
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  recommendation EvaluationRecommendation @relation(fields: [tenantId, recommendationId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, recommendationId])
+}
+
+model UsageRecord {
+  id             String      @id @default(uuid()) @db.Uuid
+  tenantId       String      @db.Uuid
+  metric         UsageMetric
+  quantity       Int         @default(1)
+  referenceType  String?     @db.VarChar(60)
+  referenceId    String?     @db.VarChar(80)
+  idempotencyKey String      @unique @db.VarChar(100)
+  occurredAt     DateTime    @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, metric, occurredAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.VarChar(100)
+  entityType  String   @db.VarChar(80)
+  entityId    String?  @db.VarChar(80)
+  metadata    Json?
+  ipAddress   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actor  User?   @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}
