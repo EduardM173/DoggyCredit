@@ -7,14 +7,35 @@
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace=@doggycredit/api\" \"npm run dev --workspace=@doggycredit/web\"",
+    "dev:api": "npm run dev --workspace=@doggycredit/api",
+    "dev:web": "npm run dev --workspace=@doggycredit/web",
     "build": "npm run build --workspace=@doggycredit/api && npm run build --workspace=@doggycredit/web",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test --workspace=@doggycredit/api && npm run test --workspace=@doggycredit/web",
+    "test:e2e": "npm run test:e2e --workspace=@doggycredit/api",
+    "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:reset": "prisma migrate reset",
+    "prisma:seed": "prisma db seed",
     "prisma:validate": "prisma validate"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.10.5",
     "concurrently": "^9.1.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
     "prisma": "^7.0.0",
-    "typescript": "^5.7.2"
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.70.1"
   }
 }

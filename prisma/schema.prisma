@@ -131,11 +131,11 @@ model Plan {
   name                String   @db.VarChar(100)
   description         String?  @db.VarChar(500)
   evaluationsPerMonth Int?
-  maxUsers             Int?
+  maxUsers            Int?
   scoringEnabled      Boolean  @default(false)
-  active               Boolean @default(true)
-  createdAt            DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
 
   requests      InstitutionRequest[]
   subscriptions TenantSubscription[]
@@ -159,10 +159,10 @@ model InstitutionRequest {
   createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
 
-  requestedPlan    Plan?                    @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
-  reviewedBy       User?                    @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  requestedPlan      Plan?                    @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
+  reviewedBy         User?                    @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   verificationTokens EmailVerificationToken[]
-  provisionedTenant Tenant?
+  provisionedTenant  Tenant?
 
   @@index([status, createdAt])
   @@index([taxId])
@@ -170,12 +170,12 @@ model InstitutionRequest {
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  requestId String   @db.Uuid
-  tokenHash String   @unique @db.VarChar(128)
-  expiresAt DateTime @db.Timestamptz(6)
+  id        String    @id @default(uuid()) @db.Uuid
+  requestId String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(128)
+  expiresAt DateTime  @db.Timestamptz(6)
   usedAt    DateTime? @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
 
   request InstitutionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -194,9 +194,9 @@ model User {
   createdAt       DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(6)
 
-  memberships       TenantMembership[]
-  reviewedRequests  InstitutionRequest[] @relation("RequestReviewer")
-  auditEvents       AuditLog[] @relation("AuditActor")
+  memberships      TenantMembership[]
+  reviewedRequests InstitutionRequest[] @relation("RequestReviewer")
+  auditEvents      AuditLog[]           @relation("AuditActor")
 }
 
 model Tenant {
@@ -210,20 +210,20 @@ model Tenant {
   createdAt            DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt            DateTime        @updatedAt @db.Timestamptz(6)
 
-  createdFromRequest InstitutionRequest? @relation(fields: [createdFromRequestId], references: [id], onDelete: SetNull)
-  memberships       TenantMembership[]
-  subscriptions     TenantSubscription[]
-  integrations      TenantIntegration[]
-  products          FinancialProduct[]
-  clients           Client[]
-  evaluations       Evaluation[]
-  sourceResults     EvaluationSourceResult[]
-  financialProfiles FinancialProfile[]
-  profileSources    ProfileSource[]
-  recommendations   EvaluationRecommendation[]
+  createdFromRequest    InstitutionRequest?        @relation(fields: [createdFromRequestId], references: [id], onDelete: SetNull)
+  memberships           TenantMembership[]
+  subscriptions         TenantSubscription[]
+  integrations          TenantIntegration[]
+  products              FinancialProduct[]
+  clients               Client[]
+  evaluations           Evaluation[]
+  sourceResults         EvaluationSourceResult[]
+  financialProfiles     FinancialProfile[]
+  profileSources        ProfileSource[]
+  recommendations       EvaluationRecommendation[]
   recommendationReasons RecommendationReason[]
-  usageRecords      UsageRecord[]
-  auditLogs         AuditLog[]
+  usageRecords          UsageRecord[]
+  auditLogs             AuditLog[]
 }
 
 model TenantMembership {
@@ -235,10 +235,10 @@ model TenantMembership {
   createdAt DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt DateTime         @updatedAt @db.Timestamptz(6)
 
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user        User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
-  invitations MembershipInvitation[]
-  createdEvaluations Evaluation[] @relation("EvaluationCreator")
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitations        MembershipInvitation[]
+  createdEvaluations Evaluation[]           @relation("EvaluationCreator")
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -247,13 +247,13 @@ model TenantMembership {
 }
 
 model MembershipInvitation {
-  id           String   @id @default(uuid()) @db.Uuid
-  tenantId     String   @db.Uuid
-  membershipId String   @db.Uuid
-  tokenHash    String   @unique @db.VarChar(128)
-  expiresAt    DateTime @db.Timestamptz(6)
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @db.Uuid
+  membershipId String    @db.Uuid
+  tokenHash    String    @unique @db.VarChar(128)
+  expiresAt    DateTime  @db.Timestamptz(6)
   acceptedAt   DateTime? @db.Timestamptz(6)
-  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
 
   membership TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Cascade)
 
@@ -291,15 +291,15 @@ model IntegrationProvider {
 }
 
 model TenantIntegration {
-  id             String            @id @default(uuid()) @db.Uuid
-  tenantId       String            @db.Uuid
-  providerId     String            @db.Uuid
-  enabled        Boolean           @default(false)
-  status         IntegrationStatus @default(ACTIVE)
-  lastHealthAt   DateTime?         @db.Timestamptz(6)
-  lastErrorCode  String?           @db.VarChar(100)
-  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @db.Uuid
+  providerId    String            @db.Uuid
+  enabled       Boolean           @default(false)
+  status        IntegrationStatus @default(ACTIVE)
+  lastHealthAt  DateTime?         @db.Timestamptz(6)
+  lastErrorCode String?           @db.VarChar(100)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(6)
 
   tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   provider IntegrationProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
@@ -323,7 +323,7 @@ model FinancialProduct {
   createdAt                  DateTime        @default(now()) @db.Timestamptz(6)
   updatedAt                  DateTime        @updatedAt @db.Timestamptz(6)
 
-  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   purposes        FinancialProductPurpose[]
   recommendations EvaluationRecommendation[]
 
@@ -374,22 +374,22 @@ model Evaluation {
   idempotencyKey        String           @unique @db.VarChar(80)
   purpose               CreditPurpose
   requestedAmount       Decimal          @db.Decimal(14, 2)
-  status                 EvaluationStatus @default(DRAFT)
-  consentGivenAt         DateTime?        @db.Timestamptz(6)
+  status                EvaluationStatus @default(DRAFT)
+  consentGivenAt        DateTime?        @db.Timestamptz(6)
   applicantSnapshot     Json
-  startedAt              DateTime?        @db.Timestamptz(6)
-  completedAt            DateTime?        @db.Timestamptz(6)
-  failureCode            String?          @db.VarChar(100)
-  failureMessage         String?          @db.VarChar(500)
-  ruleVersion            String?          @db.VarChar(60)
-  createdAt              DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime         @updatedAt @db.Timestamptz(6)
+  startedAt             DateTime?        @db.Timestamptz(6)
+  completedAt           DateTime?        @db.Timestamptz(6)
+  failureCode           String?          @db.VarChar(100)
+  failureMessage        String?          @db.VarChar(500)
+  ruleVersion           String?          @db.VarChar(60)
+  createdAt             DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime         @updatedAt @db.Timestamptz(6)
 
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client    Client           @relation(fields: [tenantId, clientId], references: [tenantId, id], onDelete: Restrict)
-  createdBy TenantMembership @relation("EvaluationCreator", fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
-  sourceResults EvaluationSourceResult[]
-  profile       FinancialProfile?
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client          Client                     @relation(fields: [tenantId, clientId], references: [tenantId, id], onDelete: Restrict)
+  createdBy       TenantMembership           @relation("EvaluationCreator", fields: [tenantId, createdByMembershipId], references: [tenantId, id], onDelete: Restrict)
+  sourceResults   EvaluationSourceResult[]
+  profile         FinancialProfile?
   recommendations EvaluationRecommendation[]
 
   @@unique([tenantId, id])
@@ -412,9 +412,9 @@ model EvaluationSourceResult {
   respondedAt       DateTime?          @db.Timestamptz(6)
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
 
-  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  evaluation Evaluation          @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
-  provider   IntegrationProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation     Evaluation          @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  provider       IntegrationProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
   profileSources ProfileSource[]
 
   @@unique([tenantId, id])
@@ -423,23 +423,23 @@ model EvaluationSourceResult {
 }
 
 model FinancialProfile {
-  id                    String   @id @default(uuid()) @db.Uuid
-  tenantId              String   @db.Uuid
-  evaluationId          String   @db.Uuid
-  averageMonthlyIncome  Decimal? @db.Decimal(14, 2)
+  id                     String   @id @default(uuid()) @db.Uuid
+  tenantId               String   @db.Uuid
+  evaluationId           String   @db.Uuid
+  averageMonthlyIncome   Decimal? @db.Decimal(14, 2)
   averageMonthlyExpenses Decimal? @db.Decimal(14, 2)
-  disposableIncome      Decimal? @db.Decimal(14, 2)
-  totalDebt             Decimal? @db.Decimal(14, 2)
-  activeCredits         Int?
-  debtToIncome          Decimal? @db.Decimal(6, 4)
-  hasRecentArrears      Boolean?
-  completeness          Decimal  @default(0) @db.Decimal(5, 4)
-  profileVersion        String   @db.VarChar(60)
-  calculatedAt          DateTime @default(now()) @db.Timestamptz(6)
+  disposableIncome       Decimal? @db.Decimal(14, 2)
+  totalDebt              Decimal? @db.Decimal(14, 2)
+  activeCredits          Int?
+  debtToIncome           Decimal? @db.Decimal(6, 4)
+  hasRecentArrears       Boolean?
+  completeness           Decimal  @default(0) @db.Decimal(5, 4)
+  profileVersion         String   @db.VarChar(60)
+  calculatedAt           DateTime @default(now()) @db.Timestamptz(6)
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  evaluation  Evaluation  @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
-  sources     ProfileSource[]
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation Evaluation      @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  sources    ProfileSource[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, evaluationId])
@@ -469,10 +469,10 @@ model EvaluationRecommendation {
   ruleVersion  String                @db.VarChar(60)
   evaluatedAt  DateTime              @default(now()) @db.Timestamptz(6)
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  evaluation  Evaluation       @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
-  product     FinancialProduct @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
-  reasons     RecommendationReason[]
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  evaluation Evaluation             @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)
+  product    FinancialProduct       @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+  reasons    RecommendationReason[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, evaluationId, productId])
