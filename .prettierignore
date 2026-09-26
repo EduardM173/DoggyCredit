@@ -1,0 +1,7 @@
+node_modules
+node_modules-interrupted
+dist
+coverage
+apps/api/src/generated
+Data base
+package-lock.json
