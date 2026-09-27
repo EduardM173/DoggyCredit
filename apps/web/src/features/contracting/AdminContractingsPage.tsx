@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { adminApi, AdminError } from "../admin/api";
+import { InstitutionName } from "../admin/InstitutionName";
 import { money, methods, paymentLabels, type Payment } from "./api";
 interface List {
   items: {
@@ -63,6 +64,8 @@ export function AdminContractingsPage() {
       <div className="admin-page-heading">
         <h1>Contrataciones</h1>
         <p>Planes confirmados y seguimiento de pagos.</p>
+      </div>
+      <section className="admin-list-toolbar" aria-label="Acciones de contrataciones">
         <button
           className="button admin-secondary"
           onClick={() => {
@@ -73,19 +76,21 @@ export function AdminContractingsPage() {
           <RefreshCw size={17} />
           Actualizar
         </button>
-      </div>
+      </section>
       {error && (
         <p role="alert" className="admin-alert">
           {error}
         </p>
       )}
       {!data && !error ? (
-        <p role="status">Cargando contrataciones...</p>
+        <p className="admin-empty" role="status">
+          Cargando contrataciones...
+        </p>
       ) : (
         data && (
-          <>
+          <section className="admin-table-section" aria-label="Contrataciones institucionales">
             <div className="admin-table-scroll">
-              <table>
+              <table className="admin-list-table">
                 <thead>
                   <tr>
                     <th>Institución</th>
@@ -99,17 +104,27 @@ export function AdminContractingsPage() {
                   {data.items.map((row) => (
                     <tr key={row.id}>
                       <td>
-                        <Link to={`/admin/solicitudes/${row.requestId}`}>{row.institution}</Link>
-                        <small>{new Date(row.createdAt).toLocaleString("es-BO")}</small>
+                        <InstitutionName name={row.institution}>
+                          <Link className="admin-institution-link" to={`/admin/solicitudes/${row.requestId}`}>
+                            {row.institution}
+                          </Link>
+                          <small>{new Date(row.createdAt).toLocaleString("es-BO")}</small>
+                        </InstitutionName>
                       </td>
                       <td>{row.planName}</td>
                       <td>{money(row.amount, row.currency)}</td>
-                      <td>{row.status === "CONFIRMED" ? "Confirmada" : "Pendiente de pago"}</td>
+                      <td>
+                        <span className={`admin-status admin-status-${row.status}`}>
+                          {row.status === "CONFIRMED" ? "Confirmada" : "Pendiente de pago"}
+                        </span>
+                      </td>
                       <td>
                         {row.payments.length
                           ? row.payments.map((payment) => (
                               <div className="admin-payment-attempt" key={payment.id}>
-                                <strong>{paymentLabels[payment.status]}</strong>
+                                <span className={`admin-status admin-status-${payment.status}`}>
+                                  {paymentLabels[payment.status]}
+                                </span>
                                 <p>
                                   {methods[payment.method]} · {payment.reference}
                                 </p>
@@ -139,28 +154,34 @@ export function AdminContractingsPage() {
                 </tbody>
               </table>
             </div>
-            {!data.items.length && <p>No hay contrataciones registradas.</p>}
+            {!data.items.length && <p className="admin-empty">No hay contrataciones registradas.</p>}
             <div className="admin-pagination">
               <span>{data.total} contrataciones</span>
-              <button
-                className="admin-icon-button"
-                aria-label="Página anterior"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
-              >
-                <ChevronLeft />
-              </button>
-              <span>Página {page}</span>
-              <button
-                className="admin-icon-button"
-                aria-label="Página siguiente"
-                disabled={page * 10 >= data.total}
-                onClick={() => setPage(page + 1)}
-              >
-                <ChevronRight />
-              </button>
+              <nav aria-label="Paginación de contrataciones">
+                <button
+                  className="admin-icon-button"
+                  aria-label="Página anterior"
+                  title="Página anterior"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  <ChevronLeft />
+                </button>
+                <span>
+                  Página {page} de {Math.max(1, Math.ceil(data.total / data.pageSize))}
+                </span>
+                <button
+                  className="admin-icon-button"
+                  aria-label="Página siguiente"
+                  title="Página siguiente"
+                  disabled={page * 10 >= data.total}
+                  onClick={() => setPage(page + 1)}
+                >
+                  <ChevronRight />
+                </button>
+              </nav>
             </div>
-          </>
+          </section>
         )
       )}
       {choice && (

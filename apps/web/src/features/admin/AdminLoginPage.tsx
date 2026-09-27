@@ -41,7 +41,7 @@ export function AdminLoginPage() {
   return (
     <div className="admin-login">
       <div className="admin-login-art" aria-hidden="true">
-        <img src="/images/admin-login-reference.png" alt="" />
+        <img src="/images/admin-login-background.webp" alt="" />
       </div>
       <main className="admin-login-main">
         <section className="admin-login-intro">

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search } from "lucide-react";
 import { adminApi, AdminError, displayDate } from "./api";
+import { InstitutionName } from "./InstitutionName";
 interface InstitutionList {
   items: {
     tenantId: string;
@@ -107,7 +108,7 @@ export function InstitutionsPage() {
         data && (
           <section className="admin-table-section" aria-label="Instituciones aprovisionadas">
             <div className="admin-table-scroll">
-              <table className="institutions-table">
+              <table className="admin-list-table">
                 <thead>
                   <tr>
                     <th>Institución</th>
@@ -121,16 +122,7 @@ export function InstitutionsPage() {
                   {data.items.map((row) => (
                     <tr key={row.tenantId}>
                       <td>
-                        <div className="institution-name">
-                          <span className="institution-initials" aria-hidden="true">
-                            {row.institutionName
-                              .split(/\s+/)
-                              .slice(0, 2)
-                              .map((p) => p[0])
-                              .join("")}
-                          </span>
-                          <strong>{row.institutionName}</strong>
-                        </div>
+                        <InstitutionName name={row.institutionName} />
                       </td>
                       <td>{row.nit}</td>
                       <td>
@@ -138,7 +130,7 @@ export function InstitutionsPage() {
                         <small className="institution-email">{row.initialAdmin.email}</small>
                       </td>
                       <td>
-                        <span className={`institution-activation activation-${row.activationStatus}`}>
+                        <span className={`admin-status activation-${row.activationStatus}`}>
                           {row.activationStatus === "ACTIVE" ? (
                             <CheckCircle2 size={17} />
                           ) : (
@@ -168,6 +160,7 @@ export function InstitutionsPage() {
                 <button
                   className="admin-icon-button"
                   aria-label="Página anterior"
+                  title="Página anterior"
                   disabled={page <= 1}
                   onClick={() => update({ page: String(page - 1) })}
                 >
@@ -179,6 +172,7 @@ export function InstitutionsPage() {
                 <button
                   className="admin-icon-button"
                   aria-label="Página siguiente"
+                  title="Página siguiente"
                   disabled={page * data.pageSize >= data.total}
                   onClick={() => update({ page: String(page + 1) })}
                 >

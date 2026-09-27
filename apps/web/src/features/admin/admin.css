@@ -252,6 +252,9 @@
 }
 .admin-status {
   display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
   padding: 7px 11px;
   border-radius: 6px;
   font-size: 12px;
@@ -627,21 +630,30 @@
 }
 .admin-login-art {
   position: absolute;
+  top: 0;
   left: 0;
-  bottom: 76px;
-  width: 446px;
-  height: 451px;
+  bottom: 0;
+  width: 50%;
   overflow: hidden;
   pointer-events: none;
 }
-.admin-login-art img {
+.admin-login-art::after {
+  content: "";
   position: absolute;
-  top: -169px;
-  left: 0;
-  width: 1000px;
-  height: auto;
-  max-width: none;
-  clip-path: polygon(0 25.4%, 1.56% 25.4%, 21.5% 55.2%, 21.5% 83%, 44.6% 93%, 0 93%);
+  inset: 0;
+  background: rgb(244 250 255 / 80%);
+}
+.admin-login-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+@media (min-width: 851px) {
+  .admin-login-intro > p,
+  .admin-login-intro li p {
+    color: #304d68;
+  }
 }
 @media (min-width: 1251px) {
   .admin-login-intro ul {
@@ -649,9 +661,6 @@
   }
 }
 @media (max-width: 1250px) {
-  .admin-login-art {
-    display: none;
-  }
   .admin-shell {
     grid-template-columns: 205px minmax(0, 1fr);
   }
@@ -666,6 +675,9 @@
   }
 }
 @media (max-width: 850px) {
+  .admin-login-art {
+    display: none;
+  }
   .admin-shell {
     grid-template-columns: 1fr;
   }
@@ -798,30 +810,59 @@
   margin-top: 5px;
   overflow-wrap: anywhere;
 }
-.institution-activation {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  white-space: nowrap;
+.admin-status.activation-INVITED,
+.admin-status-PENDING,
+.admin-status-PENDING_PAYMENT {
   background: #fff3d8;
   color: #955400;
 }
-.institution-activation.activation-ACTIVE {
+.admin-status.activation-ACTIVE,
+.admin-status-CONFIRMED,
+.admin-status-PAID {
   background: #dcfaeb;
   color: #087844;
 }
-.institution-activation.activation-SUSPENDED {
+.admin-status.activation-SUSPENDED,
+.admin-status-FAILED {
   background: #fff0ef;
   color: #ab2424;
 }
-.admin-shell .institutions-table {
-  min-width: 1000px;
+.admin-status-CANCELLED {
+  background: #eef3f8;
+  color: #526478;
 }
-.institutions-table td {
+.admin-shell .admin-list-table {
+  min-width: 1100px;
+}
+.admin-list-table td {
   padding-top: 18px;
   padding-bottom: 18px;
+}
+.admin-list-table td:first-child {
+  min-width: 240px;
+}
+.admin-list-table tbody tr:hover {
+  background: #f8fbfe;
+}
+.institution-name > div {
+  min-width: 0;
+}
+.admin-institution-link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+.admin-institution-link:hover {
+  color: #0064db;
+  text-decoration: underline;
+}
+.admin-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px;
+  margin-bottom: 20px;
+  background: white;
+  border-block: 1px solid #e1eaf3;
 }
 @media (max-width: 760px) {
   .admin-filters.institutions-filters {
