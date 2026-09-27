@@ -1,11 +1,7 @@
 import { Transform } from "class-transformer";
 import { Equals, IsEmail, IsIn, IsNotEmpty, IsString, Matches, MaxLength } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
-import {
-  INSTITUTION_TYPES,
-  PLAN_INTERESTS,
-  type SubmitInstitutionRequest,
-} from "./institution-request.contract.js";
+import { INSTITUTION_TYPES, type SubmitInstitutionRequest } from "./institution-request.contract.js";
 
 const trimmed = ({ value }: { value: unknown }) => (typeof value === "string" ? value.trim() : value);
 
@@ -33,9 +29,10 @@ export class CreateInstitutionRequestDto implements SubmitInstitutionRequest {
   @IsIn(INSTITUTION_TYPES, { message: "Selecciona un tipo de institución válido." })
   institutionType!: SubmitInstitutionRequest["institutionType"];
 
-  @ApiProperty({ enum: PLAN_INTERESTS, description: "Interés provisional, no asigna un plan comercial." })
-  @IsIn(PLAN_INTERESTS, { message: "Selecciona un plan de interés válido." })
-  planInterest!: (typeof PLAN_INTERESTS)[number];
+  @ApiProperty({ description: "Código público vigente o UNSURE; no asigna un plan comercial." })
+  @IsString()
+  @Matches(/^[A-Z][A-Z0-9_]{0,49}$/, { message: "Selecciona un plan de interés válido." })
+  planInterest!: string;
 
   @ApiProperty({ maxLength: 140 })
   @Transform(trimmed)

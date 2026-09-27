@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type InputHTMLAttributes } from "react";
+import { useEffect, useRef, useState, type FormEvent, type InputHTMLAttributes } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -17,12 +17,12 @@ import {
 import { NextSteps } from "../components/NextSteps";
 import { PublicInfo } from "../components/PublicInfo";
 import {
-  plans,
   submitInstitutionRequest,
   validateRequest,
   type InstitutionType,
   type RequestInput,
 } from "../features/institution-requests/api";
+import { fetchPublicPlans, type PublicPlan } from "../features/institution-requests/public-plans";
 
 const institutionTypes: { value: InstitutionType; label: string; icon: typeof Building2 }[] = [
   { value: "BANK", label: "Banco", icon: Building2 },
@@ -65,6 +65,8 @@ function Field({
 
 export function InstitutionRequestPage() {
   const [params] = useSearchParams();
+  const [publicPlans, setPublicPlans] = useState<PublicPlan[]>([]);
+  const [plansError, setPlansError] = useState(false);
   const navigate = useNavigate();
   const form = useRef<HTMLFormElement>(null);
   const inFlight = useRef(false);
@@ -73,7 +75,7 @@ export function InstitutionRequestPage() {
     institutionName: "",
     taxId: "",
     institutionType: "",
-    planInterest: plans.find((plan) => plan.value === params.get("plan"))?.value ?? "UNSURE",
+    planInterest: "UNSURE",
     contactName: "",
     contactRole: "",
     contactEmail: "",
@@ -85,6 +87,22 @@ export function InstitutionRequestPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof RequestInput, string>>>({});
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchPublicPlans(controller.signal)
+      .then((available) => {
+        setPublicPlans(available);
+        const requested = params.get("plan");
+        if (requested && available.some((plan) => plan.code === requested))
+          setValues((current) =>
+            current.planInterest === "UNSURE" ? { ...current, planInterest: requested } : current,
+          );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPlansError(true);
+      });
+    return () => controller.abort();
+  }, [params]);
   function update<K extends keyof RequestInput>(key: K, value: RequestInput[K]) {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
@@ -216,15 +234,18 @@ export function InstitutionRequestPage() {
                     aria-describedby="planInterest-hint"
                     required
                   >
-                    {plans.map((plan) => (
-                      <option key={plan.value} value={plan.value}>
-                        {plan.label}
+                    <option value="UNSURE">Aún no estoy seguro</option>
+                    {publicPlans.map((plan) => (
+                      <option key={plan.code} value={plan.code}>
+                        {plan.name}
                       </option>
                     ))}
                   </select>
                   <p className={errors.planInterest ? "field-error" : "field-hint"} id="planInterest-hint">
                     {errors.planInterest ||
-                      'Si todavía no tienes un plan definido, puedes seleccionar "Aún no estoy seguro".'}
+                      (plansError
+                        ? "No pudimos cargar los planes; puedes continuar sin elegir uno."
+                        : 'Si todavía no tienes un plan definido, puedes seleccionar "Aún no estoy seguro".')}
                   </p>
                 </div>
               </div>

@@ -1,10 +1,13 @@
+export type PlanInterest = string;
+// Legacy labels are retained only to display historical requests made before the public catalog.
 export const plans = [
   { value: "INITIAL", label: "Inicial" },
+  { value: "BASIC", label: "Básico" },
   { value: "PROFESSIONAL", label: "Profesional" },
   { value: "INSTITUTIONAL", label: "Institucional" },
+  { value: "ENTERPRISE", label: "Empresarial" },
   { value: "UNSURE", label: "Aún no estoy seguro" },
 ] as const;
-export type PlanInterest = (typeof plans)[number]["value"];
 export type InstitutionType = "BANK" | "FINANCIAL_INSTITUTION" | "COOPERATIVE" | "OTHER";
 export type RequestInput = {
   institutionName: string;
@@ -88,7 +91,7 @@ export function validateRequest(input: RequestInput): Partial<Record<keyof Reque
     errors.taxId = "Ingresa un NIT de hasta 40 dígitos.";
   if (!["BANK", "FINANCIAL_INSTITUTION", "COOPERATIVE", "OTHER"].includes(input.institutionType))
     errors.institutionType = "Selecciona el tipo de institución.";
-  if (!plans.some((plan) => plan.value === input.planInterest))
+  if (!/^[A-Z][A-Z0-9_]{0,49}$/.test(input.planInterest))
     errors.planInterest = "Selecciona un plan de interés.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.contactEmail.trim()) || input.contactEmail.trim().length > 254)
     errors.contactEmail = "Ingresa un correo electrónico válido.";

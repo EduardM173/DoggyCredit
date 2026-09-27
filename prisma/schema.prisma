@@ -134,6 +134,8 @@ model Plan {
   maxUsers            Int?
   scoringEnabled      Boolean  @default(false)
   active              Boolean  @default(true)
+  isPublic            Boolean  @default(false)
+  displayOrder        Int      @default(0)
   price               Decimal? @db.Decimal(14, 2)
   currency            String?  @db.VarChar(3)
   billingPeriod       String?  @db.VarChar(20)

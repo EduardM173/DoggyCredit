@@ -7,12 +7,17 @@ import {
   ChevronRight,
   Database,
   FileText,
-  Leaf,
   LockKeyhole,
   Settings,
   ShieldCheck,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  fetchPublicPlans,
+  formatPlanPrice,
+  type PublicPlan,
+} from "../features/institution-requests/public-plans";
 
 const process = [
   {
@@ -36,44 +41,20 @@ const process = [
     text: "Tú decides, con información clara y confiable.",
   },
 ];
-const planCards = [
-  {
-    value: "INITIAL",
-    name: "Inicial",
-    icon: Leaf,
-    color: "mint",
-    description: "Ideal para instituciones que están comenzando a digitalizar sus evaluaciones crediticias.",
-    features: ["Evaluaciones básicas", "Integración de datos", "Soporte por correo"],
-  },
-  {
-    value: "PROFESSIONAL",
-    name: "Profesional",
-    icon: BarChart3,
-    color: "blue",
-    description: "Más capacidades para instituciones en crecimiento.",
-    features: [
-      "Evaluaciones avanzadas",
-      "Más fuentes de datos",
-      "Reportes y análisis",
-      "Soporte prioritario",
-    ],
-  },
-  {
-    value: "INSTITUTIONAL",
-    name: "Institucional",
-    icon: Building2,
-    color: "violet",
-    description: "Solución a la medida para instituciones con requerimientos específicos.",
-    features: [
-      "Configuración personalizada",
-      "Integraciones avanzadas",
-      "Acompañamiento especializado",
-      "Soporte dedicado",
-    ],
-  },
-];
-
 export function HomePage() {
+  const [catalog, setCatalog] = useState<{ status: "loading" | "ready" | "error"; plans: PublicPlan[] }>({
+    status: "loading",
+    plans: [],
+  });
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchPublicPlans(controller.signal)
+      .then((plans) => setCatalog({ status: "ready", plans }))
+      .catch(() => {
+        if (!controller.signal.aborted) setCatalog({ status: "error", plans: [] });
+      });
+    return () => controller.abort();
+  }, []);
   return (
     <main id="main-content">
       <section className="hero" id="inicio">
@@ -102,7 +83,8 @@ export function HomePage() {
             role="img"
             aria-label="Vista ilustrativa de DoggyCredit en un portátil: resumen de evaluaciones, clientes y recomendaciones"
           >
-            <img src="/images/landing-reference.png" alt="" fetchPriority="high" />
+            <img src="/images/landing-reference.png" alt="" width="1024" height="1536" fetchPriority="high" />
+            <span className="product-reference">Vista referencial del producto</span>
           </div>
         </div>
       </section>
@@ -135,45 +117,60 @@ export function HomePage() {
           <div className="section-heading">
             <p className="eyebrow">Planes</p>
             <h2>Una solución para cada etapa de tu institución</h2>
-            <p>
-              Ofrecemos diferentes planes que se adaptan a tus necesidades.
-              <br />
-              Conversemos para encontrar la mejor opción para tu institución.
-            </p>
+            <p>Explora las opciones disponibles. El plan definitivo se confirma después de la aprobación.</p>
           </div>
           <div className="plans-grid">
-            {planCards.map(({ value, name, icon: Icon, color, description, features }) => (
-              <article className={`plan-item ${color}`} key={value}>
+            {catalog.plans.map((plan, index) => (
+              <article
+                className={`plan-item ${["mint", "blue", "violet"][Math.min(index, 2)]}`}
+                key={plan.code}
+              >
                 <div className="plan-heading">
                   <span className="feature-icon">
-                    <Icon size={29} />
+                    <Building2 size={29} aria-hidden="true" />
                   </span>
                   <div>
-                    <h3>Plan {name}</h3>
-                    <p>{description}</p>
+                    <h3>Plan {plan.name}</h3>
+                    <p className="plan-price">{formatPlanPrice(plan)}</p>
+                    {plan.shortDescription && <p>{plan.shortDescription}</p>}
                   </div>
                 </div>
                 <ul>
-                  {features.map((feature) => (
+                  {plan.highlights.map((feature) => (
                     <li key={feature}>
-                      <Check size={16} />
+                      <Check size={16} aria-hidden="true" />
                       {feature}
                     </li>
                   ))}
                 </ul>
                 <Link
-                  to={`/solicitar-acceso?plan=${value}`}
+                  to={`/solicitar-acceso?plan=${encodeURIComponent(plan.code)}`}
                   className="plan-link"
-                  aria-label={`Solicitar acceso con plan ${name}`}
+                  aria-label={`Me interesa el plan ${plan.name}`}
                 >
-                  Me interesa <ArrowRight size={17} />
+                  Me interesa este plan <ArrowRight size={17} aria-hidden="true" />
                 </Link>
               </article>
             ))}
           </div>
+          {catalog.status === "loading" && (
+            <p className="plans-state" role="status">
+              Cargando planes...
+            </p>
+          )}
+          {catalog.status === "error" && (
+            <p className="plans-state" role="status">
+              No pudimos mostrar los planes en este momento. Puedes solicitar acceso sin elegir uno.
+            </p>
+          )}
+          {catalog.status === "ready" && catalog.plans.length === 0 && (
+            <p className="plans-state" role="status">
+              No hay planes públicos disponibles en este momento.
+            </p>
+          )}
           <div className="plans-action">
             <Link to="/solicitar-acceso" className="button button-navy">
-              Solicitar acceso para conocer más <ArrowRight size={18} />
+              Solicitar acceso <ArrowRight size={18} />
             </Link>
           </div>
         </div>
@@ -199,7 +196,7 @@ export function HomePage() {
               {
                 icon: Database,
                 title: "Aislamiento por institución",
-                text: "Cada institución opera en su propio espacio, con datos separados.",
+                text: "Cada institución trabaja dentro de su propio espacio con acceso controlado.",
               },
               {
                 icon: LockKeyhole,
@@ -208,8 +205,8 @@ export function HomePage() {
               },
               {
                 icon: FileText,
-                title: "Confianza y transparencia",
-                text: "Información clara para acompañar las decisiones de tu institución.",
+                title: "Trazabilidad",
+                text: "Las operaciones relevantes se registran para facilitar su seguimiento y auditoría.",
               },
             ].map(({ icon: Icon, title, text }) => (
               <div className="security-item" key={title}>

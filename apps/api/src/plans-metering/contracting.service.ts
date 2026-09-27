@@ -55,13 +55,14 @@ export class ContractingService {
     const plans = await this.db.client.plan.findMany({
       where: {
         active: true,
+        isPublic: true,
         price: { not: null },
         currency: "BOB",
         billingPeriod: "MONTHLY",
         requiresPayment: { not: null },
       },
       select: planSelect,
-      orderBy: [{ price: "asc" }, { id: "asc" }],
+      orderBy: [{ displayOrder: "asc" }, { code: "asc" }],
     });
     const contract = await this.db.client.contracting.findUnique({
       where: { requestId },
@@ -100,6 +101,7 @@ export class ContractingService {
       if (
         !plan ||
         !plan.active ||
+        !plan.isPublic ||
         plan.price === null ||
         plan.currency !== "BOB" ||
         plan.billingPeriod !== "MONTHLY" ||

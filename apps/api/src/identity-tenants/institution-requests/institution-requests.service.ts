@@ -1,16 +1,22 @@
-import { ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { InstitutionRequestReceipt, SubmitInstitutionRequest } from "./institution-request.contract.js";
 import { EmailVerificationService } from "../email-verification/email-verification.service.js";
+import { PublicPlansService } from "../../plans-metering/public.js";
 
 @Injectable()
 export class InstitutionRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly verification: EmailVerificationService,
+    private readonly plans: PublicPlansService,
   ) {}
 
   async create(input: SubmitInstitutionRequest): Promise<InstitutionRequestReceipt> {
+    if (input.planInterest !== "UNSURE") {
+      if (!(await this.plans.isSelectable(input.planInterest)))
+        throw new BadRequestException("Selecciona un plan de interés vigente.");
+    }
     const receipt = await this.prisma.$transaction(async (tx) => {
       // Transaction-scoped locks make the check + insert atomic without permanent unique constraints.
       for (const key of [

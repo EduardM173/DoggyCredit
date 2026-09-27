@@ -44,6 +44,7 @@ async function main() {
     const plans = [
       {
         code: "BASIC",
+        displayOrder: 1,
         name: "Básico",
         price: "0.00",
         requiresPayment: false,
@@ -51,6 +52,7 @@ async function main() {
       },
       {
         code: "PROFESSIONAL",
+        displayOrder: 2,
         name: "Profesional",
         price: "349.00",
         requiresPayment: true,
@@ -58,6 +60,7 @@ async function main() {
       },
       {
         code: "ENTERPRISE",
+        displayOrder: 3,
         name: "Empresarial",
         price: "799.00",
         requiresPayment: true,
@@ -71,8 +74,8 @@ async function main() {
     for (const plan of plans)
       await prisma.plan.upsert({
         where: { code: plan.code },
-        update: {},
-        create: { ...plan, currency: "BOB", billingPeriod: "MONTHLY" },
+        update: { isPublic: true, displayOrder: plan.displayOrder },
+        create: { ...plan, isPublic: true, currency: "BOB", billingPeriod: "MONTHLY" },
       });
   }
   if (process.env.SEED_DEMO_OPERATOR !== "true") return;

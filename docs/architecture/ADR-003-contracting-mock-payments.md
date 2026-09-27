@@ -12,6 +12,8 @@ PaymentProvider es un puerto de infraestructura. MockPaymentProvider posee solam
 
 Dependencias actuales: Plans -> Identity, Plans -> Audit, Plans -> infraestructura; Identity -> Audit/infraestructura; Audit -> infraestructura. No hay dependencias inversas, forwardRef ni modulos globales. HU-05 necesitara revisar su composicion sin introducir Identity -> Plans -> Identity.
 
+Actualización del catálogo público: `PlanCatalogModule` es un submódulo de Plans & Metering sin dependencia de Identity. Publica `GET /api/public/plans` y el contrato `isSelectable(code)` usado por HU-01 para validar el interés informativo. Identity importa solo ese submódulo; el módulo de contratación sigue dependiendo de Identity, sin ciclo Nest. `Plan.isPublic` y `displayOrder` controlan visibilidad y orden. La selección pública y HU-04 usan los mismos planes activos, públicos y comercialmente válidos; los contratos históricos mantienen sus snapshots.
+
 ## Dinero e invariantes
 
 Se conserva Decimal(14,2), la convencion monetaria existente; JSON lleva cadenas decimales. El servidor obtiene importe, moneda y periodicidad del Plan activo y guarda un snapshot en Contracting. La demo admite BOB/MONTHLY. Las columnas comerciales de planes antiguos son anulables para que la migracion no convierta planes incompletos en gratuitos.
