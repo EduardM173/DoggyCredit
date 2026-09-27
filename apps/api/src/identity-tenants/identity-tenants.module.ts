@@ -20,10 +20,14 @@ import { RequestContextReader } from "./request-context.js";
 import { ProvisioningQueue } from "./provisioning/provisioning-queue.js";
 import { InstitutionsController } from "./institutions/institutions.controller.js";
 import { InstitutionsService } from "./institutions/institutions.service.js";
+import { ActivationController } from "./activation/activation.controller.js";
+import { ActivationService } from "./activation/activation.service.js";
+import { ActivationRateGuard } from "./activation/activation-rate.guard.js";
 
 @Module({
   imports: [PrismaModule, EmailModule, AuditModule],
   controllers: [
+    ActivationController,
     InstitutionsController,
     InstitutionRequestsController,
     EmailVerificationController,
@@ -31,6 +35,8 @@ import { InstitutionsService } from "./institutions/institutions.service.js";
     RequestReviewController,
   ],
   providers: [
+    ActivationService,
+    ActivationRateGuard,
     InstitutionsService,
     ProvisioningQueue,
     RequestContextReader,

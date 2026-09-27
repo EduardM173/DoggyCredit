@@ -14,8 +14,10 @@ import { ContractingPage } from "./features/contracting/ContractingPage";
 import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
 import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
 import { InstitutionsPage } from "./features/admin/InstitutionsPage";
+import { ActivationPage } from "./features/activation/ActivationPage";
 
 export const router = createBrowserRouter([
+  { path: "/activar-cuenta", element: <ActivationPage /> },
   { path: "/contratacion", element: <ContractingPage /> },
   { path: "/doggypay-demo", element: <DoggyPayPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },

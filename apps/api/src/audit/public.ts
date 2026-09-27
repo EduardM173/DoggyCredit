@@ -5,6 +5,12 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
+  abstract recordMembershipActivation(event: {
+    userId: string;
+    tenantId: string;
+    membershipId: string;
+    invitationId: string;
+  }): Promise<void>;
   abstract recordRequestDecision(event: RequestDecisionEvent): Promise<void>;
   abstract recordCommerce(event: CommerceAuditEvent): Promise<void>;
   abstract recordProvisioning(event: {
