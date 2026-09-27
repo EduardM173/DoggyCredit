@@ -105,6 +105,8 @@ HU-04: desde el detalle de una solicitud aprobada, genera el enlace de contratac
 
 HU-05: confirmar la contratación registra un job durable en la misma transacción. El worker aprovisiona automáticamente tenant, administrador inicial invitado y suscripción del plan confirmado, con auditoría atómica y correo recuperable posterior al commit. El backoffice muestra datos reales en `/admin/instituciones`. `TENANT_PROVISIONING_ENABLED=true` es el valor predeterminado; consulta las variables y garantías en [docs/hu-05.md](docs/hu-05.md) y [ADR-004](docs/architecture/ADR-004-durable-provisioning.md). La invitación no activa la cuenta: su pantalla y consumo corresponden a HU-06, y el login institucional a HU-07.
 
+HU-06: el administrador invitado abre `/activar-cuenta` desde su correo, define una contraseña global cuando todavía no tiene una, y activa exclusivamente la membresía de esa institución. La invitación se consume una sola vez y la operación se audita; la tabla de Instituciones refleja el estado real sin datos duplicados. Consulta [docs/hu-06.md](docs/hu-06.md). El login y contexto institucional continúan pendientes de HU-07.
+
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:
 
 ```bash

@@ -12,9 +12,13 @@ export function configureApplication(app: INestApplication) {
   app.use(helmet());
   app.use((request: Request, response: Response, next: NextFunction) => {
     if (
-      ["/api/admin/", "/api/institution-requests", "/api/contracting", "/api/mock-payment-provider"].some(
-        (prefix) => request.path.startsWith(prefix),
-      )
+      [
+        "/api/admin/",
+        "/api/institution-requests",
+        "/api/membership-invitations",
+        "/api/contracting",
+        "/api/mock-payment-provider",
+      ].some((prefix) => request.path.startsWith(prefix))
     )
       response.setHeader("Cache-Control", "no-store");
     response.setHeader("Referrer-Policy", "no-referrer");
