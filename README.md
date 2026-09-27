@@ -82,11 +82,28 @@ npx prisma migrate dev
 npm run prisma:seed
 ```
 
-El seed es idempotente y solo crea el operador de demo cuando `SEED_DEMO_OPERATOR=true` y `NODE_ENV=development` o `test`. Configura `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local; no hay contraseña compartida en el código. En producción no está permitido.
+El seed es idempotente. El operador personalizado se configura con `SEED_DEMO_OPERATOR=true`, `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local. No publiques sus credenciales reales. Todos los seeds demo están restringidos a `NODE_ENV=development` o `test`; en producción se rechazan antes de modificar datos.
+
+### Usuarios de prueba del backoffice
+
+Acceso: <http://localhost:5173/admin/login>. Ambas cuentas tienen el rol interno `OPERATOR` y permiten revisar solicitudes, consultar contrataciones e instituciones.
+
+| Usuario                           | Contraseña de prueba |
+| --------------------------------- | -------------------- |
+| `operador.demo@doggycredit.local` | `DoggyDemo2026!`     |
+| `revision.demo@doggycredit.local` | `DoggyRevision2026!` |
+
+Estas credenciales son públicas, exclusivamente para una base local de desarrollo/pruebas. No habilites estas cuentas en producción ni en un entorno expuesto a Internet. No son cuentas bancarias ni administradores de tenants.
+
+Para crearlas, configura `NODE_ENV=development` y `SEED_DEMO_BACKOFFICE_USERS=true` en `.env`, y ejecuta `npm run prisma:seed`. Repetirlo no duplica usuarios; si cambia su contraseña revoca sus sesiones anteriores. No cambia el operador personalizado salvo que también habilites `SEED_DEMO_OPERATOR`. El seed rechaza reutilizar una cuenta con otro rol o con memberships institucionales.
+
+Este seed de usuarios **no crea tenants, memberships, invitaciones ni suscripciones**, ni activa administradores institucionales. Los planes demo mantienen su flag independiente `SEED_DEMO_PLANS`; los datos institucionales se generan mediante el flujo normal de solicitud, contratación y aprovisionamiento.
 
 HU-03: abre `http://localhost:5173/admin/login` para revisar solicitudes con el rol `OPERATOR`. Sesión HttpOnly con TTL configurable (120 minutos por defecto), protección CSRF, búsqueda/filtros/paginación reales y decisión con auditoría atómica. Aprobar solo autoriza a continuar a contratación: no crea tenant ni suscripción y no activa `planInterest`. Consulta [docs/hu-03.md](docs/hu-03.md) y [ADR-002](docs/architecture/ADR-002-atomic-review-audit.md).
 
-HU-04: desde el detalle de una solicitud aprobada, genera el enlace de contratación. Permite confirmar un plan gratuito o de pago, simular transferencia/QR/tarjeta y consultar el resultado automáticamente. `SEED_DEMO_PLANS=true` habilita tres planes ficticios en desarrollo/test; ejecuta el seed para crearlos. No se cobra dinero real. El aprovisionamiento de HU-05 sigue pendiente: confirmar no crea tenants, usuarios institucionales ni suscripciones. Consulta [docs/hu-04.md](docs/hu-04.md) para la demo Wi-Fi, configuración, estados y pruebas, y [ADR-003](docs/architecture/ADR-003-contracting-mock-payments.md) para las fronteras SOA.
+HU-04: desde el detalle de una solicitud aprobada, genera el enlace de contratación. Permite confirmar un plan gratuito o de pago, simular transferencia/QR/tarjeta y consultar el resultado automáticamente. `SEED_DEMO_PLANS=true` habilita tres planes ficticios en desarrollo/test; ejecuta el seed para crearlos. No se cobra dinero real. Consulta [docs/hu-04.md](docs/hu-04.md) para la demo Wi-Fi, configuración, estados y pruebas, y [ADR-003](docs/architecture/ADR-003-contracting-mock-payments.md) para las fronteras SOA.
+
+HU-05: confirmar la contratación registra un job durable en la misma transacción. El worker aprovisiona automáticamente tenant, administrador inicial invitado y suscripción del plan confirmado, con auditoría atómica y correo recuperable posterior al commit. El backoffice muestra datos reales en `/admin/instituciones`. `TENANT_PROVISIONING_ENABLED=true` es el valor predeterminado; consulta las variables y garantías en [docs/hu-05.md](docs/hu-05.md) y [ADR-004](docs/architecture/ADR-004-durable-provisioning.md). La invitación no activa la cuenta: su pantalla y consumo corresponden a HU-06, y el login institucional a HU-07.
 
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:
 
@@ -142,7 +159,7 @@ npm run test:e2e
 npm run build
 ```
 
-Las pruebas cubren la base técnica y el flujo de solicitud institucional. Las e2e inician NestJS y verifican persistencia, validación, duplicados (incluidos envíos concurrentes), estado inicial y OpenAPI contra PostgreSQL. Crean datos ficticios identificados por ejecución y eliminan exclusivamente esos registros al terminar. Para CI se utiliza una base de pruebas dedicada.
+Las pruebas cubren la base técnica y HU-01 a HU-05. Las e2e inician NestJS y verifican persistencia, autorización, concurrencia, rollback, recuperación y contratos HTTP contra PostgreSQL. El runner crea bases temporales aleatorias, aplica migraciones y elimina exclusivamente esas bases al terminar; no trunca la base local del desarrollador. La cuenta PostgreSQL de pruebas necesita permiso CREATEDB, también en CI. EmailSender se sustituye para que las pruebas no envíen correos reales.
 
 ## Integración continua
 

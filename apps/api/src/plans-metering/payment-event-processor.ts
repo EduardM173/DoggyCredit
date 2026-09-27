@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { RequestContextReader } from "../identity-tenants/public.js";
+import { RequestContextReader, ProvisioningQueue } from "../identity-tenants/public.js";
 import { AuditWriter } from "../audit/public.js";
 import type { ProviderPaymentEvent } from "../infrastructure/payments/payment-provider.js";
 @Injectable()
@@ -10,6 +10,7 @@ export class PaymentEventProcessor {
     private readonly db: DatabaseUnitOfWork,
     private readonly audit: AuditWriter,
     private readonly requests: RequestContextReader,
+    private readonly provisioning: ProvisioningQueue,
   ) {}
   async process(event: ProviderPaymentEvent, actorUserId?: string) {
     return this.db.run(async () => {
@@ -79,6 +80,7 @@ export class PaymentEventProcessor {
             data: { status: "CONFIRMED", confirmedAt: now },
           });
           if (confirmed.count !== 1) throw new ConflictException("La contratación ya cambió.");
+          await this.provisioning.ensurePending(contract.id, contract.requestId);
           await this.audit.recordCommerce({
             action: "CONTRACTING_CONFIRMED",
             entityType: "Contracting",

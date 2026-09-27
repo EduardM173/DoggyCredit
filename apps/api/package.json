@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "lint": "eslint src test --max-warnings=0",
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand",
-    "test:e2e": "npm run build && node --test --test-concurrency=1 test/*.e2e-spec.mjs"
+    "test:e2e": "npm run build && node test/run-e2e.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

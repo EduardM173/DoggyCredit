@@ -774,3 +774,57 @@
     padding: 22px;
   }
 }
+.admin-filters.institutions-filters {
+  grid-template-columns: minmax(200px, 1.5fr) minmax(160px, 1fr);
+}
+.institution-name {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.institution-initials {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #e8f4ff;
+  color: #0069e9;
+  font-weight: 600;
+}
+.institution-email {
+  display: block;
+  color: #526b8c;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.institution-activation {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  background: #fff3d8;
+  color: #955400;
+}
+.institution-activation.activation-ACTIVE {
+  background: #dcfaeb;
+  color: #087844;
+}
+.institution-activation.activation-SUSPENDED {
+  background: #fff0ef;
+  color: #ab2424;
+}
+.admin-shell .institutions-table {
+  min-width: 1000px;
+}
+.institutions-table td {
+  padding-top: 18px;
+  padding-bottom: 18px;
+}
+@media (max-width: 760px) {
+  .admin-filters.institutions-filters {
+    grid-template-columns: 1fr;
+  }
+}

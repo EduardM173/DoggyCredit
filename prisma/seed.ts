@@ -13,6 +13,31 @@ const pool = new Pool({ connectionString });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function main() {
+  if (
+    [
+      process.env.SEED_DEMO_PLANS,
+      process.env.SEED_DEMO_OPERATOR,
+      process.env.SEED_DEMO_BACKOFFICE_USERS,
+    ].includes("true") &&
+    !["development", "test"].includes(process.env.NODE_ENV ?? "")
+  )
+    throw new Error("Demo seed is restricted to development/test.");
+  if (process.env.SEED_DEMO_BACKOFFICE_USERS === "true") {
+    // Public local-only credentials; never provision institutional access from this seed.
+    for (const account of [
+      {
+        email: "operador.demo@doggycredit.local",
+        fullName: "Operador Demo DoggyCredit",
+        password: "DoggyDemo2026!",
+      },
+      {
+        email: "revision.demo@doggycredit.local",
+        fullName: "Revision Demo DoggyCredit",
+        password: "DoggyRevision2026!",
+      },
+    ])
+      await seedOperator(account.email, account.fullName, account.password);
+  }
   if (process.env.SEED_DEMO_PLANS === "true") {
     if (!["development", "test"].includes(process.env.NODE_ENV ?? ""))
       throw new Error("Demo plans seed is restricted to development/test.");
@@ -69,9 +94,16 @@ async function main() {
       "Configure OPERATOR_SEED_NAME, OPERATOR_SEED_EMAIL and a 12-128 character OPERATOR_SEED_PASSWORD.",
     );
   }
-  const existing = await prisma.user.findUnique({ where: { email } });
+  await seedOperator(email, fullName, password);
+}
+
+async function seedOperator(email: string, fullName: string, password: string) {
+  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
   if (existing && existing.platformRole !== PlatformRole.OPERATOR) {
     throw new Error("Demo seed cannot replace a user with another role.");
+  }
+  if (existing && (await prisma.tenantMembership.count({ where: { userId: existing.id } }))) {
+    throw new Error("Demo seed cannot modify a user with institutional memberships.");
   }
   const unchanged = existing?.passwordHash && (await verifyPassword(existing.passwordHash, password));
   const passwordHash = unchanged ? existing.passwordHash! : await hashPassword(password);
@@ -82,7 +114,7 @@ async function main() {
         data: { revokedAt: new Date() },
       });
     await tx.user.upsert({
-      where: { email },
+      where: { email: existing?.email ?? email },
       update: { fullName, passwordHash },
       create: {
         email,

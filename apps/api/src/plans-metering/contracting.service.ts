@@ -8,7 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { RequestContextReader } from "../identity-tenants/public.js";
+import { RequestContextReader, ProvisioningQueue } from "../identity-tenants/public.js";
 import { AuditWriter } from "../audit/public.js";
 import { PaymentProvider, type DemoResult } from "../infrastructure/payments/payment-provider.js";
 import { ContractingAccessService } from "./contracting-access.service.js";
@@ -35,6 +35,7 @@ export class ContractingService {
     private readonly provider: PaymentProvider,
     private readonly processor: PaymentEventProcessor,
     private readonly config: ConfigService,
+    private readonly provisioning: ProvisioningQueue,
   ) {}
   private paymentView(row: Payment) {
     return {
@@ -131,13 +132,15 @@ export class ContractingService {
         entityId: contract.id,
         actorKind: "REPRESENTATIVE",
       });
-      if (!plan.requiresPayment)
+      if (!plan.requiresPayment) {
+        await this.provisioning.ensurePending(contract.id, requestId);
         await this.audit.recordCommerce({
           action: "CONTRACTING_CONFIRMED",
           entityType: "Contracting",
           entityId: contract.id,
           actorKind: "REPRESENTATIVE",
         });
+      }
     });
     return this.context(requestId);
   }

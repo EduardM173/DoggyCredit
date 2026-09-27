@@ -1,6 +1,12 @@
 import Joi from "joi";
 
 export const environmentValidationSchema = Joi.object({
+  TENANT_PROVISIONING_ENABLED: Joi.boolean().default(true),
+  TENANT_PROVISIONING_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
+  TENANT_PROVISIONING_POLL_SECONDS: Joi.number().integer().min(1).max(300).default(5),
+  TENANT_PROVISIONING_LEASE_SECONDS: Joi.number().integer().min(30).max(3600).default(60),
+  MEMBERSHIP_INVITATION_TTL_HOURS: Joi.number().integer().min(1).max(168).default(48),
+  MEMBERSHIP_INVITATION_MAX_SEND_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
   NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
   DATABASE_URL: Joi.string()
     .uri({ scheme: ["postgres", "postgresql"] })

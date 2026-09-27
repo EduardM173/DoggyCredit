@@ -4,6 +4,7 @@ import { environmentValidationSchema } from "./config/environment.js";
 import { HealthController } from "./health.controller.js";
 import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
 import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
+import { OnboardingModule } from "./onboarding.module.js";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
     }),
     IdentityTenantsModule,
     PlansMeteringModule,
+    OnboardingModule,
   ],
   controllers: [HealthController],
 })

@@ -69,10 +69,10 @@ export function AdminLayout() {
             <CreditCard size={21} />
             Contrataciones
           </NavLink>
-          <button disabled title="Disponible en una próxima historia">
+          <NavLink to="/admin/instituciones">
             <Building2 size={21} />
             Instituciones
-          </button>
+          </NavLink>
         </nav>
         <Link className="admin-public-link" to="/">
           <ArrowLeft size={20} />

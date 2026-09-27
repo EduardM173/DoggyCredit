@@ -7,6 +7,12 @@ export interface RequestDecisionEvent {
 export abstract class AuditWriter {
   abstract recordRequestDecision(event: RequestDecisionEvent): Promise<void>;
   abstract recordCommerce(event: CommerceAuditEvent): Promise<void>;
+  abstract recordProvisioning(event: {
+    tenantId: string;
+    contractingId: string;
+    membershipId: string;
+    planId: string;
+  }): Promise<void>;
 }
 
 export interface CommerceAuditEvent {
