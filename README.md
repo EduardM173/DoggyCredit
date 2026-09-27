@@ -111,6 +111,8 @@ HU-06: el administrador invitado abre `/activar-cuenta` desde su correo, define 
 
 HU-07: `/iniciar-sesion` autentica al usuario global sin pedirle el banco. Una membresía activa abre automáticamente `/{tenantSlug}`; varias muestran un selector. El backend comprueba la membresía en cada acceso, y el cierre de sesión revoca la cookie institucional sin afectar al backoffice. Consulta [docs/hu-07.md](docs/hu-07.md) para los vencimientos, la migración y las garantías de aislamiento.
 
+La landing conserva su estructura original y consulta `GET /api/public/plans` para mostrar planes activos y públicos con precio, moneda y periodicidad reales. En la demo local, `SEED_DEMO_PLANS=true` publica Básico (Bs 0/mes), Profesional (Bs 349/mes) y Empresarial (Bs 799/mes). Elegir una tarjeta solo preselecciona `planInterest` en HU-01; el plan definitivo se confirma en HU-04. La migración `20260927120000_public_plan_catalog` añade visibilidad y orden comercial explícitos.
+
 Para probar HU-07, aplica las migraciones con `npm run prisma:deploy` e inicia sesión en `http://localhost:5173/iniciar-sesion` con una cuenta institucional ya activada mediante HU-06. El seed solo crea usuarios del backoffice, no usuarios institucionales. Si la cuenta pertenece a una institución activa, se abre su espacio; si pertenece a varias, se muestra el selector. Una cuenta sin membresías activas no obtiene acceso. El inicio de sesión interno permanece separado en `/admin/login`.
 
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:

@@ -112,6 +112,7 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     free = await prisma.plan.create({
       data: {
         code: "BASIC",
+        isPublic: true,
         name: "Free",
         price: "0",
         currency: "BOB",
@@ -122,6 +123,7 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     paid = await prisma.plan.create({
       data: {
         code: "PAID",
+        isPublic: true,
         name: "Paid",
         price: "349",
         currency: "BOB",

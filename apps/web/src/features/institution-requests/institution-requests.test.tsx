@@ -39,11 +39,48 @@ const receipt = {
   emailDelivery: "SENT",
   retryAfterSeconds: 60,
 };
+const catalog = [
+  {
+    code: "BASIC",
+    name: "Básico",
+    shortDescription: null,
+    price: "0.00",
+    currency: "BOB",
+    billingPeriod: "MONTHLY",
+    requiresPayment: false,
+    highlights: ["Funciones esenciales"],
+  },
+  {
+    code: "PROFESSIONAL",
+    name: "Profesional",
+    shortDescription: null,
+    price: "349.00",
+    currency: "BOB",
+    billingPeriod: "MONTHLY",
+    requiresPayment: true,
+    highlights: ["Soporte prioritario"],
+  },
+  {
+    code: "ENTERPRISE",
+    name: "Empresarial",
+    shortDescription: null,
+    price: "799.00",
+    currency: "BOB",
+    billingPeriod: "MONTHLY",
+    requiresPayment: true,
+    highlights: ["Integraciones personalizadas"],
+  },
+];
 
 describe("HU-01 request flow", () => {
   const fetchMock = vi.fn();
   beforeEach(() => {
     fetchMock.mockReset();
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith("/public/plans")
+        ? Promise.resolve(new Response(JSON.stringify(catalog)))
+        : Promise.resolve(new Response(JSON.stringify(receipt), { status: 201 })),
+    );
     vi.stubGlobal("fetch", fetchMock);
   });
   afterEach(() => {
@@ -54,14 +91,35 @@ describe("HU-01 request flow", () => {
   it("does not send an empty form and identifies invalid fields", () => {
     renderFlow();
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.every(([url]) => String(url).endsWith("/public/plans"))).toBe(true);
     expect(screen.getByText("Ingresa el nombre o razón social.")).toBeInTheDocument();
     expect(screen.getByText("Selecciona el tipo de institución.")).toBeInTheDocument();
   });
   it("preselects the plan from the landing", async () => {
     renderFlow("/");
-    fireEvent.click(screen.getByRole("link", { name: "Solicitar acceso con plan Profesional" }));
+    fireEvent.click(await screen.findByRole("link", { name: "Me interesa el plan Profesional" }));
     expect(await screen.findByLabelText(/Plan de interés/)).toHaveValue("PROFESSIONAL");
+  });
+  it.each(catalog)("passes $code from the landing to HU-01 as plan interest", async (plan) => {
+    renderFlow("/");
+    fireEvent.click(await screen.findByRole("link", { name: `Me interesa el plan ${plan.name}` }));
+    expect(await screen.findByLabelText(/Plan de interés/)).toHaveValue(plan.code);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).endsWith("/public/plans"))).toBe(true);
+  });
+  it("keeps the general request CTA available when plans cannot load", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    renderFlow("/");
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(await screen.findByText(/No pudimos mostrar los planes/)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Solicitar acceso/ }).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Bs 349/)).not.toBeInTheDocument();
+  });
+  it("handles an empty public catalog without inventing offers", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([])));
+    renderFlow("/");
+    expect(await screen.findByText(/No hay planes públicos disponibles/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Me interesa el plan/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Solicitar acceso/ }).length).toBeGreaterThan(0);
   });
   it("uses the unsure option for an unrecognized plan", () => {
     renderFlow("/solicitar-acceso?plan=INVALID");
@@ -69,25 +127,31 @@ describe("HU-01 request flow", () => {
   });
   it("prevents a duplicate submit, posts the real contract and displays the returned email", async () => {
     let finish!: (response: Response) => void;
-    fetchMock.mockImplementation(
-      () =>
-        new Promise<Response>((resolve) => {
-          finish = resolve;
-        }),
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith("/public/plans")
+        ? Promise.resolve(new Response(JSON.stringify(catalog)))
+        : new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
     );
-    const router = renderFlow("/solicitar-acceso?plan=INITIAL");
+    const router = renderFlow("/solicitar-acceso?plan=BASIC");
+    await waitFor(() => expect(screen.getByLabelText(/Plan de interés/)).toHaveValue("BASIC"));
     fillForm();
     fireEvent.submit(screen.getByRole("form"));
     fireEvent.submit(screen.getByRole("form"));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(
+      fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/institution-requests")),
+    ).toHaveLength(1);
     expect(screen.getByRole("button", { name: /Enviando solicitud/ })).toBeDisabled();
-    const [url, options] = fetchMock.mock.calls[0];
+    const [url, options] = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith("/institution-requests"),
+    )!;
     expect(url).toMatch(/\/api\/institution-requests$/);
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body)).toMatchObject({
       institutionName: "Banco de Prueba",
       contactPhone: "+59171234567",
-      planInterest: "INITIAL",
+      planInterest: "BASIC",
       representsInstitution: true,
       acceptsTerms: true,
     });
@@ -106,8 +170,12 @@ describe("HU-01 request flow", () => {
     [500, "No pudimos procesar la solicitud"],
     [400, "El correo no es válido."],
   ])("shows HTTP %s errors and preserves the form", async (status, message) => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ message: ["El correo no es válido."] }), { status }),
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.endsWith("/public/plans")
+          ? new Response(JSON.stringify(catalog))
+          : new Response(JSON.stringify({ message: ["El correo no es válido."] }), { status }),
+      ),
     );
     const router = renderFlow();
     fillForm();
@@ -118,12 +186,17 @@ describe("HU-01 request flow", () => {
     expect(screen.getByRole("button", { name: "Enviar solicitud" })).toBeEnabled();
   });
   it("shows network failures and permits a retry", async () => {
-    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    let postCount = 0;
+    fetchMock.mockImplementation((url: string) => {
+      if (url.endsWith("/public/plans")) return Promise.resolve(new Response(JSON.stringify(catalog)));
+      return ++postCount === 1
+        ? Promise.reject(new TypeError("Failed to fetch"))
+        : Promise.resolve(new Response(JSON.stringify(receipt), { status: 201 }));
+    });
     renderFlow();
     fillForm();
     fireEvent.submit(screen.getByRole("form"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Revisa tu conexión");
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(receipt), { status: 201 }));
     fireEvent.click(screen.getByRole("button", { name: "Enviar solicitud" }));
     expect(await screen.findByRole("heading", { name: "Solicitud recibida" })).toBeInTheDocument();
   });

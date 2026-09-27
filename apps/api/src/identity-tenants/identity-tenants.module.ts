@@ -34,9 +34,10 @@ import {
   InstitutionSessionGuard,
 } from "./institution-auth/institution-auth.guards.js";
 import { TenantContextGuard } from "./institution-auth/tenant-context.guard.js";
+import { PlanCatalogModule } from "../plans-metering/public.js";
 
 @Module({
-  imports: [PrismaModule, EmailModule, AuditModule],
+  imports: [PrismaModule, EmailModule, AuditModule, PlanCatalogModule],
   controllers: [
     InstitutionAuthController,
     InstitutionTenantController,

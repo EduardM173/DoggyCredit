@@ -14,7 +14,7 @@ import { PaymentEventProcessor } from "../dist/plans-metering/payment-event-proc
 import { AuditWriter } from "../dist/audit/public.js";
 
 describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
-  let app, prisma, config, operator, admin, origin, free, paid, inactive, provider, processor;
+  let app, prisma, config, operator, admin, origin, free, paid, inactive, privatePlan, provider, processor;
   const run = `HU04-${randomUUID()}`;
   const requestIds = [];
   const hashes = [];
@@ -116,6 +116,7 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
     free = await prisma.plan.create({
       data: {
         code: `F-${run}`,
+        isPublic: true,
         name: "Free test",
         price: "0",
         currency: "BOB",
@@ -127,6 +128,7 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
     paid = await prisma.plan.create({
       data: {
         code: `P-${run}`,
+        isPublic: true,
         name: "Paid test",
         price: "349",
         currency: "BOB",
@@ -143,6 +145,16 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
         billingPeriod: "MONTHLY",
         requiresPayment: true,
         active: false,
+      },
+    });
+    privatePlan = await prisma.plan.create({
+      data: {
+        code: `H-${run}`,
+        name: "Internal only",
+        price: "500",
+        currency: "BOB",
+        billingPeriod: "MONTHLY",
+        requiresPayment: true,
       },
     });
   });
@@ -168,7 +180,7 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
         await prisma.contracting.deleteMany({ where: { id: { in: cids } } });
         await prisma.institutionRequest.deleteMany({ where: { id: { in: requestIds } } });
         await prisma.plan.deleteMany({
-          where: { id: { in: [free?.id, paid?.id, inactive?.id].filter(Boolean) } },
+          where: { id: { in: [free?.id, paid?.id, inactive?.id, privatePlan?.id].filter(Boolean) } },
         });
         if (operator) await prisma.user.delete({ where: { id: operator.id } });
       }
@@ -182,6 +194,19 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
       await post(`/admin/institution-requests/${row.id}/contracting-access`).expect(409);
       assert.equal(await prisma.contractingCredential.count({ where: { requestId: row.id } }), 0);
     });
+  it("shows only public active offers and never confirms a private plan", async () => {
+    const catalog = await get("/public/plans").expect(200);
+    assert.ok(catalog.body.some((plan) => plan.code === free.code));
+    assert.ok(catalog.body.some((plan) => plan.code === paid.code));
+    assert.ok(!catalog.body.some((plan) => [privatePlan.code, inactive.code].includes(plan.code)));
+    const c = await context();
+    const view = await get("/contracting/context", c.cookie).expect(200);
+    assert.deepEqual(
+      view.body.plans.map((plan) => plan.code).sort(),
+      catalog.body.map((plan) => plan.code).sort(),
+    );
+    await post("/contracting/plan", { planId: privatePlan.id }, c.cookie).expect(404);
+  });
   it("APPROVED receives one-use high entropy hash-only bootstrap and scoped session", async () => {
     const c = await context();
     assert.match(c.token, /^[A-Za-z0-9_-]{43}$/);

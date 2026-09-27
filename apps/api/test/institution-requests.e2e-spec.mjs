@@ -155,12 +155,12 @@ describe("HU-01 institution requests (PostgreSQL)", () => {
       assert.equal(await prisma.institutionRequest.count({ where: { [field]: input[field] } }), 1);
     });
   }
-  it("documents the endpoint and allowed plan values", async () => {
+  it("documents the endpoint and validates a public plan of interest", async () => {
     const response = await request(app.getHttpServer()).get("/api/docs-json").expect(200);
     assert.ok(response.body.paths["/api/institution-requests"].post);
-    assert.deepEqual(
-      response.body.components.schemas.CreateInstitutionRequestDto.properties.planInterest.enum,
-      ["INITIAL", "PROFESSIONAL", "INSTITUTIONAL", "UNSURE"],
-    );
+    assert.ok(response.body.paths["/api/public/plans"].get);
+    await post(payload({ planInterest: "NOT_A_PUBLIC_PLAN" })).expect(400);
+    const catalog = await request(app.getHttpServer()).get("/api/public/plans").expect(200);
+    assert.ok(catalog.body.every((plan) => plan.code && plan.name && plan.price && plan.currency));
   });
 });

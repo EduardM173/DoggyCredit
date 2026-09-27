@@ -9,13 +9,14 @@ import { PaymentEventProcessor } from "./payment-event-processor.js";
 import { ProvisioningPlans } from "./provisioning-contract.js";
 import { ProvisioningPlansService } from "./provisioning-plans.service.js";
 import { ContractingGuard, PaymentPublicRateGuard } from "./contracting.guards.js";
+import { PlanCatalogModule } from "./plan-catalog.module.js";
 import {
   ContractingController,
   AdminContractingController,
   MockPaymentController,
 } from "./contracting.controller.js";
 @Module({
-  imports: [PrismaModule, PaymentsModule, AuditModule, IdentityTenantsModule],
+  imports: [PrismaModule, PaymentsModule, AuditModule, IdentityTenantsModule, PlanCatalogModule],
   controllers: [ContractingController, AdminContractingController, MockPaymentController],
   providers: [
     { provide: ProvisioningPlans, useClass: ProvisioningPlansService },

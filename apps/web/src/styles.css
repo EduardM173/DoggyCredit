@@ -311,7 +311,7 @@ fieldset {
 }
 .product-image {
   width: 100%;
-  aspect-ratio: 571 / 330;
+  aspect-ratio: 571 / 290;
   position: relative;
   overflow: hidden;
 }
@@ -322,9 +322,19 @@ fieldset {
   left: -77.9334%;
   top: -26.6667%;
 }
+.product-reference {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #05253dea;
+  color: #fff;
+  font-size: 11px;
+}
 .section {
   padding-block: 36px;
-  scroll-margin-top: 20px;
+  scroll-margin-top: 88px;
 }
 .section-heading {
   text-align: center;
@@ -391,6 +401,18 @@ fieldset {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 25px;
+  min-height: 270px;
+}
+.plans-state {
+  text-align: center;
+  padding: 30px 10px;
+  color: var(--muted);
+}
+.plan-price {
+  color: #09213d !important;
+  font-size: 24px !important;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 .plan-item {
   background: #fff;
@@ -457,6 +479,14 @@ fieldset {
   font-size: 13px;
   font-weight: 600;
   color: #095795;
+}
+.plan-link {
+  min-height: 44px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 .plan-link:hover {
   text-decoration: underline;
@@ -1347,6 +1377,19 @@ fieldset {
     font-size: 14px;
   }
 }
+@media (min-width: 761px) and (max-width: 980px) {
+  .hero-inner {
+    grid-template-columns: 1fr;
+  }
+  .hero-copy {
+    max-width: 630px;
+  }
+  .product-image {
+    max-width: 530px;
+    margin-inline: auto;
+    aspect-ratio: 571 / 345;
+  }
+}
 @media (max-width: 760px) {
   .container {
     width: calc(100% - 36px);
@@ -1430,6 +1473,12 @@ fieldset {
   .product-image {
     max-width: 530px;
     margin-inline: auto;
+    aspect-ratio: 571 / 445;
+  }
+  .product-image img {
+    width: 160%;
+    left: -70%;
+    top: -26.6667%;
   }
   .section {
     padding-block: 30px;
