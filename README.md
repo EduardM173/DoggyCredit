@@ -58,6 +58,8 @@ RESEND_FROM_EMAIL=""
 PUBLIC_APP_URL="http://localhost:5173"
 EMAIL_VERIFICATION_TOKEN_TTL_MINUTES=30
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS=60
+INSTITUTION_SESSION_IDLE_MINUTES=30
+INSTITUTION_SESSION_ABSOLUTE_MINUTES=480
 ```
 
 El backend valida estas variables al arrancar y falla con un mensaje explícito cuando falta una obligatoria. En desarrollo, copia también `apps/web/.env.example` como `apps/web/.env`: `VITE_API_URL` debe apuntar a `http://localhost:3000/api` (o al puerto configurado). Sin esta variable React utiliza `/api` en el mismo origen, apropiado para despliegues con proxy inverso.
@@ -105,7 +107,11 @@ HU-04: desde el detalle de una solicitud aprobada, genera el enlace de contratac
 
 HU-05: confirmar la contratación registra un job durable en la misma transacción. El worker aprovisiona automáticamente tenant, administrador inicial invitado y suscripción del plan confirmado, con auditoría atómica y correo recuperable posterior al commit. El backoffice muestra datos reales en `/admin/instituciones`. `TENANT_PROVISIONING_ENABLED=true` es el valor predeterminado; consulta las variables y garantías en [docs/hu-05.md](docs/hu-05.md) y [ADR-004](docs/architecture/ADR-004-durable-provisioning.md). La invitación no activa la cuenta: su pantalla y consumo corresponden a HU-06, y el login institucional a HU-07.
 
-HU-06: el administrador invitado abre `/activar-cuenta` desde su correo, define una contraseña global cuando todavía no tiene una, y activa exclusivamente la membresía de esa institución. La invitación se consume una sola vez y la operación se audita; la tabla de Instituciones refleja el estado real sin datos duplicados. Consulta [docs/hu-06.md](docs/hu-06.md). El login y contexto institucional continúan pendientes de HU-07.
+HU-06: el administrador invitado abre `/activar-cuenta` desde su correo, define una contraseña global cuando todavía no tiene una, y activa exclusivamente la membresía de esa institución. La invitación se consume una sola vez y la operación se audita; la tabla de Instituciones refleja el estado real sin datos duplicados. Consulta [docs/hu-06.md](docs/hu-06.md).
+
+HU-07: `/iniciar-sesion` autentica al usuario global sin pedirle el banco. Una membresía activa abre automáticamente `/{tenantSlug}`; varias muestran un selector. El backend comprueba la membresía en cada acceso, y el cierre de sesión revoca la cookie institucional sin afectar al backoffice. Consulta [docs/hu-07.md](docs/hu-07.md) para los vencimientos, la migración y las garantías de aislamiento.
+
+Para probar HU-07, aplica las migraciones con `npm run prisma:deploy` e inicia sesión en `http://localhost:5173/iniciar-sesion` con una cuenta institucional ya activada mediante HU-06. El seed solo crea usuarios del backoffice, no usuarios institucionales. Si la cuenta pertenece a una institución activa, se abre su espacio; si pertenece a varias, se muestra el selector. Una cuenta sin membresías activas no obtiene acceso. El inicio de sesión interno permanece separado en `/admin/login`.
 
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:
 

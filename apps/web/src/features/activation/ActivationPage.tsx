@@ -151,8 +151,8 @@ export function ActivationPage() {
               </div>
               <h2>Cuenta activada</h2>
               <p>Tu acceso como administrador de {preview?.institution.name} está activo.</p>
-              <Link className="activation-submit" to="/">
-                Volver al inicio <ArrowRight size={20} />
+              <Link className="activation-submit" to="/iniciar-sesion">
+                Iniciar sesión <ArrowRight size={20} />
               </Link>
             </>
           ) : preview ? (

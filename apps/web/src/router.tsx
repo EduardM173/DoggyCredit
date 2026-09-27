@@ -4,7 +4,6 @@ import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { InstitutionRequestPage } from "./pages/InstitutionRequestPage";
 import { RequestReceivedPage } from "./pages/RequestReceivedPage";
-import { LoginPendingPage } from "./pages/LoginPendingPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { AdminLayout } from "./features/admin/AdminLayout";
 import { AdminLoginPage } from "./features/admin/AdminLoginPage";
@@ -15,9 +14,14 @@ import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
 import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
 import { InstitutionsPage } from "./features/admin/InstitutionsPage";
 import { ActivationPage } from "./features/activation/ActivationPage";
+import { InstitutionLoginPage } from "./features/institution/InstitutionLoginPage";
+import { InstitutionSelectPage } from "./features/institution/InstitutionSelectPage";
+import { InstitutionHomePage } from "./features/institution/InstitutionHomePage";
 
 export const router = createBrowserRouter([
   { path: "/activar-cuenta", element: <ActivationPage /> },
+  { path: "/iniciar-sesion", element: <InstitutionLoginPage /> },
+  { path: "/elegir-institucion", element: <InstitutionSelectPage /> },
   { path: "/contratacion", element: <ContractingPage /> },
   { path: "/doggypay-demo", element: <DoggyPayPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
@@ -39,8 +43,8 @@ export const router = createBrowserRouter([
       { path: "/solicitar-acceso", element: <InstitutionRequestPage /> },
       { path: "/solicitud-recibida", element: <RequestReceivedPage /> },
       { path: "/verificar-correo", element: <VerifyEmailPage /> },
-      { path: "/iniciar-sesion", element: <LoginPendingPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
+  { path: "/:tenantSlug", element: <InstitutionHomePage /> },
 ]);

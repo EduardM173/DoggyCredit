@@ -14,6 +14,7 @@ export function configureApplication(app: INestApplication) {
     if (
       [
         "/api/admin/",
+        "/api/institution/",
         "/api/institution-requests",
         "/api/membership-invitations",
         "/api/contracting",
@@ -50,6 +51,7 @@ export function configureApplication(app: INestApplication) {
     .setDescription("Contratos HTTP disponibles en la plataforma DoggyCredit.")
     .setVersion("0.1.0")
     .addCookieAuth("doggycredit_admin")
+    .addCookieAuth("dc-institution-session")
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup("api/docs", app, document);

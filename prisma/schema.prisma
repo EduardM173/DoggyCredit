@@ -346,6 +346,20 @@ model User {
   reviewedRequests InstitutionRequest[] @relation("RequestReviewer")
   auditEvents      AuditLog[]           @relation("AuditActor")
   adminSessions    AdminSession[]
+  institutionSessions InstitutionSession[]
+}
+
+model InstitutionSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  tokenHash  String    @unique @db.VarChar(64)
+  lastSeenAt DateTime  @default(now()) @db.Timestamptz(6)
+  expiresAt  DateTime  @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model AdminSession {
