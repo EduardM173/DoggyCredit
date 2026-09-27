@@ -151,6 +151,7 @@ model InstitutionRequest {
   contactEmail    String                   @db.VarChar(254)
   contactPhone    String?                  @db.VarChar(40)
   requestedPlanId String?                  @db.Uuid
+  planInterest    String?                  @db.VarChar(50)
   status          InstitutionRequestStatus @default(EMAIL_PENDING)
   emailVerifiedAt DateTime?                @db.Timestamptz(6)
   reviewedAt      DateTime?                @db.Timestamptz(6)
@@ -170,12 +171,14 @@ model InstitutionRequest {
 }
 
 model EmailVerificationToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  requestId String    @db.Uuid
-  tokenHash String    @unique @db.VarChar(128)
-  expiresAt DateTime  @db.Timestamptz(6)
-  usedAt    DateTime? @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  id            String    @id @default(uuid()) @db.Uuid
+  requestId     String    @db.Uuid
+  tokenHash     String    @unique @db.VarChar(128)
+  expiresAt     DateTime  @db.Timestamptz(6)
+  usedAt        DateTime? @db.Timestamptz(6)
+  sentAt        DateTime? @db.Timestamptz(6)
+  invalidatedAt DateTime? @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
 
   request InstitutionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
@@ -197,6 +200,19 @@ model User {
   memberships      TenantMembership[]
   reviewedRequests InstitutionRequest[] @relation("RequestReviewer")
   auditEvents      AuditLog[]           @relation("AuditActor")
+  adminSessions    AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.VarChar(64)
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model Tenant {
