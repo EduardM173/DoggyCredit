@@ -26,6 +26,6 @@ import {
     ContractingGuard,
     PaymentPublicRateGuard,
   ],
-  exports: [ProvisioningPlans],
+  exports: [ProvisioningPlans, ContractingAccessService],
 })
 export class PlansMeteringModule {}

@@ -452,11 +452,13 @@
   line-height: 1.5;
   color: #576c84;
 }
-.contracting-access-action > div {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+.contracting-access-action > button {
   margin-top: 12px;
+}
+.contracting-access-action > small {
+  display: block;
+  margin-top: 8px;
+  color: #576c84;
 }
 .commerce-modal-backdrop {
   position: fixed;

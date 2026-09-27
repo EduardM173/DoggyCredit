@@ -1,4 +1,6 @@
 export { RequestContextReader } from "./request-context.js";
+export { RequestReviewService } from "./request-review/request-review.service.js";
+export { ApproveRequestDto } from "./request-review/request-review.dto.js";
 export type { InstitutionContext } from "./request-context.js";
 export { AdminAuthGuard, AdminOriginGuard, OperatorGuard } from "./auth/admin-auth.guards.js";
 export type { AdminRequest } from "./auth/admin-auth.guards.js";

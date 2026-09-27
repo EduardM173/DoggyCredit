@@ -10,8 +10,9 @@ import request from "supertest";
 import { AppModule } from "../dist/app.module.js";
 import { configureApplication } from "../dist/common/configure-application.js";
 import { PrismaService } from "../dist/infrastructure/prisma/prisma.service.js";
-import { EmailSender } from "../dist/infrastructure/email/email-sender.js";
+import { EmailSender, EmailDeliveryError } from "../dist/infrastructure/email/email-sender.js";
 import { AuditWriter } from "../dist/audit/public.js";
+import { ContractingEmailDeliveryService } from "../dist/plans-metering/contracting-email-delivery.service.js";
 import { hashPassword } from "../dist/identity-tenants/auth/password-hashing.js";
 
 describe("HU-03 administrative review (PostgreSQL)", () => {
@@ -19,6 +20,8 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
   const run = `HU03-${randomUUID()}`;
   const password = randomBytes(24).toString("base64url");
   const requestIds = [];
+  const sentEmails = [];
+  let emailFailure = null;
   const hash = (token) => createHash("sha256").update(token).digest("hex");
   const get = (path) => request(app.getHttpServer()).get(`/api/admin${path}`).set("Cookie", cookie);
   const post = (path, body = {}) =>
@@ -50,7 +53,12 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
   before(async () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EmailSender)
-      .useValue({ send: async () => {} })
+      .useValue({
+        send: async (message) => {
+          if (emailFailure) throw new EmailDeliveryError(emailFailure === "temporary");
+          sentEmails.push(message);
+        },
+      })
       .compile();
     app = module.createNestApplication();
     configureApplication(app);
@@ -276,6 +284,90 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
     assert.equal(await prisma.auditLog.count({ where: { entityId: row.id } }), 1);
   });
+  it("automatically emails a one-use contracting link after approval without exposing it in the API", async () => {
+    const row = await create();
+    const before = sentEmails.length;
+    const approved = await post(`/institution-requests/${row.id}/approve`).expect(200);
+    assert.equal(approved.body.status, "APPROVED");
+    assert.doesNotMatch(JSON.stringify(approved.body), /\/contratacion|tokenHash|token=/);
+    assert.equal(sentEmails.length, before + 1);
+    const email = sentEmails.at(-1);
+    assert.equal(email.to, row.contactEmail);
+    assert.match(email.text, /\/contratacion#token=/);
+    const token = new URL(
+      email.text.match(/https?:\/\/\S+\/contratacion#token=[A-Za-z0-9_-]+/)[0],
+    ).hash.slice(7);
+    assert.equal(token.length, 43);
+    assert.equal(
+      (await get(`/institution-requests/${row.id}/contracting-email`).expect(200)).body.delivery,
+      "SENT",
+    );
+    await request(app.getHttpServer())
+      .post("/api/contracting/access")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({ token })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post("/api/contracting/access")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({ token })
+      .expect(401);
+  });
+  it("keeps approval durable when email fails and permits a safe resend", async () => {
+    const row = await create();
+    emailFailure = "rejected";
+    try {
+      await post(`/institution-requests/${row.id}/approve`).expect(200);
+    } finally {
+      emailFailure = null;
+    }
+    assert.equal(
+      (await prisma.institutionRequest.findUniqueOrThrow({ where: { id: row.id } })).status,
+      "APPROVED",
+    );
+    assert.equal(
+      (await get(`/institution-requests/${row.id}/contracting-email`).expect(200)).body.delivery,
+      "FAILED",
+    );
+    const before = sentEmails.length;
+    const retry = await post(`/institution-requests/${row.id}/contracting-email/resend`).expect(200);
+    assert.equal(retry.body.delivery, "SENT");
+    assert.equal(sentEmails.length, before + 1);
+    assert.equal(sentEmails.at(-1).to, row.contactEmail);
+    assert.doesNotMatch(JSON.stringify(retry.body), /token=|\/contratacion/);
+  });
+  it("recovers a temporary mail failure without a second approval or leaked token", async () => {
+    const row = await create();
+    emailFailure = "temporary";
+    try {
+      await post(`/institution-requests/${row.id}/approve`).expect(200);
+    } finally {
+      emailFailure = null;
+    }
+    const pending = await prisma.contractingCredential.findFirstOrThrow({
+      where: { requestId: row.id, deliveryQueuedAt: { not: null } },
+    });
+    assert.equal(pending.sendAttempts, 1);
+    assert.equal(pending.sentAt, null);
+    assert.ok(pending.nextSendAttemptAt);
+    await prisma.contractingCredential.update({
+      where: { id: pending.id },
+      data: { nextSendAttemptAt: new Date(0) },
+    });
+    const before = sentEmails.length;
+    await app.get(ContractingEmailDeliveryService).tick(row.id);
+    const delivered = await prisma.contractingCredential.findUniqueOrThrow({ where: { id: pending.id } });
+    assert.equal(delivered.sendAttempts, 2);
+    assert.notEqual(delivered.tokenHash, pending.tokenHash);
+    assert.ok(delivered.sentAt);
+    assert.equal(sentEmails.length, before + 1);
+    assert.equal(
+      await prisma.auditLog.count({ where: { entityId: row.id, action: "INSTITUTION_REQUEST_APPROVED" } }),
+      1,
+    );
+  });
   it("rolls back the status and audit together when audit fails", async () => {
     const row = await create();
     const writer = app.get(AuditWriter);
@@ -294,6 +386,7 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
     assert.equal(saved.reviewedAt, null);
     assert.equal(saved.reviewedById, null);
     assert.equal(await prisma.auditLog.count({ where: { entityId: row.id } }), 0);
+    assert.equal(await prisma.contractingCredential.count({ where: { requestId: row.id } }), 0);
   });
   it("does not allow GET mutations", async () => {
     const row = await create();

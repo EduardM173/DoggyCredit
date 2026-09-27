@@ -211,10 +211,19 @@ model ContractingCredential {
   expiresAt DateTime                  @db.Timestamptz(6)
   usedAt    DateTime?                 @db.Timestamptz(6)
   revokedAt DateTime?                 @db.Timestamptz(6)
+  deliveryQueuedAt DateTime?          @db.Timestamptz(6)
+  sentAt            DateTime?          @db.Timestamptz(6)
+  sendAttempts      Int                @default(0)
+  sendVersion       Int                @default(0)
+  nextSendAttemptAt DateTime?          @db.Timestamptz(6)
+  sendLockedAt      DateTime?          @db.Timestamptz(6)
+  sendLeaseToken    String?            @db.Uuid
+  lastSendErrorCode String?            @db.VarChar(60)
   createdAt DateTime                  @default(now()) @db.Timestamptz(6)
   request   InstitutionRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, kind])
+  @@index([deliveryQueuedAt, sentAt, nextSendAttemptAt, sendLockedAt])
 }
 
 model Contracting {
