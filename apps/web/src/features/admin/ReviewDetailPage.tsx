@@ -48,7 +48,11 @@ export function ReviewDetailPage() {
         body: decision === "reject" && reason.trim() ? { reason: reason.trim() } : {},
       });
       setDetail(data);
-      setNotice("Decisión registrada correctamente.");
+      setNotice(
+        decision === "approve"
+          ? "Solicitud aprobada. El enlace de contratación se enviará al correo verificado."
+          : "Decisión registrada correctamente.",
+      );
       setDecision(null);
     } catch (e) {
       if (e instanceof AdminError && e.status === 401) navigate("/admin/login", { replace: true });
@@ -282,7 +286,9 @@ export function ReviewDetailPage() {
         <h2 id="decision-title">{decision === "approve" ? "Aprobar solicitud" : "Rechazar solicitud"}</h2>
         <p>¿Confirmas que deseas {decision === "approve" ? "aprobar" : "rechazar"} esta solicitud?</p>
         <p>
-          La institución {decision === "approve" ? "podrá" : "no podrá"} continuar al proceso de contratación.
+          {decision === "approve"
+            ? "Se enviará un enlace de contratación al correo verificado del representante."
+            : "La institución no podrá continuar al proceso de contratación."}
         </p>
         {decision === "reject" && (
           <label>

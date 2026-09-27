@@ -71,6 +71,7 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
   exports: [
     ProvisioningQueue,
     RequestContextReader,
+    RequestReviewService,
     AdminAuthService,
     AdminAuthGuard,
     AdminOriginGuard,

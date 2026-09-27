@@ -18,7 +18,7 @@ import {
   type AdminRequest,
 } from "../auth/admin-auth.guards.js";
 import { RequestReviewService } from "./request-review.service.js";
-import { ApproveRequestDto, RequestSearchDto, ReviewDecisionDto } from "./request-review.dto.js";
+import { RequestSearchDto, ReviewDecisionDto } from "./request-review.dto.js";
 
 @ApiTags("Administración - solicitudes")
 @ApiCookieAuth()
@@ -35,18 +35,6 @@ export class RequestReviewController {
   @ApiOperation({ summary: "Consultar detalle sin tokens ni datos financieros" })
   detail(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.review.detail(id);
-  }
-  @Post(":id/approve")
-  @HttpCode(200)
-  @UseGuards(AdminOriginGuard)
-  @ApiOperation({ summary: "Autorizar continuidad a contratación; no aprovisiona" })
-  approve(
-    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
-    @Req() request: AdminRequest,
-    @Body() _body: ApproveRequestDto,
-  ) {
-    void _body;
-    return this.review.decide(id, request.adminSession.user.id, "APPROVED");
   }
   @Post(":id/reject")
   @HttpCode(200)

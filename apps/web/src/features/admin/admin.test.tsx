@@ -82,6 +82,8 @@ describe("HU-03 administrative interface", () => {
         authorized = false;
         return response(null, 204);
       }
+      if (url.endsWith("/contracting-email")) return response({ delivery: "SENT" });
+      if (url.endsWith("/contracting-email/resend")) return response({ delivery: "QUEUED" });
       if (url.endsWith("/approve") || url.endsWith("/reject")) {
         detail = {
           ...detail,
@@ -181,7 +183,11 @@ describe("HU-03 administrative interface", () => {
           target: { value: "Información insuficiente" },
         });
       fireEvent.click(within(dialog).getByRole("button", { name: "Confirmar decisión" }));
-      await screen.findByText("Decisión registrada correctamente.");
+      await screen.findByText(
+        action === "Aprobar"
+          ? "Solicitud aprobada. El enlace de contratación se enviará al correo verificado."
+          : "Decisión registrada correctamente.",
+      );
       expect(screen.queryByRole("button", { name: `${action} solicitud` })).not.toBeInTheDocument();
       expect(
         screen.getByRole("heading", {
@@ -192,6 +198,14 @@ describe("HU-03 administrative interface", () => {
         expect(
           screen.getByText("Esta solicitud no puede continuar a contratación ni aprovisionamiento."),
         ).toBeInTheDocument();
+      else {
+        expect(
+          await screen.findByText("El enlace personal fue enviado al correo verificado del representante."),
+        ).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Reenviar correo" }));
+        await screen.findByText("Se solicitó el envío al correo verificado de la solicitud.");
+        expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/contracting-email/resend"))).toBe(true);
+      }
     });
   }
   it("prevents duplicate decisions while pending", async () => {
