@@ -1,0 +1,17 @@
+# Backend architecture
+
+- Use logical SOA on a modular NestJS/Express monolith. Do not create microservices without an explicit decision; module maturity alone is not a reason.
+- From HU-03 onward, Sprint 1 - HUs_CORREGIDO overrides the master's older commercial flow: review, contracting, then provisioning. Approval alone must never create a tenant or subscription. Read ADR-002 for atomic review/audit ownership.
+- Identity owns AdminSession and request review; Audit owns AuditLog. Cross-capability audit goes through AuditWriter in audit/public.ts. Use DatabaseUnitOfWork for atomic operations across those owners; never expose Prisma transactions in business contracts.
+- Read `../../docs/architecture/ADR-001-soa-modular-monolith.md` and `../../docs/architecture/module-map.md` before changing boundaries. The master document governs: DEFINIDO is binding, PENDIENTE stays open, FUTURO/FUERA DE MVP is not implementation scope.
+- Organize vertical business capabilities. Institution requests and email verification belong to Identity & Tenants. Create physical modules only for implemented use cases.
+- Treat Nest exports as the public module interface. Import only another capability's module entry point and deliberately exposed `public.ts` contracts/providers. Never import its internals or repositories. Do not export providers without a consumer.
+- Use in-process calls between modules; no internal HTTP or messaging to simulate distribution. Keep transport and generated Prisma models out of application contracts.
+- Controllers validate/delegate; never access Prisma. Share Prisma infrastructure through explicit imports, but query only data owned by the capability. Cross-owner reads/writes go through its public contract, including relation traversal and transactions.
+- Validate tenant, membership and role in the backend for sensitive resources. A slug is not authorization. Preserve historical snapshots and provenance.
+- Do not make business modules global. Keep Common limited to stable technical primitives, with no business entities, rules or DTOs.
+- Add repositories/ports only where they reduce real coupling. No automatic GenericRepository, BaseService, BaseController or empty future scaffolding.
+- Avoid cycles; resolve responsibility/direction before considering `forwardRef()`. Register new capability slugs in the root ESLint boundary list.
+- Isolate external providers behind small adapters/ports when useful. Email is infrastructure: verification -> EmailSender -> ResendEmailAdapter. Automated tests override EmailSender and never send real email. Keep external calls outside database transactions.
+- Never expose credentials or tokens in frontend, URLs used for diagnostics, or logs. No speculative queues, gateways, CQRS or distributed infrastructure.
+- Run relevant tests, backend build and lint after changes; verify Nest startup and HU-01 when affected. Run Prisma validation when changing schema/persistence. Review cross-owner queries and cycles manually; lint is partial enforcement.

@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PlatformRole, PrismaClient, UserStatus } from "../apps/api/src/generated/prisma/client.js";
+import { hashPassword, verifyPassword } from "../apps/api/src/identity-tenants/auth/password-hashing.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -12,16 +13,49 @@ const pool = new Pool({ connectionString });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function main() {
-  await prisma.user.upsert({
-    where: { email: "dev.admin@doggysoftware.local" },
-    update: {},
-    create: {
-      email: "dev.admin@doggysoftware.local",
-      fullName: "Doggy Software Dev Admin",
-      status: UserStatus.ACTIVE,
-      platformRole: PlatformRole.PLATFORM_ADMIN,
-      emailVerifiedAt: new Date(),
-    },
+  if (process.env.SEED_DEMO_OPERATOR !== "true") return;
+  if (!["development", "test"].includes(process.env.NODE_ENV ?? "")) {
+    throw new Error("Demo operator seed is restricted to development/test.");
+  }
+  const email = process.env.OPERATOR_SEED_EMAIL?.trim().toLowerCase();
+  const fullName = process.env.OPERATOR_SEED_NAME?.trim();
+  const password = process.env.OPERATOR_SEED_PASSWORD;
+  if (
+    !email ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !fullName ||
+    !password ||
+    password.length < 12 ||
+    password.length > 128
+  ) {
+    throw new Error(
+      "Configure OPERATOR_SEED_NAME, OPERATOR_SEED_EMAIL and a 12-128 character OPERATOR_SEED_PASSWORD.",
+    );
+  }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing && existing.platformRole !== PlatformRole.OPERATOR) {
+    throw new Error("Demo seed cannot replace a user with another role.");
+  }
+  const unchanged = existing?.passwordHash && (await verifyPassword(existing.passwordHash, password));
+  const passwordHash = unchanged ? existing.passwordHash! : await hashPassword(password);
+  await prisma.$transaction(async (tx) => {
+    if (existing && !unchanged)
+      await tx.adminSession.updateMany({
+        where: { userId: existing.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    await tx.user.upsert({
+      where: { email },
+      update: { fullName, passwordHash },
+      create: {
+        email,
+        fullName,
+        passwordHash,
+        status: UserStatus.ACTIVE,
+        platformRole: PlatformRole.OPERATOR,
+        emailVerifiedAt: new Date(),
+      },
+    });
   });
 }
 

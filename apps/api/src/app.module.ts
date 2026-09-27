@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { environmentValidationSchema } from "./config/environment.js";
 import { HealthController } from "./health.controller.js";
-import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
+import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
 
 @Module({
   imports: [
@@ -12,7 +12,7 @@ import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
       validationSchema: environmentValidationSchema,
       validationOptions: { abortEarly: false },
     }),
-    PrismaModule,
+    IdentityTenantsModule,
   ],
   controllers: [HealthController],
 })

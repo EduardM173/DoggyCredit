@@ -28,6 +28,10 @@ DoggyCredit/
 
 El backend es un monolito modular preparado con separación orientada a servicios. Los futuros módulos de Sprint 1 deben mantener el flujo `Controller -> Service -> infraestructura`, sin acceder a Prisma desde controllers ni desde React. No se han creado microservicios ni módulos funcionales vacíos.
 
+La HU-01 pertenece al módulo `src/identity-tenants`. Su contrato, decisiones de alcance y pruebas están descritos en [docs/hu-01.md](docs/hu-01.md).
+
+La decisión vigente es **SOA lógico sobre un monolito modular NestJS**: consulta el [ADR-001](docs/architecture/ADR-001-soa-modular-monolith.md), el [mapa de capacidades y propiedad de datos](docs/architecture/module-map.md) y las [reglas persistentes del backend](apps/api/AGENTS.md). Los módulos se comunican en proceso mediante interfaces públicas; compartir PostgreSQL no permite consultar datos de otro propietario directamente. La separación física requiere una razón concreta y otra decisión explícita.
+
 ## Instalación
 
 Desde la raíz del repositorio:
@@ -49,11 +53,18 @@ DATABASE_URL="postgresql://postgres:CHANGE_ME@localhost:5432/doggycredit?schema=
 NODE_ENV="development"
 API_PORT=3000
 WEB_ORIGIN="http://localhost:5173"
+RESEND_API_KEY=""
+RESEND_FROM_EMAIL=""
+PUBLIC_APP_URL="http://localhost:5173"
+EMAIL_VERIFICATION_TOKEN_TTL_MINUTES=30
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS=60
 ```
 
-El backend valida estas variables al arrancar y falla con un mensaje explícito cuando falta una obligatoria. Para cambiar la URL que consumirá React, copia `apps/web/.env.example` como `apps/web/.env` y edita `VITE_API_URL`.
+El backend valida estas variables al arrancar y falla con un mensaje explícito cuando falta una obligatoria. En desarrollo, copia también `apps/web/.env.example` como `apps/web/.env`: `VITE_API_URL` debe apuntar a `http://localhost:3000/api` (o al puerto configurado). Sin esta variable React utiliza `/api` en el mismo origen, apropiado para despliegues con proxy inverso.
 
 Los archivos `.env` están ignorados por Git. Nunca subas contraseñas, tokens ni secretos reales.
+
+HU-02 utiliza Resend desde backend. Configura `RESEND_API_KEY` y una dirección autorizada en `RESEND_FROM_EMAIL`; `PUBLIC_APP_URL` es el origen del frontend que abrirá el destinatario. En desarrollo sin credenciales la solicitud se guarda y la pantalla informa fallo de envío. Producción exige esas variables y HTTPS. TTL técnico: 30 minutos; cooldown persistente: 60 segundos, ambos configurables. Consulta [docs/hu-02.md](docs/hu-02.md) para estados, reenvío, despliegue seguro y pruebas. Los tests automatizados sustituyen `EmailSender` y nunca envían correos reales.
 
 ## Base de datos
 
@@ -71,7 +82,9 @@ npx prisma migrate dev
 npm run prisma:seed
 ```
 
-El seed es idempotente y crea únicamente el usuario técnico ficticio `dev.admin@doggysoftware.local`.
+El seed es idempotente y solo crea el operador de demo cuando `SEED_DEMO_OPERATOR=true` y `NODE_ENV=development` o `test`. Configura `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local; no hay contraseña compartida en el código. En producción no está permitido.
+
+HU-03: abre `http://localhost:5173/admin/login` para revisar solicitudes con el rol `OPERATOR`. Sesión HttpOnly con TTL configurable (120 minutos por defecto), protección CSRF, búsqueda/filtros/paginación reales y decisión con auditoría atómica. Aprobar solo autoriza a continuar a contratación: no crea tenant ni suscripción y no activa `planInterest`. Consulta [docs/hu-03.md](docs/hu-03.md) y [ADR-002](docs/architecture/ADR-002-atomic-review-audit.md). HU-04 y HU-05 no están implementadas.
 
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:
 
@@ -115,6 +128,8 @@ npm run dev:web
 - Swagger/OpenAPI: <http://localhost:3000/api/docs>
 - Documento OpenAPI JSON: <http://localhost:3000/api/docs-json>
 
+El backend de desarrollo compila con TypeScript y ejecuta el resultado con `node --watch`; así conserva los metadatos de los decoradores necesarios para la inyección de dependencias y la validación de DTOs de NestJS.
+
 ## Calidad
 
 ```bash
@@ -125,7 +140,7 @@ npm run test:e2e
 npm run build
 ```
 
-Las pruebas unitarias cubren la base de frontend y backend. La prueba e2e inicia NestJS, conecta Prisma y comprueba tanto el health check como el documento OpenAPI.
+Las pruebas cubren la base técnica y el flujo de solicitud institucional. Las e2e inician NestJS y verifican persistencia, validación, duplicados (incluidos envíos concurrentes), estado inicial y OpenAPI contra PostgreSQL. Crean datos ficticios identificados por ejecución y eliminan exclusivamente esos registros al terminar. Para CI se utiliza una base de pruebas dedicada.
 
 ## Integración continua
 
