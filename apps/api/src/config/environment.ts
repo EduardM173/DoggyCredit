@@ -46,6 +46,8 @@ export const environmentValidationSchema = Joi.object({
   EMAIL_VERIFICATION_TOKEN_TTL_MINUTES: Joi.number().integer().min(1).max(10080).default(30),
   EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: Joi.number().integer().min(10).max(86400).default(60),
   ADMIN_SESSION_TTL_MINUTES: Joi.number().integer().min(1).max(1440).default(120),
+  INSTITUTION_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).max(1440).default(30),
+  INSTITUTION_SESSION_ABSOLUTE_MINUTES: Joi.number().integer().min(2).max(10080).default(480),
   PAYMENT_PROVIDER: Joi.string()
     .valid("mock", "disabled")
     .when("NODE_ENV", {

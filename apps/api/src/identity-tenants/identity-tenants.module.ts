@@ -23,10 +23,23 @@ import { InstitutionsService } from "./institutions/institutions.service.js";
 import { ActivationController } from "./activation/activation.controller.js";
 import { ActivationService } from "./activation/activation.service.js";
 import { ActivationRateGuard } from "./activation/activation-rate.guard.js";
+import {
+  InstitutionAuthController,
+  InstitutionTenantController,
+} from "./institution-auth/institution-auth.controller.js";
+import { InstitutionAuthService } from "./institution-auth/institution-auth.service.js";
+import {
+  InstitutionLoginRateGuard,
+  InstitutionOriginGuard,
+  InstitutionSessionGuard,
+} from "./institution-auth/institution-auth.guards.js";
+import { TenantContextGuard } from "./institution-auth/tenant-context.guard.js";
 
 @Module({
   imports: [PrismaModule, EmailModule, AuditModule],
   controllers: [
+    InstitutionAuthController,
+    InstitutionTenantController,
     ActivationController,
     InstitutionsController,
     InstitutionRequestsController,
@@ -35,6 +48,11 @@ import { ActivationRateGuard } from "./activation/activation-rate.guard.js";
     RequestReviewController,
   ],
   providers: [
+    InstitutionAuthService,
+    InstitutionLoginRateGuard,
+    InstitutionOriginGuard,
+    InstitutionSessionGuard,
+    TenantContextGuard,
     ActivationService,
     ActivationRateGuard,
     InstitutionsService,

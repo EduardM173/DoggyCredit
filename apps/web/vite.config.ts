@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
           if (
-            /^\/(admin(?:\/|$)|verificar-correo|solicitud-recibida|contratacion|doggypay-demo)/.test(
+            /^\/(admin(?:\/|$)|iniciar-sesion|elegir-institucion|verificar-correo|solicitud-recibida|contratacion|doggypay-demo|[a-z0-9]+(?:-[a-z0-9]+)*(?:\?|$))/.test(
               req.url ?? "",
             )
           )
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
       configurePreviewServer(server) {
         server.middlewares.use((req, res, next) => {
           if (
-            /^\/(admin(?:\/|$)|verificar-correo|solicitud-recibida|contratacion|doggypay-demo)/.test(
+            /^\/(admin(?:\/|$)|iniciar-sesion|elegir-institucion|verificar-correo|solicitud-recibida|contratacion|doggypay-demo|[a-z0-9]+(?:-[a-z0-9]+)*(?:\?|$))/.test(
               req.url ?? "",
             )
           )
