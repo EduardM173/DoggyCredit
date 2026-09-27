@@ -46,7 +46,14 @@ export function ActivationPage() {
   const [submitting, setSubmitting] = useState(false);
   const inFlight = useRef(false);
   const [visible, setVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [success, setSuccess] = useState(false);
+  const passwordLength = Array.from(password.normalize("NFC")).length;
+  const lengthValid = passwordLength >= 15 && passwordLength <= 128;
+  const confirmationMatches =
+    confirmation.length > 0 && password.normalize("NFC") === confirmation.normalize("NFC");
   useEffect(() => {
     if (!token) return;
     const controller = new AbortController();
@@ -66,17 +73,14 @@ export function ActivationPage() {
     inFlight.current = true;
     setSubmitting(true);
     setError("");
-    const form = event.currentTarget;
-    const password = String(new FormData(form).get("password") ?? "");
     try {
-      if (
-        preview.requiresCredentialSetup &&
-        (Array.from(password.normalize("NFC")).length < 15 ||
-          Array.from(password.normalize("NFC")).length > 128)
-      )
+      if (preview.requiresCredentialSetup && !lengthValid)
         throw new Error("La contraseña debe tener entre 15 y 128 caracteres.");
+      if (preview.requiresCredentialSetup && !confirmationMatches)
+        throw new Error("Las contraseñas no coinciden.");
       await activationApi("activate", preview.requiresCredentialSetup ? { token, password } : { token });
-      form.reset();
+      setPassword("");
+      setConfirmation("");
       setToken(null);
       setSuccess(true);
     } catch (reason) {
@@ -173,10 +177,13 @@ export function ActivationPage() {
                         name="password"
                         type={visible ? "text" : "password"}
                         autoComplete="new-password"
-                        minLength={15}
-                        maxLength={128}
                         required
                         disabled={submitting}
+                        value={password}
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                          setError("");
+                        }}
                         placeholder="Ingresa tu nueva contraseña"
                       />
                       <button
@@ -191,6 +198,70 @@ export function ActivationPage() {
                     <small className="activation-help">
                       Usa al menos 15 caracteres. Puedes usar una frase larga con espacios. Evita contraseñas
                       comunes o reutilizadas.
+                    </small>
+                    <div className="activation-length" aria-live="polite">
+                      <div className="activation-length-heading">
+                        <span>Longitud de la contraseña</span>
+                        <span>
+                          {passwordLength > 128
+                            ? "Máximo 128 caracteres"
+                            : lengthValid
+                              ? "Mínimo cumplido"
+                              : `${passwordLength} de 15 caracteres`}
+                        </span>
+                      </div>
+                      <div
+                        className={`activation-length-track${passwordLength > 128 ? " activation-length-over" : lengthValid ? " activation-length-ready" : ""}`}
+                        role="progressbar"
+                        aria-label="Progreso del requisito de longitud"
+                        aria-valuemin={0}
+                        aria-valuemax={15}
+                        aria-valuenow={Math.min(passwordLength, 15)}
+                      >
+                        <span style={{ width: `${Math.min((passwordLength / 15) * 100, 100)}%` }} />
+                      </div>
+                    </div>
+                    <label htmlFor="activation-confirm-password" className="activation-confirm-label">
+                      Confirmar contraseña
+                    </label>
+                    <div className="activation-password">
+                      <LockKeyhole size={20} />
+                      <input
+                        id="activation-confirm-password"
+                        name="confirmPassword"
+                        type={confirmVisible ? "text" : "password"}
+                        autoComplete="new-password"
+                        required
+                        disabled={submitting}
+                        value={confirmation}
+                        onChange={(event) => {
+                          setConfirmation(event.target.value);
+                          setError("");
+                        }}
+                        aria-invalid={confirmation.length > 0 && !confirmationMatches}
+                        aria-describedby="activation-confirm-status"
+                        placeholder="Repite tu nueva contraseña"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setConfirmVisible(!confirmVisible)}
+                        aria-label={confirmVisible ? "Ocultar confirmación" : "Mostrar confirmación"}
+                        title={confirmVisible ? "Ocultar confirmación" : "Mostrar confirmación"}
+                      >
+                        {confirmVisible ? <EyeOff size={19} /> : <Eye size={19} />}{" "}
+                        {confirmVisible ? "Ocultar" : "Mostrar"}
+                      </button>
+                    </div>
+                    <small
+                      id="activation-confirm-status"
+                      className={`activation-confirm-status${confirmation.length > 0 && !confirmationMatches ? " activation-confirm-mismatch" : ""}`}
+                      aria-live="polite"
+                    >
+                      {confirmation.length === 0
+                        ? "Escribe de nuevo la contraseña para confirmarla."
+                        : confirmationMatches
+                          ? "Las contraseñas coinciden."
+                          : "Las contraseñas no coinciden."}
                     </small>
                   </>
                 )}

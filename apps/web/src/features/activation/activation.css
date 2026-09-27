@@ -173,6 +173,9 @@
   font: inherit;
   color: #092449;
 }
+.activation-password input::-ms-reveal {
+  display: none;
+}
 .activation-password:focus-within {
   outline: 2px solid #0076e7;
 }
@@ -190,6 +193,50 @@
   color: #567294;
   line-height: 1.5;
   margin: 12px 0 0;
+}
+.activation-length {
+  margin-top: 16px;
+}
+.activation-length-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #526d90;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.activation-length-heading span:last-child {
+  text-align: right;
+}
+.activation-length-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #e2edf5;
+}
+.activation-length-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #e3a23b;
+  transition: width 150ms ease;
+}
+.activation-length-ready span {
+  background: #14c98a;
+}
+.activation-length-over span {
+  background: #b33d46;
+}
+.activation-panel .activation-confirm-label {
+  margin-top: 24px;
+}
+.activation-confirm-status {
+  display: block;
+  margin-top: 9px;
+  color: #07885f;
+}
+.activation-confirm-mismatch {
+  color: #a12e36;
 }
 .activation-submit {
   width: 100%;

@@ -56,6 +56,11 @@ describe("HU-06 activation page", () => {
     const input = (await screen.findByLabelText("Nueva contraseña")) as HTMLInputElement;
     expect(input).toHaveAttribute("autocomplete", "new-password");
     fireEvent.change(input, { target: { value: "una frase larga de prueba" } });
+    const confirmation = screen.getByLabelText("Confirmar contraseña");
+    expect(confirmation).toHaveAttribute("autocomplete", "new-password");
+    fireEvent.change(confirmation, { target: { value: "una frase larga de prueba" } });
+    expect(screen.getByText("Mínimo cumplido")).toBeInTheDocument();
+    expect(screen.getByText("Las contraseñas coinciden.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mostrar contraseña" }));
     expect(input.type).toBe("text");
     fireEvent.click(screen.getByRole("button", { name: "Ocultar contraseña" }));
@@ -92,8 +97,47 @@ describe("HU-06 activation page", () => {
     mount();
     const input = await screen.findByLabelText("Nueva contraseña");
     fireEvent.change(input, { target: { value: "una frase larga de prueba" } });
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {
+      target: { value: "una frase larga de prueba" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Activar cuenta" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Activando..." })).toBeDisabled());
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/activate"))).toHaveLength(1);
+  });
+  it("updates the length requirement live and rejects a different confirmation", async () => {
+    mount();
+    const input = await screen.findByLabelText("Nueva contraseña");
+    const confirmation = screen.getByLabelText("Confirmar contraseña");
+    fireEvent.change(input, { target: { value: "frase corta" } });
+    expect(screen.getByText("11 de 15 caracteres")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "11");
+    fireEvent.change(input, { target: { value: "una frase larga de prueba" } });
+    fireEvent.change(confirmation, { target: { value: "otra frase larga de prueba" } });
+    expect(confirmation).toHaveAttribute("aria-invalid", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Activar cuenta" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Las contraseñas no coinciden.");
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/activate"))).toHaveLength(0);
+    fireEvent.change(confirmation, { target: { value: "una frase larga de prueba" } });
+    expect(confirmation).toHaveAttribute("aria-invalid", "false");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("counts normalized Unicode characters and caps the requirement at 128", async () => {
+    mount();
+    const input = await screen.findByLabelText("Nueva contraseña");
+    fireEvent.change(input, { target: { value: "🔐".repeat(15) } });
+    expect(screen.getByText("Mínimo cumplido")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "15");
+    fireEvent.change(input, { target: { value: "x".repeat(129) } });
+    expect(screen.getByText("Máximo 128 caracteres")).toBeInTheDocument();
+  });
+  it("never submits a password shorter than the minimum", async () => {
+    mount();
+    const input = await screen.findByLabelText("Nueva contraseña");
+    const confirmation = screen.getByLabelText("Confirmar contraseña");
+    fireEvent.change(input, { target: { value: "frase corta" } });
+    fireEvent.change(confirmation, { target: { value: "frase corta" } });
+    fireEvent.click(screen.getByRole("button", { name: "Activar cuenta" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("entre 15 y 128 caracteres");
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/activate"))).toHaveLength(0);
   });
 });
