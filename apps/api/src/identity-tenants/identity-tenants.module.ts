@@ -16,6 +16,7 @@ import {
 } from "./auth/admin-auth.guards.js";
 import { RequestReviewController } from "./request-review/request-review.controller.js";
 import { RequestReviewService } from "./request-review/request-review.service.js";
+import { RequestContextReader } from "./request-context.js";
 
 @Module({
   imports: [PrismaModule, EmailModule, AuditModule],
@@ -26,6 +27,7 @@ import { RequestReviewService } from "./request-review/request-review.service.js
     RequestReviewController,
   ],
   providers: [
+    RequestContextReader,
     InstitutionRequestsService,
     EmailVerificationService,
     AdminAuthService,
@@ -35,5 +37,6 @@ import { RequestReviewService } from "./request-review/request-review.service.js
     AdminLoginRateGuard,
     RequestReviewService,
   ],
+  exports: [RequestContextReader, AdminAuthService, AdminAuthGuard, AdminOriginGuard, OperatorGuard],
 })
 export class IdentityTenantsModule {}

@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { environmentValidationSchema } from "./config/environment.js";
 import { HealthController } from "./health.controller.js";
 import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
+import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.modul
       validationOptions: { abortEarly: false },
     }),
     IdentityTenantsModule,
+    PlansMeteringModule,
   ],
   controllers: [HealthController],
 })
