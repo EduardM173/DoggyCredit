@@ -33,3 +33,5 @@ El operador genera un enlace de un solo uso para una solicitud APPROVED. Se canj
 El checkout publico usa otro token independiente, en fragmento de URL, retirado al montar la pagina y enviado en un header; no usa cookies para autorizar resultados ni expone contacto institucional. Regenerar invalida el anterior sin duplicar Payment. Solo memoria del frontend; no localStorage/sessionStorage. Expiracion obliga a regenerar, no a reescribir pagos terminales.
 
 Los endpoints del mock y sus controles se deshabilitan con PAYMENT_PROVIDER=disabled (predeterminado en produccion). La simulacion es explicita, no procesa dinero ni recoge PAN/CVV/cuentas. HTTP Wi-Fi es exclusivamente demo local en una red confiable; produccion requiere HTTPS y una decision separada sobre proveedor real. La limitacion de solicitudes es en memoria por proceso, coherente con el despliegue local actual, no un rate limiter distribuido.
+
+> Extension HU-05: [ADR-004](ADR-004-durable-provisioning.md) incorpora el job atomico al confirmar contratacion y aprovisionamiento posterior. Las referencias a aprovisionamiento pendiente en este ADR describen el alcance historico de HU-04.

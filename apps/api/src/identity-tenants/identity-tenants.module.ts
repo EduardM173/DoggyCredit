@@ -17,16 +17,22 @@ import {
 import { RequestReviewController } from "./request-review/request-review.controller.js";
 import { RequestReviewService } from "./request-review/request-review.service.js";
 import { RequestContextReader } from "./request-context.js";
+import { ProvisioningQueue } from "./provisioning/provisioning-queue.js";
+import { InstitutionsController } from "./institutions/institutions.controller.js";
+import { InstitutionsService } from "./institutions/institutions.service.js";
 
 @Module({
   imports: [PrismaModule, EmailModule, AuditModule],
   controllers: [
+    InstitutionsController,
     InstitutionRequestsController,
     EmailVerificationController,
     AdminAuthController,
     RequestReviewController,
   ],
   providers: [
+    InstitutionsService,
+    ProvisioningQueue,
     RequestContextReader,
     InstitutionRequestsService,
     EmailVerificationService,
@@ -37,6 +43,13 @@ import { RequestContextReader } from "./request-context.js";
     AdminLoginRateGuard,
     RequestReviewService,
   ],
-  exports: [RequestContextReader, AdminAuthService, AdminAuthGuard, AdminOriginGuard, OperatorGuard],
+  exports: [
+    ProvisioningQueue,
+    RequestContextReader,
+    AdminAuthService,
+    AdminAuthGuard,
+    AdminOriginGuard,
+    OperatorGuard,
+  ],
 })
 export class IdentityTenantsModule {}

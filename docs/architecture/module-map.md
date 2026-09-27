@@ -8,14 +8,14 @@ Decision vigente: [ADR-001](ADR-001-soa-modular-monolith.md). Fuente funcional: 
 React
   | HTTPS (HTTP local en desarrollo)
 NestJS / Express: una aplicacion backend
-  |-- Identity & Tenants       [HU-01/HU-02/HU-03 implementadas]
+  |-- Identity & Tenants       [HU-01/HU-02/HU-03/HU-05 implementadas]
   |-- Clients / Expedientes   [frontera documentada]
   |-- Evaluations             [frontera documentada]
   |-- Financial Integrations  [frontera documentada]
   |-- Financial Profile       [frontera documentada]
   |-- Recommendations         [frontera documentada]
-  |-- Plans & Metering         [contratacion y pagos HU-04 implementados]
-  `-- Audit                   [decisiones HU-03 y eventos HU-04 implementados]
+  |-- Plans & Metering         [contratacion/pagos HU-04 y suscripcion HU-05]
+  `-- Audit                   [decisiones HU-03 y eventos HU-04/HU-05]
        Todas las capacidades usan infraestructura segun necesidad:
        Prisma / PostgreSQL / configuracion / adapters externos
 ```
@@ -62,11 +62,13 @@ Los contratos futuros precisaran entrada, salida, errores, autorizacion e idempo
 
 ## Convencion de interfaz publica
 
-HU-03 agrega auth, `AdminSession` y revision dentro de Identity & Tenants. Consume `audit/public.ts` mediante AuditModule; Audit implementa AuditWriter y es el unico que inserta AuditLog. Atomicidad por DatabaseUnitOfWork compartido, sin transferir Prisma por contratos. Ver [ADR-002](ADR-002-atomic-review-audit.md) y [HU-03](../hu-03.md). El Sprint 1 corregido prevalece desde HU-03: APPROVED solo habilita contratacion posterior, no provisioning. HU-04 implementa contratacion; aprovisionamiento sigue pendiente.
+HU-03 agrega auth, `AdminSession` y revision dentro de Identity & Tenants. Consume `audit/public.ts` mediante AuditModule; Audit implementa AuditWriter y es el unico que inserta AuditLog. Atomicidad por DatabaseUnitOfWork compartido, sin transferir Prisma por contratos. Ver [ADR-002](ADR-002-atomic-review-audit.md) y [HU-03](../hu-03.md). El Sprint 1 corregido prevalece desde HU-03: APPROVED solo habilita contratacion posterior, no provisioning. HU-04 implementa contratacion; HU-05 aprovisiona despues de CONFIRMED.
 
 HU-04 agrega propiedad de `Contracting`, `Payment`, `ContractingCredential` y `PaymentProviderEvent` a Plans & Metering, ademas de los modelos ya asignados. `MockPaymentCheckout` es almacenamiento tecnico exclusivo del adapter. Dependencias: Plans -> Identity (contexto/guards), Plans -> Audit y Plans -> PaymentProvider. Infrastructure no importa negocio; su resultado normalizado lo procesa Plans en una llamada en proceso. No hay HTTP interno, bus ni modulo global. Ver [ADR-003](ADR-003-contracting-mock-payments.md). Al implementar HU-05 no agregar una dependencia inversa Identity -> Plans sin revisar composicion para evitar ciclos.
 
-Mantener cada capacidad en `apps/api/src/<slug>/`. Se permite importar externamente `<slug>/<slug>.module.ts` para composicion Nest y `<slug>/public.ts` para contratos/providers deliberadamente expuestos. Los imports ESM usan extension `.js`. `public.ts` solo reexportara la interfaz realmente necesaria y los providers deberan estar en `exports` de Nest; no reexportar todo el directorio.
+HU-05 agrega `TenantProvisioning` a Identity y hace operativa TenantSubscription en Plans. `ProvisioningQueue` publica de Identity registra el pendiente dentro de la transaccion de confirmacion de Plans. La composicion raiz `OnboardingModule` registra los workflows de Identity junto al contrato `ProvisioningPlans` (eligibilidad y suscripcion) y AuditWriter. IdentityTenantsModule no importa PlansMeteringModule: no hay ciclo Nest ni forwardRef. La interfaz publica expone solo esos workflows necesarios para composicion; no son endpoints ni acceso a repositorios. Ver [ADR-004](ADR-004-durable-provisioning.md).
+
+Mantener cada capacidad en `apps/api/src/<slug>/`. Se permite importar externamente `<slug>/<slug>.module.ts` para composicion Nest y `<slug>/public.ts` para contratos/providers deliberadamente expuestos. Los imports ESM usan extension `.js`. Los providers consumidores deben estar exportados por su modulo Nest o registrados explicitamente en la composicion documentada; no reexportar todo el directorio.
 
 Dentro de una capacidad pueden existir controller, application/service, domain y adapters segun necesidad. No se exigen carpetas/capas por patron. Infrastructure puede ser importada explicitamente; no depende de capacidades de negocio. Las constantes comerciales/provisionales de HU-01 no representan planes comerciales definitivos.
 

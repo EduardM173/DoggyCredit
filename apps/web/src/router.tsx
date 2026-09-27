@@ -13,6 +13,7 @@ import { ReviewDetailPage } from "./features/admin/ReviewDetailPage";
 import { ContractingPage } from "./features/contracting/ContractingPage";
 import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
 import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
+import { InstitutionsPage } from "./features/admin/InstitutionsPage";
 
 export const router = createBrowserRouter([
   { path: "/contratacion", element: <ContractingPage /> },
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { index: true, element: <ReviewListPage /> },
       { path: "solicitudes", element: <ReviewListPage /> },
       { path: "contrataciones", element: <AdminContractingsPage /> },
+      { path: "instituciones", element: <InstitutionsPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
     ],
   },

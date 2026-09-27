@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, ChevronLeft, ChevronRight, FilterX, Search } from "lucide-react";
 import { plans } from "../institution-requests/api";
+import { InstitutionName } from "./InstitutionName";
 import { adminApi, AdminError, displayDate, statusLabels, type ReviewList, type Status } from "./api";
 
 export function ReviewListPage() {
@@ -93,7 +94,7 @@ export function ReviewListPage() {
         <div className="admin-empty">
           <p role="alert">{error}</p>
           <button
-            className="button"
+            className="button admin-secondary"
             onClick={() => {
               setError("");
               setLoading(true);
@@ -111,7 +112,7 @@ export function ReviewListPage() {
         result && (
           <section className="admin-table-section" aria-label="Solicitudes institucionales">
             <div className="admin-table-scroll">
-              <table>
+              <table className="admin-list-table">
                 <thead>
                   <tr>
                     <th>Institución</th>
@@ -127,7 +128,7 @@ export function ReviewListPage() {
                   {result.items.map((item) => (
                     <tr key={item.id}>
                       <td>
-                        <strong>{item.institutionName}</strong>
+                        <InstitutionName name={item.institutionName} />
                       </td>
                       <td>{item.taxId}</td>
                       <td>{item.contactEmail}</td>

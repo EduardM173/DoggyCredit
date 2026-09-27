@@ -144,7 +144,7 @@ model Plan {
 
   requests      InstitutionRequest[]
   subscriptions TenantSubscription[]
-  contractings Contracting[]
+  contractings  Contracting[]
 }
 
 model InstitutionRequest {
@@ -166,11 +166,11 @@ model InstitutionRequest {
   createdAt       DateTime                 @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime                 @updatedAt @db.Timestamptz(6)
 
-  requestedPlan      Plan?                    @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
-  reviewedBy         User?                    @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  verificationTokens EmailVerificationToken[]
-  provisionedTenant  Tenant?
-  contracting Contracting?
+  requestedPlan          Plan?                    @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
+  reviewedBy             User?                    @relation("RequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  verificationTokens     EmailVerificationToken[]
+  provisionedTenant      Tenant?
+  contracting            Contracting?
   contractingCredentials ContractingCredential[]
 
   @@index([status, createdAt])
@@ -202,84 +202,117 @@ enum ContractingCredentialKind {
 }
 
 model ContractingCredential {
-  id String @id @default(uuid()) @db.Uuid
-  requestId String @db.Uuid
-  kind ContractingCredentialKind
-  tokenHash String @unique @db.VarChar(64)
-  expiresAt DateTime @db.Timestamptz(6)
-  usedAt DateTime? @db.Timestamptz(6)
-  revokedAt DateTime? @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  request InstitutionRequest @relation(fields:[requestId], references:[id], onDelete:Cascade)
+  id        String                    @id @default(uuid()) @db.Uuid
+  requestId String                    @db.Uuid
+  kind      ContractingCredentialKind
+  tokenHash String                    @unique @db.VarChar(64)
+  expiresAt DateTime                  @db.Timestamptz(6)
+  usedAt    DateTime?                 @db.Timestamptz(6)
+  revokedAt DateTime?                 @db.Timestamptz(6)
+  createdAt DateTime                  @default(now()) @db.Timestamptz(6)
+  request   InstitutionRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
   @@index([requestId, kind])
 }
 
 model Contracting {
-  id String @id @default(uuid()) @db.Uuid
-  requestId String @unique @db.Uuid
-  confirmedPlanId String @db.Uuid
-  planCodeSnapshot String @db.VarChar(50)
-  planNameSnapshot String @db.VarChar(100)
-  priceSnapshot Decimal @db.Decimal(14,2)
-  currencySnapshot String @db.VarChar(3)
-  billingPeriodSnapshot String @db.VarChar(20)
+  id                      String              @id @default(uuid()) @db.Uuid
+  requestId               String              @unique @db.Uuid
+  confirmedPlanId         String              @db.Uuid
+  planCodeSnapshot        String              @db.VarChar(50)
+  planNameSnapshot        String              @db.VarChar(100)
+  priceSnapshot           Decimal             @db.Decimal(14, 2)
+  currencySnapshot        String              @db.VarChar(3)
+  billingPeriodSnapshot   String              @db.VarChar(20)
   requiresPaymentSnapshot Boolean
-  status ContractingStatus
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-  confirmedAt DateTime? @db.Timestamptz(6)
-  request InstitutionRequest @relation(fields:[requestId],references:[id],onDelete:Restrict)
-  plan Plan @relation(fields:[confirmedPlanId],references:[id],onDelete:Restrict)
-  payments Payment[]
+  status                  ContractingStatus
+  createdAt               DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime            @updatedAt @db.Timestamptz(6)
+  confirmedAt             DateTime?           @db.Timestamptz(6)
+  request                 InstitutionRequest  @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  plan                    Plan                @relation(fields: [confirmedPlanId], references: [id], onDelete: Restrict)
+  payments                Payment[]
+  provisioning            TenantProvisioning?
+  initialSubscription     TenantSubscription?
+}
+
+enum ProvisioningStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+}
+
+model TenantProvisioning {
+  id                   String             @id @default(uuid()) @db.Uuid
+  contractingId        String             @unique @db.Uuid
+  institutionRequestId String             @db.Uuid
+  status               ProvisioningStatus @default(PENDING)
+  attemptCount         Int                @default(0)
+  nextAttemptAt        DateTime?          @db.Timestamptz(6)
+  lockedAt             DateTime?          @db.Timestamptz(6)
+  leaseToken           String?            @db.Uuid
+  completedAt          DateTime?          @db.Timestamptz(6)
+  tenantId             String?            @unique @db.Uuid
+  lastErrorCode        String?            @db.VarChar(60)
+  createdAt            DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @db.Timestamptz(6)
+  contracting          Contracting        @relation(fields: [contractingId], references: [id], onDelete: Cascade)
+  tenant               Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([status, nextAttemptAt, lockedAt])
 }
 
 model Payment {
-  id String @id @default(uuid()) @db.Uuid
-  contractingId String @db.Uuid
-  reference String @unique @db.VarChar(80)
-  provider String @db.VarChar(40)
-  providerReference String? @unique @db.VarChar(100)
-  method PaymentMethod
-  amount Decimal @db.Decimal(14,2)
-  currency String @db.VarChar(3)
-  status PaymentStatus @default(PENDING)
-  idempotencyKey String @db.VarChar(80)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-  paidAt DateTime? @db.Timestamptz(6)
-  failedAt DateTime? @db.Timestamptz(6)
-  cancelledAt DateTime? @db.Timestamptz(6)
-  contracting Contracting @relation(fields:[contractingId],references:[id],onDelete:Restrict)
-  @@unique([contractingId,idempotencyKey])
-  @@index([contractingId,createdAt])
+  id                String        @id @default(uuid()) @db.Uuid
+  contractingId     String        @db.Uuid
+  reference         String        @unique @db.VarChar(80)
+  provider          String        @db.VarChar(40)
+  providerReference String?       @unique @db.VarChar(100)
+  method            PaymentMethod
+  amount            Decimal       @db.Decimal(14, 2)
+  currency          String        @db.VarChar(3)
+  status            PaymentStatus @default(PENDING)
+  idempotencyKey    String        @db.VarChar(80)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(6)
+  paidAt            DateTime?     @db.Timestamptz(6)
+  failedAt          DateTime?     @db.Timestamptz(6)
+  cancelledAt       DateTime?     @db.Timestamptz(6)
+  contracting       Contracting   @relation(fields: [contractingId], references: [id], onDelete: Restrict)
+
+  @@unique([contractingId, idempotencyKey])
+  @@index([contractingId, createdAt])
 }
 
 model PaymentProviderEvent {
-  id String @id @default(uuid()) @db.Uuid
-  provider String @db.VarChar(40)
-  eventId String @db.VarChar(100)
-  providerReference String @db.VarChar(100)
-  eventType String @db.VarChar(40)
-  amount Decimal @db.Decimal(14,2)
-  currency String @db.VarChar(3)
-  occurredAt DateTime @db.Timestamptz(6)
-  processedAt DateTime @db.Timestamptz(6)
-  @@unique([provider,eventId])
+  id                String   @id @default(uuid()) @db.Uuid
+  provider          String   @db.VarChar(40)
+  eventId           String   @db.VarChar(100)
+  providerReference String   @db.VarChar(100)
+  eventType         String   @db.VarChar(40)
+  amount            Decimal  @db.Decimal(14, 2)
+  currency          String   @db.VarChar(3)
+  occurredAt        DateTime @db.Timestamptz(6)
+  processedAt       DateTime @db.Timestamptz(6)
+
+  @@unique([provider, eventId])
 }
 
 model MockPaymentCheckout {
-  id String @id @default(uuid()) @db.Uuid
-  providerReference String @unique @db.VarChar(100)
-  amount Decimal @db.Decimal(14,2)
-  currency String @db.VarChar(3)
-  method PaymentMethod
-  reference String @db.VarChar(80)
-  tokenHash String? @unique @db.VarChar(64)
-  expiresAt DateTime? @db.Timestamptz(6)
-  result PaymentStatus?
-  eventId String? @unique @db.VarChar(100)
-  occurredAt DateTime? @db.Timestamptz(6)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  id                String         @id @default(uuid()) @db.Uuid
+  providerReference String         @unique @db.VarChar(100)
+  amount            Decimal        @db.Decimal(14, 2)
+  currency          String         @db.VarChar(3)
+  method            PaymentMethod
+  reference         String         @db.VarChar(80)
+  tokenHash         String?        @unique @db.VarChar(64)
+  expiresAt         DateTime?      @db.Timestamptz(6)
+  result            PaymentStatus?
+  eventId           String?        @unique @db.VarChar(100)
+  occurredAt        DateTime?      @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
 }
 
 model EmailVerificationToken {
@@ -352,16 +385,18 @@ model Tenant {
   recommendationReasons RecommendationReason[]
   usageRecords          UsageRecord[]
   auditLogs             AuditLog[]
+  provisioning          TenantProvisioning?
 }
 
 model TenantMembership {
-  id        String           @id @default(uuid()) @db.Uuid
-  tenantId  String           @db.Uuid
-  userId    String           @db.Uuid
-  role      TenantRole
-  status    MembershipStatus @default(INVITED)
-  createdAt DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime         @updatedAt @db.Timestamptz(6)
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  userId         String           @db.Uuid
+  role           TenantRole
+  status         MembershipStatus @default(INVITED)
+  isInitialAdmin Boolean          @default(false)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
 
   tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user               User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -375,31 +410,43 @@ model TenantMembership {
 }
 
 model MembershipInvitation {
-  id           String    @id @default(uuid()) @db.Uuid
-  tenantId     String    @db.Uuid
-  membershipId String    @db.Uuid
-  tokenHash    String    @unique @db.VarChar(128)
-  expiresAt    DateTime  @db.Timestamptz(6)
-  acceptedAt   DateTime? @db.Timestamptz(6)
-  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @db.Uuid
+  membershipId      String    @db.Uuid
+  tokenHash         String    @unique @db.VarChar(128)
+  expiresAt         DateTime  @db.Timestamptz(6)
+  acceptedAt        DateTime? @db.Timestamptz(6)
+  invalidatedAt     DateTime? @db.Timestamptz(6)
+  sentAt            DateTime? @db.Timestamptz(6)
+  sendAttempts      Int       @default(0)
+  version           Int       @default(0)
+  lastSendAttemptAt DateTime? @db.Timestamptz(6)
+  lastSendErrorCode String?   @db.VarChar(60)
+  nextSendAttemptAt DateTime? @db.Timestamptz(6)
+  sendLockedAt      DateTime? @db.Timestamptz(6)
+  sendLeaseToken    String?   @db.Uuid
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
 
   membership TenantMembership @relation(fields: [tenantId, membershipId], references: [tenantId, id], onDelete: Cascade)
 
   @@index([tenantId, membershipId, expiresAt])
+  @@index([sentAt, nextSendAttemptAt, sendLockedAt])
 }
 
 model TenantSubscription {
-  id        String             @id @default(uuid()) @db.Uuid
-  tenantId  String             @db.Uuid
-  planId    String             @db.Uuid
-  status    SubscriptionStatus @default(ACTIVE)
-  startsAt  DateTime           @default(now()) @db.Timestamptz(6)
-  endsAt    DateTime?          @db.Timestamptz(6)
-  createdAt DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+  id                  String             @id @default(uuid()) @db.Uuid
+  tenantId            String             @db.Uuid
+  planId              String             @db.Uuid
+  sourceContractingId String?            @unique @db.Uuid
+  status              SubscriptionStatus @default(ACTIVE)
+  startsAt            DateTime           @default(now()) @db.Timestamptz(6)
+  endsAt              DateTime?          @db.Timestamptz(6)
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  tenant            Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan              Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  sourceContracting Contracting? @relation(fields: [sourceContractingId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, status])
   @@index([planId, status])

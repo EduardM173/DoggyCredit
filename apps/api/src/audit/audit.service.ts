@@ -4,6 +4,28 @@ import { AuditWriter, type RequestDecisionEvent, type CommerceAuditEvent } from 
 
 @Injectable()
 export class AuditService extends AuditWriter {
+  async recordProvisioning(event: {
+    tenantId: string;
+    contractingId: string;
+    membershipId: string;
+    planId: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: null,
+        action: "TENANT_PROVISIONED",
+        entityType: "Tenant",
+        entityId: event.tenantId,
+        metadata: {
+          actorKind: "SYSTEM",
+          contractingId: event.contractingId,
+          membershipId: event.membershipId,
+          planId: event.planId,
+        },
+      },
+    });
+  }
   async recordCommerce(event: CommerceAuditEvent): Promise<void> {
     await this.database.client.auditLog.create({
       data: {

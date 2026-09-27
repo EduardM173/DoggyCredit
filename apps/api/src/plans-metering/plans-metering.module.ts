@@ -6,6 +6,8 @@ import { IdentityTenantsModule } from "../identity-tenants/identity-tenants.modu
 import { ContractingAccessService } from "./contracting-access.service.js";
 import { ContractingService } from "./contracting.service.js";
 import { PaymentEventProcessor } from "./payment-event-processor.js";
+import { ProvisioningPlans } from "./provisioning-contract.js";
+import { ProvisioningPlansService } from "./provisioning-plans.service.js";
 import { ContractingGuard, PaymentPublicRateGuard } from "./contracting.guards.js";
 import {
   ContractingController,
@@ -16,11 +18,13 @@ import {
   imports: [PrismaModule, PaymentsModule, AuditModule, IdentityTenantsModule],
   controllers: [ContractingController, AdminContractingController, MockPaymentController],
   providers: [
+    { provide: ProvisioningPlans, useClass: ProvisioningPlansService },
     ContractingAccessService,
     ContractingService,
     PaymentEventProcessor,
     ContractingGuard,
     PaymentPublicRateGuard,
   ],
+  exports: [ProvisioningPlans],
 })
 export class PlansMeteringModule {}

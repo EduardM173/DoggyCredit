@@ -471,8 +471,8 @@ export function ContractingPage() {
                         <CheckCircle2 />
                         <p>
                           {payment ? "Pago simulado confirmado." : "Este plan no requiere pago."} La
-                          contratación continuará con el aprovisionamiento del servicio. Todavía no se ha
-                          creado el espacio institucional.
+                          preparación del espacio institucional se procesa automáticamente. El administrador
+                          inicial recibirá una invitación por correo.
                         </p>
                       </div>
                       <Link className="button commerce-secondary" to="/">
