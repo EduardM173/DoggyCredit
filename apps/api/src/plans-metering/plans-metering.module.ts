@@ -1,0 +1,26 @@
+import { Module } from "@nestjs/common";
+import { PrismaModule } from "../infrastructure/prisma/prisma.module.js";
+import { PaymentsModule } from "../infrastructure/payments/payments.module.js";
+import { AuditModule } from "../audit/audit.module.js";
+import { IdentityTenantsModule } from "../identity-tenants/identity-tenants.module.js";
+import { ContractingAccessService } from "./contracting-access.service.js";
+import { ContractingService } from "./contracting.service.js";
+import { PaymentEventProcessor } from "./payment-event-processor.js";
+import { ContractingGuard, PaymentPublicRateGuard } from "./contracting.guards.js";
+import {
+  ContractingController,
+  AdminContractingController,
+  MockPaymentController,
+} from "./contracting.controller.js";
+@Module({
+  imports: [PrismaModule, PaymentsModule, AuditModule, IdentityTenantsModule],
+  controllers: [ContractingController, AdminContractingController, MockPaymentController],
+  providers: [
+    ContractingAccessService,
+    ContractingService,
+    PaymentEventProcessor,
+    ContractingGuard,
+    PaymentPublicRateGuard,
+  ],
+})
+export class PlansMeteringModule {}

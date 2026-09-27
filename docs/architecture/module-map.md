@@ -14,8 +14,8 @@ NestJS / Express: una aplicacion backend
   |-- Financial Integrations  [frontera documentada]
   |-- Financial Profile       [frontera documentada]
   |-- Recommendations         [frontera documentada]
-  |-- Plans & Metering         [frontera documentada]
-  `-- Audit                   [decisiones HU-03 implementadas]
+  |-- Plans & Metering         [contratacion y pagos HU-04 implementados]
+  `-- Audit                   [decisiones HU-03 y eventos HU-04 implementados]
        Todas las capacidades usan infraestructura segun necesidad:
        Prisma / PostgreSQL / configuracion / adapters externos
 ```
@@ -57,12 +57,14 @@ Los contratos futuros precisaran entrada, salida, errores, autorizacion e idempo
 - Salida: `InstitutionRequestReceipt` con `id`, `contactEmail`, `status: EMAIL_PENDING`, `emailDelivery` y `retryAfterSeconds`. No retorna entidades Prisma ni datos administrativos.
 - Persistencia: solo `InstitutionRequest`; conserva locks PostgreSQL ordenados y transaccion atomica para duplicados. Un repository no aporta suficiente valor en esta iteracion.
 - Errores actuales: HTTP 400 por entrada invalida y 409 por duplicado. El servicio conserva `ConflictException` de Nest como compromiso local; si se reutiliza desde otro transporte, mapear errores propios en la frontera cuando aporte valor.
-- El contrato de aplicacion es interno a Identity. El modulo no exporta providers ni tiene `public.ts`, porque no existe un consumidor entre capacidades. Se crea esa superficie solamente cuando haga falta.
+- Hasta HU-03 el contrato de solicitudes era interno. HU-04 agrega `identity-tenants/public.ts` con `RequestContextReader` para la consulta autorizada desde Plans & Metering y guards reutilizables para su frontera HTTP administrativa. No expone Prisma ni el servicio completo de solicitudes.
 - HU-02 agrega `email-verification/` dentro de Identity & Tenants y controla `EmailVerificationToken`. Envia mediante `infrastructure/email/EmailSender -> ResendEmailAdapter`. Verificacion y reenvio usan contratos propios y llamadas en proceso. No crea tenants ni usuarios. Ver [contrato HU-02](../hu-02.md).
 
 ## Convencion de interfaz publica
 
-HU-03 agrega auth, `AdminSession` y revision dentro de Identity & Tenants. Consume `audit/public.ts` mediante AuditModule; Audit implementa AuditWriter y es el unico que inserta AuditLog. Atomicidad por DatabaseUnitOfWork compartido, sin transferir Prisma por contratos. Ver [ADR-002](ADR-002-atomic-review-audit.md) y [HU-03](../hu-03.md). El Sprint 1 corregido prevalece desde HU-03: APPROVED solo habilita contratacion posterior, no provisioning. Contratacion/aprovisionamiento siguen fuera del alcance implementado.
+HU-03 agrega auth, `AdminSession` y revision dentro de Identity & Tenants. Consume `audit/public.ts` mediante AuditModule; Audit implementa AuditWriter y es el unico que inserta AuditLog. Atomicidad por DatabaseUnitOfWork compartido, sin transferir Prisma por contratos. Ver [ADR-002](ADR-002-atomic-review-audit.md) y [HU-03](../hu-03.md). El Sprint 1 corregido prevalece desde HU-03: APPROVED solo habilita contratacion posterior, no provisioning. HU-04 implementa contratacion; aprovisionamiento sigue pendiente.
+
+HU-04 agrega propiedad de `Contracting`, `Payment`, `ContractingCredential` y `PaymentProviderEvent` a Plans & Metering, ademas de los modelos ya asignados. `MockPaymentCheckout` es almacenamiento tecnico exclusivo del adapter. Dependencias: Plans -> Identity (contexto/guards), Plans -> Audit y Plans -> PaymentProvider. Infrastructure no importa negocio; su resultado normalizado lo procesa Plans en una llamada en proceso. No hay HTTP interno, bus ni modulo global. Ver [ADR-003](ADR-003-contracting-mock-payments.md). Al implementar HU-05 no agregar una dependencia inversa Identity -> Plans sin revisar composicion para evitar ciclos.
 
 Mantener cada capacidad en `apps/api/src/<slug>/`. Se permite importar externamente `<slug>/<slug>.module.ts` para composicion Nest y `<slug>/public.ts` para contratos/providers deliberadamente expuestos. Los imports ESM usan extension `.js`. `public.ts` solo reexportara la interfaz realmente necesaria y los providers deberan estar en `exports` de Nest; no reexportar todo el directorio.
 

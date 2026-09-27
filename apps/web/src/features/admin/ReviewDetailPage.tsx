@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Building2, CheckCircle2, Clock3, Info, MailCheck, XCircle } from "lucide-react";
 import { plans } from "../institution-requests/api";
+import { ContractingAccessAction } from "../contracting/ContractingAccessAction";
 import { adminApi, AdminError, displayDate, statusLabels, type ReviewDetail } from "./api";
 
 const institutionLabels: Record<string, string> = {
@@ -268,6 +269,7 @@ export function ReviewDetailPage() {
           </div>
         )}
       </footer>
+      {detail.status === "APPROVED" && <ContractingAccessAction key={detail.id} requestId={detail.id} />}
       <dialog
         ref={dialog}
         className="admin-dialog"

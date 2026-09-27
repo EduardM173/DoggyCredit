@@ -13,6 +13,43 @@ const pool = new Pool({ connectionString });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function main() {
+  if (process.env.SEED_DEMO_PLANS === "true") {
+    if (!["development", "test"].includes(process.env.NODE_ENV ?? ""))
+      throw new Error("Demo plans seed is restricted to development/test.");
+    const plans = [
+      {
+        code: "BASIC",
+        name: "Básico",
+        price: "0.00",
+        requiresPayment: false,
+        features: ["Funciones esenciales", "Gestión básica de usuarios", "Soporte por correo electrónico"],
+      },
+      {
+        code: "PROFESSIONAL",
+        name: "Profesional",
+        price: "349.00",
+        requiresPayment: true,
+        features: ["Funciones básicas incluidas", "Reportes avanzados", "Soporte prioritario"],
+      },
+      {
+        code: "ENTERPRISE",
+        name: "Empresarial",
+        price: "799.00",
+        requiresPayment: true,
+        features: [
+          "Funciones profesionales incluidas",
+          "Integraciones personalizadas",
+          "Acompañamiento especializado",
+        ],
+      },
+    ];
+    for (const plan of plans)
+      await prisma.plan.upsert({
+        where: { code: plan.code },
+        update: {},
+        create: { ...plan, currency: "BOB", billingPeriod: "MONTHLY" },
+      });
+  }
   if (process.env.SEED_DEMO_OPERATOR !== "true") return;
   if (!["development", "test"].includes(process.env.NODE_ENV ?? "")) {
     throw new Error("Demo operator seed is restricted to development/test.");

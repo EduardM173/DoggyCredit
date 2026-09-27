@@ -65,10 +65,10 @@ export function AdminLayout() {
             <FileText size={21} />
             Solicitudes
           </NavLink>
-          <button disabled title="Disponible en una próxima historia">
+          <NavLink to="/admin/contrataciones">
             <CreditCard size={21} />
             Contrataciones
-          </button>
+          </NavLink>
           <button disabled title="Disponible en una próxima historia">
             <Building2 size={21} />
             Instituciones

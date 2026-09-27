@@ -5,6 +5,7 @@ import { router } from "./router";
 import "./styles.css";
 import "./features/institution-requests/email-verification.css";
 import "./features/admin/admin.css";
+import "./features/contracting/contracting.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

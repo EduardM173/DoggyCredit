@@ -10,8 +10,13 @@ import { AdminLayout } from "./features/admin/AdminLayout";
 import { AdminLoginPage } from "./features/admin/AdminLoginPage";
 import { ReviewListPage } from "./features/admin/ReviewListPage";
 import { ReviewDetailPage } from "./features/admin/ReviewDetailPage";
+import { ContractingPage } from "./features/contracting/ContractingPage";
+import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
+import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
 
 export const router = createBrowserRouter([
+  { path: "/contratacion", element: <ContractingPage /> },
+  { path: "/doggypay-demo", element: <DoggyPayPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
   {
     path: "/admin",
@@ -19,6 +24,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <ReviewListPage /> },
       { path: "solicitudes", element: <ReviewListPage /> },
+      { path: "contrataciones", element: <AdminContractingsPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
     ],
   },

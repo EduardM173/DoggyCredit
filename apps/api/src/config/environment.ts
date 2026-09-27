@@ -40,4 +40,30 @@ export const environmentValidationSchema = Joi.object({
   EMAIL_VERIFICATION_TOKEN_TTL_MINUTES: Joi.number().integer().min(1).max(10080).default(30),
   EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: Joi.number().integer().min(10).max(86400).default(60),
   ADMIN_SESSION_TTL_MINUTES: Joi.number().integer().min(1).max(1440).default(120),
+  PAYMENT_PROVIDER: Joi.string()
+    .valid("mock", "disabled")
+    .when("NODE_ENV", {
+      is: "production",
+      then: Joi.string().default("disabled"),
+      otherwise: Joi.string().default("mock"),
+    }),
+  CONTRACTING_ACCESS_TOKEN_TTL_MINUTES: Joi.number().integer().min(1).max(10080).default(60),
+  CONTRACTING_SESSION_TTL_MINUTES: Joi.number().integer().min(1).max(1440).default(60),
+  MOCK_PAYMENT_CHECKOUT_TTL_MINUTES: Joi.number().integer().min(1).max(120).default(15),
+  MOCK_PAYMENT_PUBLIC_URL: Joi.string()
+    .uri({ scheme: ["http", "https"] })
+    .custom((value, helpers) => {
+      const url = new URL(value);
+      if (
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        url.pathname !== "/" ||
+        (helpers.state.ancestors[0].NODE_ENV === "production" && url.protocol !== "https:")
+      )
+        return helpers.error("any.invalid");
+      return value;
+    })
+    .optional(),
 });

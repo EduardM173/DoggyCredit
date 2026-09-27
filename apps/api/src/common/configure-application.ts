@@ -11,13 +11,24 @@ export function configureApplication(app: INestApplication) {
   app.setGlobalPrefix("api");
   app.use(helmet());
   app.use((request: Request, response: Response, next: NextFunction) => {
-    if (request.path.startsWith("/api/admin/") || request.path.startsWith("/api/institution-requests"))
+    if (
+      ["/api/admin/", "/api/institution-requests", "/api/contracting", "/api/mock-payment-provider"].some(
+        (prefix) => request.path.startsWith(prefix),
+      )
+    )
       response.setHeader("Cache-Control", "no-store");
     response.setHeader("Referrer-Policy", "no-referrer");
     next();
   });
   app.enableCors({
-    origin: config.getOrThrow<string>("WEB_ORIGIN"),
+    origin: [
+      ...new Set([
+        config.getOrThrow<string>("WEB_ORIGIN"),
+        ...(config.get<string>("MOCK_PAYMENT_PUBLIC_URL")
+          ? [new URL(config.getOrThrow<string>("MOCK_PAYMENT_PUBLIC_URL")).origin]
+          : []),
+      ]),
+    ],
     credentials: true,
     exposedHeaders: ["Retry-After"],
   });

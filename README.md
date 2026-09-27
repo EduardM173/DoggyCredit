@@ -84,7 +84,9 @@ npm run prisma:seed
 
 El seed es idempotente y solo crea el operador de demo cuando `SEED_DEMO_OPERATOR=true` y `NODE_ENV=development` o `test`. Configura `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local; no hay contraseña compartida en el código. En producción no está permitido.
 
-HU-03: abre `http://localhost:5173/admin/login` para revisar solicitudes con el rol `OPERATOR`. Sesión HttpOnly con TTL configurable (120 minutos por defecto), protección CSRF, búsqueda/filtros/paginación reales y decisión con auditoría atómica. Aprobar solo autoriza a continuar a contratación: no crea tenant ni suscripción y no activa `planInterest`. Consulta [docs/hu-03.md](docs/hu-03.md) y [ADR-002](docs/architecture/ADR-002-atomic-review-audit.md). HU-04 y HU-05 no están implementadas.
+HU-03: abre `http://localhost:5173/admin/login` para revisar solicitudes con el rol `OPERATOR`. Sesión HttpOnly con TTL configurable (120 minutos por defecto), protección CSRF, búsqueda/filtros/paginación reales y decisión con auditoría atómica. Aprobar solo autoriza a continuar a contratación: no crea tenant ni suscripción y no activa `planInterest`. Consulta [docs/hu-03.md](docs/hu-03.md) y [ADR-002](docs/architecture/ADR-002-atomic-review-audit.md).
+
+HU-04: desde el detalle de una solicitud aprobada, genera el enlace de contratación. Permite confirmar un plan gratuito o de pago, simular transferencia/QR/tarjeta y consultar el resultado automáticamente. `SEED_DEMO_PLANS=true` habilita tres planes ficticios en desarrollo/test; ejecuta el seed para crearlos. No se cobra dinero real. El aprovisionamiento de HU-05 sigue pendiente: confirmar no crea tenants, usuarios institucionales ni suscripciones. Consulta [docs/hu-04.md](docs/hu-04.md) para la demo Wi-Fi, configuración, estados y pruebas, y [ADR-003](docs/architecture/ADR-003-contracting-mock-payments.md) para las fronteras SOA.
 
 Para aplicar migraciones ya versionadas en CI o en un ambiente desplegado:
 
