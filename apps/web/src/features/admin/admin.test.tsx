@@ -107,6 +107,36 @@ describe("HU-03 administrative interface", () => {
     await screen.findByRole("heading", { name: "Iniciar sesión" });
     expect(router.state.location.pathname).toBe("/admin/login");
   });
+  it("recovers when the first session request fails during API startup", async () => {
+    const original = fetchMock.getMockImplementation()!;
+    let first = true;
+    fetchMock.mockImplementation((url: string, options: unknown) => {
+      if (url.endsWith("/auth/session") && first) {
+        first = false;
+        return Promise.reject(new TypeError("NetworkError when attempting to fetch resource."));
+      }
+      return original(url, options);
+    });
+    renderFlow();
+    await screen.findByText("Institución de prueba");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/auth/session"))).toHaveLength(2);
+  });
+  it("waits for the API after a temporary proxy failure", async () => {
+    const original = fetchMock.getMockImplementation()!;
+    let first = true;
+    fetchMock.mockImplementation((url: string, options: unknown) => {
+      if (url.endsWith("/auth/session") && first) {
+        first = false;
+        return response(null, 503);
+      }
+      return original(url, options);
+    });
+    renderFlow();
+    await screen.findByText("Institución de prueba");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith("/auth/session"))).toHaveLength(2);
+  });
   it("logs in with cookies without storing credentials and toggles password visibility", async () => {
     authorized = false;
     renderFlow("/admin/login");
@@ -242,6 +272,7 @@ describe("HU-03 administrative interface", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirmar decisión" }));
     await screen.findByRole("heading", { name: "Solicitud rechazada" });
     expect(screen.getByText(/La solicitud cambió o ya fue resuelta/)).toBeInTheDocument();
+    expect(screen.getByText(/La solicitud cambió o ya fue resuelta/)).toHaveClass("admin-alert-info");
     expect(screen.queryByRole("button", { name: "Aprobar solicitud" })).not.toBeInTheDocument();
   });
   it("does not offer decisions for unverified mail", async () => {

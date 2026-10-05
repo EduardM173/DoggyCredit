@@ -17,6 +17,7 @@ export function ReviewDetailPage() {
   const [detail, setDetail] = useState<ReviewDetail | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [conflictNotice, setConflictNotice] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [decision, setDecision] = useState<"approve" | "reject" | null>(null);
   const [reason, setReason] = useState("");
@@ -43,6 +44,7 @@ export function ReviewDetailPage() {
     submitting.current = true;
     setBusy(true);
     setNotice("");
+    setConflictNotice(false);
     try {
       const data = await adminApi<ReviewDetail>(`/institution-requests/${id}/${decision}`, {
         body: decision === "reject" && reason.trim() ? { reason: reason.trim() } : {},
@@ -59,6 +61,7 @@ export function ReviewDetailPage() {
       else if (e instanceof AdminError && e.status === 409) {
         setDetail(null);
         setNotice(e.message);
+        setConflictNotice(true);
         setDecision(null);
         setAttempt(attempt + 1);
       } else setNotice(e instanceof Error ? e.message : "No se pudo registrar la decisión.");
@@ -107,7 +110,8 @@ export function ReviewDetailPage() {
         <span className={`admin-status admin-status-${detail.status}`}>{statusLabels[detail.status]}</span>
       </header>
       {notice && !decision && (
-        <p className="admin-alert" role="status">
+        <p className={`admin-alert${conflictNotice ? " admin-alert-info" : ""}`} role="status">
+          {conflictNotice && <Info size={18} aria-hidden="true" />}
           {notice}
         </p>
       )}
