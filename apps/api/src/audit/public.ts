@@ -5,6 +5,15 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
+  abstract recordInstitutionPreparation(event: {
+    tenantId: string;
+    actorUserId: string;
+    action:
+      | "INSTITUTION_INFORMATION_CONFIRMED"
+      | "BANK_MOCK_ENABLED"
+      | "INSTITUTION_PRODUCTS_CONFIRMED"
+      | "INSTITUTION_PREPARED";
+  }): Promise<void>;
   abstract recordMembershipActivation(event: {
     userId: string;
     tenantId: string;

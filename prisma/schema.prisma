@@ -386,15 +386,17 @@ model AdminSession {
 }
 
 model Tenant {
-  id                   String          @id @default(uuid()) @db.Uuid
-  slug                 String          @unique @db.VarChar(80)
-  legalName            String          @db.VarChar(180)
-  taxId                String          @unique @db.VarChar(40)
-  institutionType      InstitutionType
-  status               TenantStatus    @default(ACTIVE)
-  createdFromRequestId String?         @unique @db.Uuid
-  createdAt            DateTime        @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime        @updatedAt @db.Timestamptz(6)
+  id                     String          @id @default(uuid()) @db.Uuid
+  slug                   String          @unique @db.VarChar(80)
+  legalName              String          @db.VarChar(180)
+  taxId                  String          @unique @db.VarChar(40)
+  institutionType        InstitutionType
+  status                 TenantStatus    @default(ACTIVE)
+  informationConfirmedAt DateTime?       @db.Timestamptz(6)
+  productsConfirmedAt    DateTime?       @db.Timestamptz(6)
+  createdFromRequestId   String?         @unique @db.Uuid
+  createdAt              DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime        @updatedAt @db.Timestamptz(6)
 
   createdFromRequest    InstitutionRequest?        @relation(fields: [createdFromRequestId], references: [id], onDelete: SetNull)
   memberships           TenantMembership[]

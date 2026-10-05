@@ -35,9 +35,19 @@ import {
 } from "./institution-auth/institution-auth.guards.js";
 import { TenantContextGuard } from "./institution-auth/tenant-context.guard.js";
 import { PlanCatalogModule } from "../plans-metering/public.js";
+import { FinancialIntegrationsModule } from "../financial-integrations/financial-integrations.module.js";
+import { RecommendationsModule } from "../recommendations/recommendations.module.js";
+import { TenantPreparationService } from "./institution-auth/tenant-preparation.service.js";
 
 @Module({
-  imports: [PrismaModule, EmailModule, AuditModule, PlanCatalogModule],
+  imports: [
+    PrismaModule,
+    EmailModule,
+    AuditModule,
+    PlanCatalogModule,
+    FinancialIntegrationsModule,
+    RecommendationsModule,
+  ],
   controllers: [
     InstitutionAuthController,
     InstitutionTenantController,
@@ -49,6 +59,7 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
     RequestReviewController,
   ],
   providers: [
+    TenantPreparationService,
     InstitutionAuthService,
     InstitutionLoginRateGuard,
     InstitutionOriginGuard,
