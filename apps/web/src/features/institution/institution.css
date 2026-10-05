@@ -1,0 +1,490 @@
+.institution-login {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f3faff;
+}
+.institution-login-header {
+  min-height: 82px;
+  background: #092c50;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px max(24px, 5%);
+  gap: 20px;
+}
+.institution-help {
+  border: 0;
+  background: transparent;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.institution-login-main {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6%;
+  padding: 60px max(36px, 6%);
+  align-items: center;
+  overflow: hidden;
+}
+.institution-login-art {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 53%;
+  background:
+    linear-gradient(90deg, rgb(243 250 255 / 81%), rgb(243 250 255 / 70%)),
+    url("/images/institution-login-background.webp") center / cover;
+  pointer-events: none;
+}
+.institution-login-intro,
+.institution-login-panel {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+.institution-login-intro {
+  max-width: 590px;
+}
+.institution-eyebrow {
+  color: #0070db;
+  font-size: 13px;
+  font-weight: 700;
+}
+.institution-login-intro h1 {
+  font-size: 48px;
+  line-height: 1.12;
+  margin: 22px 0;
+}
+.institution-login-intro h1 span {
+  display: block;
+  color: #00b77c;
+}
+.institution-login-intro > p:not(.institution-eyebrow) {
+  color: #3c6287;
+  font-size: 20px;
+  max-width: 530px;
+}
+.institution-login-intro ul {
+  list-style: none;
+  padding: 0;
+  margin: 36px 0 0;
+  display: grid;
+  gap: 26px;
+}
+.institution-login-intro li {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.institution-login-intro li > svg {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  color: #006cdf;
+  background: #e2f1fc;
+  padding: 13px;
+  border-radius: 7px;
+}
+.institution-login-intro li strong {
+  font-size: 18px;
+}
+.institution-login-intro li p {
+  color: #4d6d8f;
+  margin-top: 5px;
+}
+.institution-login-panel {
+  justify-self: center;
+  width: min(540px, 100%);
+  padding: 42px;
+  background: white;
+  border: 1px solid #dbeaf7;
+  border-radius: 8px;
+  box-shadow: 0 15px 40px rgb(8 58 110 / 8%);
+}
+.institution-login-panel h2 {
+  text-align: center;
+  font-size: 34px;
+}
+.institution-login-panel > p {
+  text-align: center;
+  color: #536e92;
+  margin-top: 8px;
+}
+.institution-login-panel form {
+  margin-top: 28px;
+}
+.institution-login-panel label {
+  display: block;
+  font-weight: 700;
+  margin: 22px 0 9px;
+}
+.institution-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #bcd5eb;
+  border-radius: 6px;
+  min-height: 54px;
+  padding: 0 14px;
+}
+.institution-input > svg {
+  color: #4a6990;
+}
+.institution-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #092449;
+}
+.institution-input input::-ms-reveal {
+  display: none;
+}
+.institution-input:focus-within {
+  outline: 2px solid #0874db;
+}
+.institution-input button {
+  border: 0;
+  background: transparent;
+  color: #315e8d;
+  display: grid;
+  place-items: center;
+  padding: 5px;
+}
+.institution-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 30px;
+  background: #0ac987;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 700;
+  color: #052c43;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.institution-submit:disabled {
+  opacity: 0.7;
+}
+.institution-login-panel .institution-invite-note {
+  border-top: 1px solid #e0eaf3;
+  margin-top: 30px;
+  padding-top: 24px;
+  font-size: 14px;
+}
+.institution-error {
+  color: #a12e36;
+  margin-top: 14px;
+}
+.institution-login-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: white;
+  border-top: 1px solid #dce8f4;
+  padding: 18px max(24px, 5%);
+}
+.institution-login-footer > a:not(.brand) {
+  color: #4a698a;
+}
+.institution-selection,
+.institution-gate {
+  min-height: 100vh;
+  padding: 48px max(24px, 8%);
+  background: #f3faff;
+}
+.institution-selection h1 {
+  margin: 52px 0 18px;
+  font-size: 32px;
+}
+.institution-selection-list {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+  margin: 24px 0;
+}
+.institution-selection-list button {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  text-align: left;
+  border: 1px solid #cfe0ef;
+  background: white;
+  padding: 18px;
+  border-radius: 6px;
+  color: #082c52;
+}
+.institution-selection-list button:hover {
+  border-color: #0874db;
+}
+.institution-text-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #315e8d;
+  margin-top: 30px;
+}
+.institution-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  background: #f0f8fe;
+}
+.institution-sidebar {
+  background: #082c53;
+  color: white;
+  padding: 25px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.institution-sidebar > small {
+  margin-left: 42px;
+  color: #b9d5ee;
+}
+.institution-sidebar nav {
+  margin-top: 52px;
+}
+.institution-nav-active {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 16px;
+  border-radius: 5px;
+  background: #0a4d92;
+  border-left: 3px solid #1687f2;
+}
+.institution-sidebar > button {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  color: white;
+  padding: 16px;
+  text-align: left;
+}
+.institution-workspace {
+  min-width: 0;
+}
+.institution-topbar {
+  min-height: 80px;
+  background: white;
+  border-bottom: 1px solid #dce9f5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 32px;
+}
+.institution-current {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: #073669;
+  min-width: 0;
+}
+.institution-current strong {
+  overflow-wrap: anywhere;
+}
+.institution-person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.institution-person small {
+  color: #58769b;
+}
+.institution-dashboard {
+  padding: 34px;
+}
+.institution-dashboard h1 {
+  font-size: 36px;
+  margin: 10px 0 0;
+}
+.institution-lead {
+  color: #4a6790;
+  font-size: 18px;
+  margin: 6px 0 28px;
+}
+.institution-home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.institution-home-panel {
+  display: flex;
+  gap: 22px;
+  min-width: 0;
+  border: 1px solid #d4e8f7;
+  border-radius: 7px;
+  background: white;
+  padding: 28px;
+}
+.institution-panel-icon {
+  color: #006fe1;
+  flex-shrink: 0;
+  background: #e4f1fc;
+  padding: 8px;
+  box-sizing: content-box;
+  border-radius: 7px;
+}
+.institution-panel-icon.success {
+  color: #008e62;
+  background: #dff8ee;
+}
+.institution-home-panel > div {
+  min-width: 0;
+  flex: 1;
+}
+.institution-home-panel h2 {
+  font-size: 21px;
+  margin: 4px 0 18px;
+}
+.institution-home-panel p {
+  color: #4c6990;
+}
+.institution-home-panel dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin: 0;
+}
+.institution-home-panel dt,
+.institution-home-panel dd {
+  margin: 0;
+  padding: 9px 4px;
+  border-bottom: 1px solid #e3eef7;
+  overflow-wrap: anywhere;
+}
+.institution-home-panel dt {
+  color: #526f96;
+}
+.institution-muted {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 12px;
+  background: #edf6fd;
+  border-radius: 5px;
+}
+@media (max-width: 900px) {
+  .institution-login-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding: 30px 24px;
+  }
+  .institution-login-art {
+    width: 100%;
+    height: 620px;
+    background:
+      linear-gradient(rgb(243 250 255 / 83%), rgb(243 250 255 / 90%)),
+      url("/images/institution-login-background.webp") center / cover;
+  }
+  .institution-login-intro h1 {
+    font-size: 36px;
+  }
+  .institution-login-intro ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .institution-login-panel {
+    justify-self: stretch;
+    width: 100%;
+    max-width: 620px;
+  }
+  .institution-shell {
+    grid-template-columns: 1fr;
+  }
+  .institution-sidebar {
+    flex-direction: row;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 20px;
+  }
+  .institution-sidebar > small,
+  .institution-sidebar nav {
+    display: none;
+  }
+  .institution-sidebar > button {
+    margin: 0 0 0 auto;
+  }
+  .institution-home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px) {
+  .institution-login-header,
+  .institution-login-footer {
+    padding-inline: 16px;
+  }
+  .institution-login-header .brand {
+    font-size: 18px;
+  }
+  .institution-help {
+    font-size: 0;
+  }
+  .institution-login-main {
+    padding-inline: 16px;
+  }
+  .institution-login-intro h1 {
+    font-size: 32px;
+  }
+  .institution-login-intro ul {
+    grid-template-columns: 1fr;
+  }
+  .institution-login-panel {
+    padding: 26px 20px;
+  }
+  .institution-login-panel h2 {
+    font-size: 29px;
+  }
+  .institution-login-footer .brand {
+    font-size: 18px;
+  }
+  .institution-dashboard {
+    padding: 24px 16px;
+  }
+  .institution-dashboard h1 {
+    font-size: 29px;
+  }
+  .institution-home-panel {
+    padding: 18px;
+    gap: 12px;
+  }
+  .institution-panel-icon {
+    width: 26px;
+    height: 26px;
+    padding: 6px;
+  }
+  .institution-home-panel h2 {
+    font-size: 18px;
+  }
+  .institution-home-panel dl {
+    grid-template-columns: 1fr;
+  }
+  .institution-home-panel dt {
+    border: 0;
+    padding-bottom: 0;
+  }
+  .institution-home-panel dd {
+    padding-top: 2px;
+  }
+  .institution-topbar {
+    padding: 14px 16px;
+  }
+  .institution-person {
+    font-size: 13px;
+  }
+}

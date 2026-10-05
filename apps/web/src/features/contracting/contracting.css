@@ -1,0 +1,570 @@
+.commerce-page {
+  min-height: 100vh;
+  background: #f5faff;
+  color: #092449;
+  display: flex;
+  flex-direction: column;
+  letter-spacing: 0;
+}
+.commerce-header {
+  background: #082b51;
+  min-height: 80px;
+  padding: 18px max(24px, 5%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.commerce-header > a:not(.brand) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+}
+.commerce-main {
+  width: min(1440px, 100%);
+  margin: auto;
+  padding: 36px 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 52px;
+  align-items: start;
+}
+.commerce-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: #006bd8;
+  margin: 12px 0 20px;
+}
+.commerce-intro h1 {
+  font-size: 42px;
+  line-height: 1.13;
+  margin: 0 0 22px;
+  max-width: 540px;
+}
+.commerce-intro h1 span {
+  color: #009d72;
+}
+.commerce-intro > p:not(.commerce-eyebrow) {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #5c7291;
+}
+.commerce-institution {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 0;
+  border-block: 1px solid #d7e7f3;
+  margin-top: 24px;
+}
+.commerce-institution > svg {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  color: #0074e6;
+}
+.commerce-institution h2 {
+  font-size: 23px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.commerce-institution p {
+  margin: 0;
+  color: #627793;
+}
+.commerce-contact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 22px 0;
+  margin: 0;
+  border-bottom: 1px solid #d7e7f3;
+}
+.commerce-page dt {
+  font-size: 11px;
+  color: #60718b;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.commerce-page dd {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.commerce-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  background: #eaf5fc;
+  border-left: 3px solid #9bd2ed;
+  padding: 15px;
+  margin: 18px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #436485;
+}
+.commerce-note > svg {
+  flex-shrink: 0;
+  color: #0678e8;
+  margin-top: 3px;
+}
+.commerce-note p {
+  margin: 0;
+}
+.commerce-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 26px 0;
+}
+.commerce-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: #6e7e92;
+}
+.commerce-steps li > span {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #bdcfe2;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.commerce-steps .is-current {
+  color: #063858;
+  font-weight: 600;
+}
+.commerce-steps .is-current > span {
+  background: #04ae83;
+  border-color: #04ae83;
+  color: white;
+}
+.commerce-flow {
+  min-width: 0;
+  background: white;
+  border: 1px solid #dce8f5;
+  border-radius: 8px;
+  padding: 28px;
+}
+.commerce-flow > h2 {
+  font-size: 30px;
+  line-height: 1.2;
+  text-align: center;
+  margin: 15px 0;
+}
+.commerce-flow > p {
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5b7492;
+}
+.commerce-flow .commerce-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #00865c;
+  margin: 0 0 16px;
+}
+.commerce-options {
+  border: 0;
+  padding: 0;
+  margin: 20px 0;
+  min-width: 0;
+}
+.commerce-options legend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.commerce-options > label {
+  display: grid;
+  grid-template-columns: 20px minmax(100px, 0.8fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 17px 14px;
+  margin: 10px 0;
+  border: 1px solid #cadaef;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.commerce-options > label.is-selected {
+  background: #edfcf5;
+  border-color: #02b98b;
+}
+.commerce-options input {
+  accent-color: #00a67a;
+  width: 18px;
+  height: 18px;
+}
+.commerce-options strong {
+  font-size: 15px;
+}
+.commerce-options b {
+  display: block;
+  margin-top: 9px;
+  font-size: 18px;
+}
+.commerce-options ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  color: #547292;
+  display: grid;
+  gap: 6px;
+}
+.commerce-options li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.commerce-options li > svg {
+  flex-shrink: 0;
+  color: #00a576;
+}
+.commerce-methods > label {
+  grid-template-columns: 20px 30px minmax(0, 1fr);
+}
+.commerce-methods > label > svg {
+  color: #0070dd;
+}
+.commerce-methods p {
+  font-size: 13px;
+  color: #668098;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+.commerce-page .button,
+.doggypay .button {
+  border-radius: 5px;
+  min-height: 44px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 12px 18px;
+  text-decoration: none;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+}
+.commerce-primary {
+  background: #00ad80;
+  color: #002a35;
+  border: 1px solid #00ad80;
+  width: 100%;
+}
+.commerce-secondary {
+  background: #eff6fc;
+  color: #165391;
+  border: 1px solid #c6daef;
+}
+.commerce-danger {
+  background: #fff0ef;
+  color: #b62e38;
+  border: 1px solid #e3acaf;
+}
+.commerce-page button:disabled,
+.doggypay button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.commerce-page .commerce-muted {
+  font-size: 12px;
+  color: #667f99;
+  line-height: 1.5;
+  margin: 16px 0;
+}
+.commerce-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 18px 0;
+  border-block: 1px solid #dbe9f4;
+  margin: 20px 0;
+}
+.commerce-summary > div {
+  flex: 1;
+  min-width: 95px;
+}
+.commerce-simulation {
+  background: #fff7dc;
+  color: #715719;
+  border-left: 3px solid #d8ab35;
+  padding: 12px 15px;
+  margin: 18px 0;
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.commerce-payment-state {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #eaf4ff;
+  padding: 22px 18px;
+  margin: 20px 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.commerce-payment-state > svg {
+  flex-shrink: 0;
+  color: #0577e5;
+}
+.commerce-payment-state p {
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.commerce-payment-state.state-PAID {
+  background: #e5f8ef;
+  color: #006b4c;
+}
+.commerce-payment-state.state-FAILED,
+.commerce-payment-state.state-CANCELLED {
+  background: #fff0ed;
+  color: #a63d3d;
+}
+.commerce-checkout {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin: 20px 0;
+}
+.commerce-checkout img {
+  width: 280px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.commerce-checkout small {
+  font-size: 12px;
+  color: #5e7187;
+}
+.commerce-error {
+  background: #fff0ed;
+  color: #983c3b;
+  border-left: 3px solid #c96350;
+  padding: 14px;
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.commerce-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: white;
+  border-top: 1px solid #dce8f2;
+  padding: 18px 5%;
+}
+.commerce-footer > span {
+  font-size: 12px;
+  color: #617994;
+}
+.doggypay {
+  width: min(480px, 100%);
+  padding: 24px;
+  min-height: 100vh;
+  margin: auto;
+  color: #092449;
+  letter-spacing: 0;
+  background: white;
+}
+.doggypay header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.doggypay header > svg {
+  color: #00a57c;
+}
+.doggypay h1 {
+  font-size: 26px;
+  margin: 14px 0;
+}
+.doggypay h1 span {
+  font-weight: 400;
+  color: #537392;
+}
+.doggypay h2 {
+  font-size: 36px;
+  margin: 12px 0;
+}
+.doggypay-reference {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  color: #607790;
+  line-height: 1.5;
+}
+.doggypay-actions {
+  display: grid;
+  gap: 12px;
+}
+.doggypay footer {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6a7e95;
+  margin-top: 30px;
+}
+.admin-payment-attempt {
+  padding: 8px 0;
+  border-bottom: 1px solid #e0eaf3;
+}
+.admin-payment-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-payment-actions button {
+  background: white;
+  color: #075bae;
+  border: 1px solid #c8d9e9;
+  padding: 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.contracting-access-action {
+  padding: 24px 0;
+  border-top: 1px solid #d6e4f2;
+  margin-top: 20px;
+}
+.contracting-access-action p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #576c84;
+}
+.contracting-access-action > button {
+  margin-top: 12px;
+}
+.contracting-access-action > small {
+  display: block;
+  margin-top: 8px;
+  color: #576c84;
+}
+.commerce-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #00233d80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 100;
+}
+.commerce-modal {
+  border: 1px solid #d6e5ef;
+  margin: auto;
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: min(480px, 100%);
+  color: #153b63;
+}
+.commerce-modal::backdrop {
+  background: #00233d80;
+}
+.commerce-modal p {
+  line-height: 1.6;
+}
+.commerce-modal button {
+  margin: 8px 8px 0 0;
+}
+@media (max-width: 1050px) {
+  .commerce-main {
+    padding: 30px 24px;
+    gap: 30px;
+  }
+  .commerce-intro h1 {
+    font-size: 34px;
+  }
+  .commerce-options > label {
+    grid-template-columns: 20px 1fr;
+  }
+  .commerce-options ul {
+    grid-column: 2;
+  }
+  .commerce-methods > label {
+    grid-template-columns: 20px 30px 1fr;
+  }
+  .commerce-contact {
+    grid-template-columns: 1fr;
+  }
+  .commerce-flow {
+    padding: 22px;
+  }
+  .commerce-flow > h2 {
+    font-size: 26px;
+  }
+}
+@media (max-width: 760px) {
+  .commerce-main {
+    grid-template-columns: 1fr;
+    max-width: 600px;
+    padding: 24px 18px;
+    gap: 24px;
+  }
+  .commerce-intro h1 {
+    font-size: 30px;
+    max-width: 100%;
+  }
+  .commerce-intro > p:not(.commerce-eyebrow) {
+    font-size: 15px;
+  }
+  .commerce-header {
+    padding: 15px 18px;
+    flex-wrap: wrap;
+  }
+  .commerce-header .brand {
+    font-size: 22px;
+  }
+  .commerce-header > a:not(.brand) {
+    font-size: 12px;
+  }
+  .commerce-flow {
+    padding: 20px 16px;
+  }
+  .commerce-flow > h2 {
+    font-size: 25px;
+  }
+  .commerce-steps {
+    gap: 8px;
+  }
+  .commerce-steps li {
+    font-size: 11px;
+    gap: 6px;
+  }
+  .commerce-steps li > span {
+    width: 27px;
+    height: 27px;
+  }
+  .commerce-institution h2 {
+    font-size: 21px;
+  }
+  .commerce-footer .brand {
+    font-size: 22px;
+  }
+  .commerce-flow .commerce-summary dd {
+    font-size: 14px;
+  }
+  .doggypay {
+    padding: 22px 18px;
+  }
+}

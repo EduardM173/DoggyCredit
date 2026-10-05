@@ -25,13 +25,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         : ((exceptionResponse as { message?: string | string[] } | null)?.message ?? "Internal server error");
 
     if (!(exception instanceof HttpException)) {
-      this.logger.error(exception);
+      this.logger.error("Unhandled request failure");
     }
+
+    const retryAfterSeconds = (exceptionResponse as { retryAfterSeconds?: number } | null)?.retryAfterSeconds;
+    if (status === 429 && typeof retryAfterSeconds === "number")
+      response.setHeader("Retry-After", String(retryAfterSeconds));
 
     response.status(status).json({
       statusCode: status,
       message,
-      path: request.url,
+      path: request.path,
+      ...(status === 429 && typeof retryAfterSeconds === "number" ? { retryAfterSeconds } : {}),
       timestamp: new Date().toISOString(),
     });
   }

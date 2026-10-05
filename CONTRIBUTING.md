@@ -1,14 +1,16 @@
 # Contribuir a DoggyCredit
 
-`main` representa el estado estable del proyecto. Todo cambio comienza desde una copia actualizada de esa rama.
+`main` representa el estado estable del proyecto. Cada sprint tiene una rama de integración y cada historia de usuario se desarrolla en su propia rama.
 
 ## Flujo de trabajo
 
-1. Crea `feature/<nombre-corto>` para funcionalidades o `fix/<nombre-corto>` para correcciones.
-2. Mantén cada rama enfocada en un único cambio.
+1. Crea la rama del sprint desde `main` actualizado, por ejemplo `sprint/sprint-1`.
+2. Crea cada HU desde la rama actualizada del sprint: `feature/hu-03-request-review`, `feature/hu-04-contracting`, etc. Mantén cada rama enfocada en su historia; usa `fix/<nombre-corto>` para correcciones.
 3. Ejecuta `npm run lint`, `npm test` y `npm run build` antes de publicar.
-4. Abre un Pull Request hacia `main` y espera que finalice el check `quality` de CI.
-5. Integra el cambio desde el Pull Request; no hagas push directo a `main`.
+4. Publica la rama de la HU y abre un Pull Request hacia la rama del sprint. Ejecuta las verificaciones antes de integrarla.
+5. Al cerrar el sprint, abre un Pull Request desde la rama del sprint hacia `main` y espera que finalice el check `quality` de CI. No hagas push directo a `main`.
+
+Excepción inicial: el trabajo acumulado de HU-01, HU-02 y HU-03 se consolidó en la rama de HU-03. Desde HU-04 se utiliza una rama separada por historia.
 
 ## Protección que debe aplicar un administrador
 

@@ -1,0 +1,171 @@
+.resend-control {
+  min-width: 0;
+  flex: 1 0 180px;
+}
+.resend-control .button {
+  min-height: 43px;
+  width: 100%;
+  white-space: normal;
+  margin-left: 0;
+}
+.resend-control > p {
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.resend-notice {
+  flex-wrap: wrap;
+}
+.resend-notice > .resend-control {
+  flex: 1 0 180px;
+  max-width: 100%;
+}
+.resend-notice .resend-control .button {
+  min-width: 0;
+}
+.resend-notice > div:not(.resend-control) {
+  flex: 1 1 180px;
+}
+.verified-page .receipt-summary h1 {
+  font-size: 36px;
+  margin: 22px 0 18px;
+}
+.confirmed-label {
+  color: #00875b;
+  font-size: 14px;
+  font-weight: 700;
+}
+.verified-security {
+  display: flex;
+  gap: 20px;
+  text-align: left;
+  margin-top: 28px;
+  padding-block: 24px;
+  border-top: 1px solid #dce7ef;
+}
+.verified-security > svg,
+.verified-contact > svg,
+.review-next > svg {
+  flex-shrink: 0;
+  color: #007ed6;
+}
+.verified-security h2 {
+  font-size: 22px;
+  margin: 0 0 8px;
+}
+.verified-security p,
+.verified-aside > section > p {
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.verified-aside {
+  padding-top: 10px;
+  gap: 24px;
+}
+.verified-aside .next-steps {
+  padding: 28px;
+}
+.verified-aside .next-steps > h2 {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+.verified-aside ol {
+  margin-top: 28px;
+}
+.verified-aside li > div {
+  min-width: 0;
+}
+.verified-aside li h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.review-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  color: #005ca8;
+  background: #e6f4ff;
+  border-radius: 4px;
+}
+.review-next {
+  display: flex;
+  gap: 18px;
+  padding-top: 20px;
+  border-top: 1px solid #dce7ef;
+}
+.review-next p {
+  color: var(--muted);
+}
+.verified-contact {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid #dce7ef;
+}
+.verified-contact > div {
+  flex: 1 1 130px;
+}
+.verified-contact h3 {
+  font-size: 17px;
+}
+.verified-contact p {
+  font-size: 14px;
+  color: var(--muted);
+}
+.verification-state {
+  padding-block: 70px;
+  text-align: center;
+  min-height: 65vh;
+}
+.verification-state h1 {
+  font-size: 32px;
+  margin-bottom: 20px;
+}
+.verification-state > p {
+  max-width: 620px;
+  margin: 16px auto;
+  color: var(--muted);
+}
+.verification-error {
+  background: #fff1d9;
+  color: #8a5900;
+}
+.verification-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px auto;
+  max-width: 650px;
+}
+.verification-actions .resend-control {
+  flex: 0 1 260px;
+}
+@media (max-width: 700px) {
+  .resend-notice > .resend-control {
+    flex-basis: 100%;
+  }
+  .verified-page .receipt-summary h1 {
+    font-size: 28px;
+  }
+  .verified-aside .next-steps {
+    padding: 20px;
+  }
+  .verified-aside .next-steps > h2 {
+    font-size: 24px;
+  }
+  .verified-security {
+    gap: 14px;
+  }
+  .verified-security h2 {
+    font-size: 19px;
+  }
+  .verification-state h1 {
+    font-size: 27px;
+  }
+}
