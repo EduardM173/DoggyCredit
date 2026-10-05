@@ -34,7 +34,18 @@ export default defineConfig(({ mode }) => ({
   ],
   server: {
     host: loadEnv(mode, process.cwd(), "").DEV_HOST || "localhost",
-    proxy: { "/api": { target: "http://localhost:3000", changeOrigin: false } },
+    proxy: {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: false,
+        configure(proxy) {
+          proxy.on("error", (_error, _request, response) => {
+            if (response && "writeHead" in response && !response.headersSent && !response.writableEnded)
+              response.writeHead(503, { "Content-Type": "text/plain", "Retry-After": "1" }).end();
+          });
+        },
+      },
+    },
     port: 5173,
     headers: { "Referrer-Policy": "no-referrer" },
   },

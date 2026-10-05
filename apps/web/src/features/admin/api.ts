@@ -43,23 +43,50 @@ export class AdminError extends Error {
     super(message);
   }
 }
+async function fetchAdmin(url: string, init: RequestInit, retryable: boolean): Promise<Response> {
+  const delays = retryable ? [300, 700, 1500, 3000] : [];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (![502, 503, 504].includes(response.status) || attempt >= delays.length) return response;
+    } catch (error) {
+      if (!retryable || init.signal?.aborted || attempt >= delays.length) throw error;
+    }
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        init.signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, delays[attempt]);
+      function onAbort() {
+        clearTimeout(timeout);
+        reject(init.signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      }
+      init.signal?.addEventListener("abort", onAbort, { once: true });
+      if (init.signal?.aborted) onAbort();
+    });
+  }
+}
 export async function adminApi<T>(
   path: string,
   options: { body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
   const base = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
-  const response = await fetch(`${base}/admin${path}`, {
-    credentials: "include",
-    cache: "no-store",
-    signal: options.signal,
-    ...(options.body !== undefined
-      ? {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-DoggyCredit-Admin": "1" },
-          body: JSON.stringify(options.body),
-        }
-      : {}),
-  });
+  const response = await fetchAdmin(
+    `${base}/admin${path}`,
+    {
+      credentials: "include",
+      cache: "no-store",
+      signal: options.signal,
+      ...(options.body !== undefined
+        ? {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-DoggyCredit-Admin": "1" },
+            body: JSON.stringify(options.body),
+          }
+        : {}),
+    },
+    path === "/auth/session" && options.body === undefined,
+  );
   if (!response.ok) {
     let message = "No se pudo completar la operación. Intenta nuevamente.";
     if (response.status === 401)

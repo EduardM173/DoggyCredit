@@ -6,7 +6,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace=@doggycredit/api\" \"npm run dev --workspace=@doggycredit/web\"",
+    "dev": "npm run build --workspace=@doggycredit/api && concurrently -n api,web -c blue,green \"npm run dev --workspace=@doggycredit/api\" \"npm run dev --workspace=@doggycredit/web\"",
     "dev:api": "npm run dev --workspace=@doggycredit/api",
     "dev:web": "npm run dev --workspace=@doggycredit/web",
     "build": "npm run build --workspace=@doggycredit/api && npm run build --workspace=@doggycredit/web",
