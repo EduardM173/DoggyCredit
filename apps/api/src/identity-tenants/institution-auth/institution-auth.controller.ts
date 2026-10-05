@@ -13,6 +13,8 @@ import {
   type InstitutionRequest,
 } from "./institution-auth.guards.js";
 import { TenantContextGuard, type TenantRequest } from "./tenant-context.guard.js";
+import { TenantPreparationService } from "./tenant-preparation.service.js";
+import { ConfirmInstitutionDto, ConfirmProductsDto } from "./preparation.dto.js";
 
 @ApiTags("Portal institucional")
 @Controller("institution/auth")
@@ -79,15 +81,36 @@ export class InstitutionAuthController {
 @Controller("institution/tenants/:tenantSlug")
 @UseGuards(InstitutionSessionGuard, TenantContextGuard)
 export class InstitutionTenantController {
+  constructor(private readonly preparation: TenantPreparationService) {}
+
   @Get("home")
   @ApiCookieAuth()
   @ApiOperation({ summary: "Espacio provisional del tenant autorizado" })
   home(@Param("tenantSlug") _slug: string, @Req() request: TenantRequest) {
-    const ctx = request.tenantContext;
-    return {
-      user: { name: ctx.userName },
-      tenant: { name: ctx.tenantName, slug: ctx.tenantSlug, taxId: ctx.taxId, type: ctx.institutionType },
-      membership: { role: ctx.role, status: "ACTIVE" },
-    };
+    return this.preparation.read(request.tenantContext);
+  }
+
+  @Post("institution")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Confirmar o corregir información institucional" })
+  confirmInstitution(@Req() request: TenantRequest, @Body() body: ConfirmInstitutionDto) {
+    return this.preparation.confirmInstitution(request.tenantContext, body.name, body.type);
+  }
+
+  @Post("source")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Habilitar fuente bancaria simulada para el tenant actual" })
+  enableSource(@Req() request: TenantRequest) {
+    return this.preparation.enableBank(request.tenantContext);
+  }
+
+  @Post("products")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Confirmar productos seleccionados de la institución" })
+  confirmProducts(@Req() request: TenantRequest, @Body() body: ConfirmProductsDto) {
+    return this.preparation.confirmProducts(request.tenantContext, body.productIds);
   }
 }
