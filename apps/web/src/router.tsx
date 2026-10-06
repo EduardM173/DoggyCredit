@@ -47,6 +47,7 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "/:tenantSlug", element: <InstitutionHomePage /> },
+  { path: "/:tenantSlug/configuracion", element: <InstitutionHomePage step="settings" /> },
   { path: "/:tenantSlug/institucion", element: <InstitutionHomePage step="institution" /> },
   { path: "/:tenantSlug/fuentes-financieras", element: <InstitutionHomePage step="source" /> },
   { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },

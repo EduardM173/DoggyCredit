@@ -94,6 +94,7 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     sendFailure = null;
     sendCheck = null;
     config.set("PAYMENT_PROVIDER", "mock");
+    config.set("NODE_ENV", "test");
     config.set("TENANT_PROVISIONING_MAX_ATTEMPTS", 3);
     config.set("MEMBERSHIP_INVITATION_MAX_SEND_ATTEMPTS", 3);
     operator = await prisma.user.create({
@@ -180,6 +181,29 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     await worker.tick();
     assert.equal(await prisma.tenant.count(), 0);
     assert.equal(await prisma.tenantProvisioning.count(), 0);
+  });
+  it("adds demo products only when a new institution is provisioned in development", async () => {
+    config.set("NODE_ENV", "development");
+    const row = await make();
+    const contract = await confirm(row);
+    const job = await process(contract);
+    const products = await prisma.financialProduct.findMany({
+      where: { tenantId: job.tenantId },
+      include: { purposes: true },
+    });
+    assert.deepEqual(products.map((product) => product.name).sort(), [
+      "Crédito Verde",
+      "Microcrédito Emprendedor",
+      "Pyme Crece",
+    ]);
+    assert.ok(products.every((product) => !product.active && product.purposes.length > 0));
+    await provisioner.provision(contract.id, randomUUID());
+    assert.equal(await prisma.financialProduct.count({ where: { tenantId: job.tenantId } }), 3);
+    const productionRequest = await make();
+    const productionContract = await confirm(productionRequest);
+    config.set("NODE_ENV", "production");
+    const productionJob = await process(productionContract);
+    assert.equal(await prisma.financialProduct.count({ where: { tenantId: productionJob.tenantId } }), 0);
   });
   it("free confirmation atomically creates one durable pending job without Payment", async () => {
     const row = await make();

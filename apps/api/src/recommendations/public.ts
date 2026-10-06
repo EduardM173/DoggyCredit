@@ -12,4 +12,5 @@ export type SelectableProduct = {
 export abstract class PreparationProducts {
   abstract list(tenantId: string): Promise<SelectableProduct[]>;
   abstract select(tenantId: string, ids: string[]): Promise<boolean>;
+  abstract ensureDemoProducts(tenantId: string): Promise<void>;
 }

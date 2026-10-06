@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PlatformRole, PrismaClient, UserStatus } from "../apps/api/src/generated/prisma/client.js";
 import { hashPassword, verifyPassword } from "../apps/api/src/identity-tenants/auth/password-hashing.js";
+import { demoProducts } from "../apps/api/src/recommendations/demo-products.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -87,34 +88,8 @@ async function main() {
       },
       select: { id: true },
     });
-    const products = [
-      {
-        name: "Microcrédito Emprendedor",
-        category: "MICRO_CREDIT" as const,
-        applicantScope: "PERSON" as const,
-        minAmount: "5000",
-        maxAmount: "50000",
-        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
-      },
-      {
-        name: "Crédito Verde",
-        category: "GREEN_CREDIT" as const,
-        applicantScope: "PERSON" as const,
-        minAmount: "10000",
-        maxAmount: "80000",
-        purposes: ["GREEN_PROJECT"] as const,
-      },
-      {
-        name: "Pyme Crece",
-        category: "SME_CREDIT" as const,
-        applicantScope: "COMPANY" as const,
-        minAmount: "20000",
-        maxAmount: "150000",
-        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
-      },
-    ];
     for (const tenant of tenants)
-      for (const product of products) {
+      for (const product of demoProducts) {
         const existing = await prisma.financialProduct.findUnique({
           where: { tenantId_name: { tenantId: tenant.id, name: product.name } },
           select: { id: true },

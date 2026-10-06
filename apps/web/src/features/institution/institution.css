@@ -421,6 +421,67 @@
   align-items: start;
   gap: 18px;
 }
+.institution-ready {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  max-width: 840px;
+  padding: 28px;
+  background: #fff;
+  border: 1px solid #ccebdc;
+  border-radius: 7px;
+}
+.institution-ready > svg {
+  flex: none;
+  box-sizing: content-box;
+  padding: 10px;
+  color: #007d5a;
+  background: #ddf7e9;
+  border-radius: 6px;
+}
+.institution-ready h2 {
+  margin: 0 0 7px;
+  font-size: 23px;
+}
+.institution-ready p {
+  margin: 0 0 22px;
+  color: #4c6990;
+}
+.institution-settings-list {
+  max-width: 960px;
+  border-top: 1px solid #d4e8f7;
+}
+.institution-settings-list a {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 20px;
+  align-items: center;
+  gap: 18px;
+  min-height: 88px;
+  padding: 16px 20px;
+  color: #092c50;
+  text-decoration: none;
+  border-bottom: 1px solid #d4e8f7;
+}
+.institution-settings-list a:hover,
+.institution-settings-list a:focus-visible {
+  background: #e7f4ff;
+}
+.institution-settings-list a > svg:first-child {
+  color: #086ae2;
+}
+.institution-settings-list strong,
+.institution-settings-list small {
+  display: block;
+}
+.institution-settings-list small {
+  margin-top: 4px;
+  color: #526da4;
+}
+.institution-settings-list em {
+  font-size: 13px;
+  font-style: normal;
+  color: #00744f;
+}
 .institution-steps-panel,
 .institution-summary-panel,
 .institution-detail-panel {
@@ -832,6 +893,21 @@
   }
   .institution-dashboard h1 {
     font-size: 29px;
+  }
+  .institution-ready {
+    padding: 20px;
+  }
+  .institution-settings-list a {
+    grid-template-columns: 28px minmax(0, 1fr) 18px;
+    gap: 12px;
+    padding-inline: 4px;
+  }
+  .institution-settings-list em {
+    grid-column: 2;
+  }
+  .institution-settings-list a > svg:last-child {
+    grid-column: 3;
+    grid-row: 1;
   }
   .institution-home-panel {
     padding: 18px;

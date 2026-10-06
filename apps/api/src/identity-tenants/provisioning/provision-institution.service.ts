@@ -4,6 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { DatabaseUnitOfWork } from "../../infrastructure/prisma/database-unit-of-work.js";
 import { ProvisioningPlans, ProvisioningEligibilityError } from "../../plans-metering/public.js";
 import { AuditWriter } from "../../audit/public.js";
+import { PreparationProducts } from "../../recommendations/public.js";
 
 export const invitationHash = (token: string) => createHash("sha256").update(token).digest("hex");
 export const institutionSlug = (name: string) =>
@@ -23,6 +24,7 @@ export class ProvisionInstitutionService {
     private readonly plans: ProvisioningPlans,
     private readonly audit: AuditWriter,
     private readonly config: ConfigService,
+    private readonly products: PreparationProducts,
   ) {}
   async provision(contractingId: string, leaseToken: string) {
     return this.db.run(async () => {
@@ -76,6 +78,8 @@ export class ProvisionInstitutionService {
         });
       } else if (tenant.taxId !== request.taxId)
         throw new ProvisioningEligibilityError("TENANT_REQUEST_CONFLICT");
+      if (this.config.get<string>("NODE_ENV") === "development")
+        await this.products.ensureDemoProducts(tenant.id);
       let user = await this.db.client.user.findFirst({
         where: { email: { equals: email, mode: "insensitive" } },
       });

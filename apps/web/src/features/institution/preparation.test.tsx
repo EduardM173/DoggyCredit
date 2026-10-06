@@ -69,6 +69,7 @@ describe("HU-08 preparation interface", () => {
   it("walks from 0/3 to 3/3 and retains progress when the page is remounted", async () => {
     const routes = [
       { path: "/:tenantSlug", element: <InstitutionHomePage /> },
+      { path: "/:tenantSlug/configuracion", element: <InstitutionHomePage step="settings" /> },
       { path: "/:tenantSlug/institucion", element: <InstitutionHomePage step="institution" /> },
       { path: "/:tenantSlug/fuentes-financieras", element: <InstitutionHomePage step="source" /> },
       { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },
@@ -85,10 +86,31 @@ describe("HU-08 preparation interface", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: /Confirmar productos y finalizar preparación/ }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/banco-x"));
-    expect(await screen.findByText("3 de 3 pasos completados")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Tu institución está lista" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Invitar analista" })).toHaveAttribute("href", "/banco-x/equipo");
+    expect(screen.queryByText("Preparación inicial")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Institución" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Configuración" }));
+    expect(await screen.findByRole("heading", { name: "Configuración de Banco X" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Institución/ })).toHaveAttribute(
+      "href",
+      "/banco-x/institucion",
+    );
+    expect(screen.getByRole("link", { name: /^Fuentes financieras/ })).toHaveAttribute(
+      "href",
+      "/banco-x/fuentes-financieras",
+    );
+    expect(screen.getByRole("link", { name: /^Productos/ })).toHaveAttribute(
+      "href",
+      "/banco-x/productos",
+    );
+    fireEvent.click(screen.getByRole("link", { name: /^Productos/ }));
+    expect(await screen.findByRole("button", { name: "Guardar selección" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Volver" }));
+    expect(await screen.findByRole("heading", { name: "Configuración de Banco X" })).toBeInTheDocument();
     view.unmount();
     render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ["/banco-x"] })} />);
-    expect(await screen.findByText("3 de 3 pasos completados")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Tu institución está lista" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/tenants/banco-x/home"),
       expect.anything(),
