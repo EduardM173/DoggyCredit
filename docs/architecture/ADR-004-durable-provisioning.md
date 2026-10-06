@@ -20,9 +20,9 @@ Solo errores transitorios conocidos de PostgreSQL/Prisma se reintentan con backo
 
 ## Correo
 
-El correo se envia despues del commit mediante EmailSender/Resend. Su fallo no elimina la institucion. MembershipInvitation conserva digest SHA-256 de un token aleatorio de 256 bits, TTL, version, lease, intentos y resultado; nunca token plano ni password temporal. El envio no activa usuario ni membership.
+El correo se envia despues del commit mediante EmailSender/SMTP. Su fallo no elimina la institucion. MembershipInvitation conserva digest SHA-256 de un token aleatorio de 256 bits, TTL, version, lease, intentos y resultado; nunca token plano ni password temporal. El envio no activa usuario ni membership.
 
-Dos intentos inmediatos del mismo envio reutilizan payload y clave de idempotencia. Una recuperacion posterior rota el token y version: solo el digest nuevo es valido. Si el proceso cae despues de que Resend acepta y antes de guardar sentAt, puede llegar otro correo; el enlace anterior queda invalidado. No se promete entrega exactamente una vez ni llegada a bandeja principal. El limite es cinco ciclos de envio por defecto, con hasta dos llamadas por ciclo solo ante error transitorio.
+Dos intentos inmediatos del mismo envio reutilizan payload y clave de correlacion. SMTP no garantiza idempotencia: una recuperacion tras aceptar el mensaje pero perder la respuesta puede entregar otro correo. Una recuperacion posterior rota el token y version: solo el digest nuevo es valido. No se promete entrega exactamente una vez ni llegada a bandeja principal. El limite es cinco ciclos de envio por defecto, con hasta dos llamadas por ciclo solo ante error transitorio.
 
 ## Operacion y alcance
 

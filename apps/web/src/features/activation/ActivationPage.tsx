@@ -6,6 +6,7 @@ import "./activation.css";
 
 type Preview = {
   valid: true;
+  role: "INSTITUTION_ADMIN" | "ANALYST";
   institution: { name: string };
   invitedUser: { name: string; email: string };
   requiresCredentialSetup: boolean;
@@ -50,6 +51,8 @@ export function ActivationPage() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [success, setSuccess] = useState(false);
+  const analyst = preview?.role === "ANALYST";
+  const roleLabel = analyst ? "analista" : "administrador inicial";
   const passwordLength = Array.from(password.normalize("NFC")).length;
   const lengthValid = passwordLength >= 15 && passwordLength <= 128;
   const confirmationMatches =
@@ -107,9 +110,9 @@ export function ActivationPage() {
           </h1>
           <p>
             {success
-              ? `Tu acceso como administrador de ${preview?.institution.name} está activo.`
+              ? `Tu acceso como ${roleLabel} de ${preview?.institution.name} está activo.`
               : preview
-                ? `${preview.institution.name} ya tiene su espacio habilitado. Activa tu acceso como administrador inicial.`
+                ? `${preview.institution.name} ya tiene su espacio habilitado. Activa tu acceso como ${roleLabel}.`
                 : "Acceso institucional seguro para tu organización."}
           </p>
           {preview && (
@@ -118,7 +121,7 @@ export function ActivationPage() {
                 <Building2 size={32} />
                 <div>
                   <strong>{preview.institution.name}</strong>
-                  <small>Administrador inicial</small>
+                  <small>{analyst ? "Analista" : "Administrador inicial"}</small>
                 </div>
               </div>
               <dl className="activation-contact">
@@ -150,7 +153,9 @@ export function ActivationPage() {
                 <Check size={18} /> CUENTA ACTIVADA
               </div>
               <h2>Cuenta activada</h2>
-              <p>Tu acceso como administrador de {preview?.institution.name} está activo.</p>
+              <p>
+                Tu acceso como {roleLabel} de {preview?.institution.name} está activo.
+              </p>
               <Link className="activation-submit" to="/iniciar-sesion">
                 Iniciar sesión <ArrowRight size={20} />
               </Link>
@@ -290,7 +295,9 @@ export function ActivationPage() {
           ) : (
             <>
               <h2>Enlace no disponible</h2>
-              <p role="alert">{error}</p>
+              <p role="alert">
+                {error} {error.includes("venció") ? "Solicita una nueva invitación al administrador." : ""}
+              </p>
               <Link className="activation-submit" to="/">
                 Volver al inicio
               </Link>

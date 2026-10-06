@@ -5,6 +5,12 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
+  abstract recordTeamInvitation(event: {
+    tenantId: string;
+    actorUserId: string;
+    invitationId: string;
+    action: "ANALYST_INVITATION_CREATED" | "ANALYST_INVITATION_RESENT";
+  }): Promise<void>;
   abstract recordInstitutionPreparation(event: {
     tenantId: string;
     actorUserId: string;

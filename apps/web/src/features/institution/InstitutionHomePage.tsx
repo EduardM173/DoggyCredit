@@ -16,10 +16,12 @@ import {
   Users,
 } from "lucide-react";
 import { Brand } from "../../components/Brand";
+import { TeamPanel } from "./TeamPanel";
+import { AnalystHome } from "./AnalystHome";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
-type Step = "home" | "institution" | "source" | "products";
+type Step = "home" | "institution" | "source" | "products" | "team" | "evaluations";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -136,6 +138,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
     );
 
   const admin = home.membership.role === "INSTITUTION_ADMIN";
+  if (!admin && ["institution", "source", "products", "team"].includes(step))
+    return (
+      <main className="institution-gate">
+        <p role="alert">No tienes permiso para administrar la institución.</p>
+        <Link to={base}>Volver al inicio</Link>
+      </main>
+    );
   const current = steps.find((item) => !home.steps?.[item.key]);
   const selectedUsable = (home.products ?? []).some(
     (product) => selected.includes(product.id) && product.applicantScope !== "COMPANY",
@@ -157,22 +166,44 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             <House size={20} />
             Inicio
           </Link>
-          <span className="institution-nav-heading">CONFIGURACIÓN</span>
-          <Link className={step === "institution" ? "institution-nav-active" : ""} to={`${base}/institucion`}>
-            <Building2 size={20} />
-            Institución
-          </Link>
-          <Link
-            className={step === "source" ? "institution-nav-active" : ""}
-            to={`${base}/fuentes-financieras`}
-          >
-            <Database size={20} />
-            Fuentes financieras
-          </Link>
-          <Link className={step === "products" ? "institution-nav-active" : ""} to={`${base}/productos`}>
-            <Package size={20} />
-            Productos
-          </Link>
+          {admin ? (
+            <span className="institution-nav-heading">CONFIGURACIÓN</span>
+          ) : (
+            <span className="institution-nav-heading">EVALUACIONES</span>
+          )}
+          {admin ? (
+            <>
+              <Link
+                className={step === "institution" ? "institution-nav-active" : ""}
+                to={`${base}/institucion`}
+              >
+                <Building2 size={20} />
+                Institución
+              </Link>
+              <Link
+                className={step === "source" ? "institution-nav-active" : ""}
+                to={`${base}/fuentes-financieras`}
+              >
+                <Database size={20} />
+                Fuentes financieras
+              </Link>
+              <Link className={step === "products" ? "institution-nav-active" : ""} to={`${base}/productos`}>
+                <Package size={20} />
+                Productos
+              </Link>
+              <Link className={step === "team" ? "institution-nav-active" : ""} to={`${base}/equipo`}>
+                <Users size={20} />
+                Equipo
+              </Link>
+            </>
+          ) : (
+            <Link
+              className={step === "evaluations" ? "institution-nav-active" : ""}
+              to={`${base}/evaluaciones`}
+            >
+              <ListChecks size={20} /> Evaluaciones
+            </Link>
+          )}
         </nav>
         <button onClick={logout} disabled={busy}>
           <LogOut size={20} />
@@ -192,7 +223,17 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             </small>
           </div>
         </header>
-        {step === "home" ? (
+        {step === "team" ? (
+          <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
+        ) : !admin ? (
+          <AnalystHome
+            slug={home.tenant.slug}
+            tenantName={home.tenant.name}
+            userName={home.user.name}
+            ready={home.ready}
+            evaluations={step === "evaluations"}
+          />
+        ) : step === "home" ? (
           <main className="institution-dashboard">
             <p className="institution-eyebrow">INICIO</p>
             <h1>
@@ -243,14 +284,10 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   </Link>
                 )}
                 {home.ready && (
-                  <button
-                    className="institution-primary"
-                    disabled
-                    title="Las invitaciones estarán disponibles en la siguiente historia de usuario"
-                  >
+                  <Link className="institution-primary" to={`${base}/equipo`}>
                     <Users size={20} />
                     Invitar analista
-                  </button>
+                  </Link>
                 )}
               </section>
               <section className="institution-home-panel institution-summary-panel">

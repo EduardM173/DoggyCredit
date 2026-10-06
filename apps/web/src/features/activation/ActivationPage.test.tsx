@@ -84,6 +84,19 @@ describe("HU-06 activation page", () => {
     const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/activate"));
     expect(JSON.parse(call?.[1].body)).toEqual({ token });
   });
+  it("shows analyst context without presenting the initial administrator role", async () => {
+    fetchMock.mockImplementation(() =>
+      response({
+        ...preview,
+        role: "ANALYST",
+        invitedUser: { name: "analista@real.test", email: "analista@real.test" },
+      }),
+    );
+    mount();
+    await screen.findAllByText("analista@real.test");
+    expect(screen.getByText("Analista")).toBeInTheDocument();
+    expect(screen.queryByText("Administrador inicial")).not.toBeInTheDocument();
+  });
   it("invalid, expired and used links never show an active form", async () => {
     fetchMock.mockImplementation(() => response({ message: "El enlace ya fue utilizado." }, 400));
     mount();
