@@ -40,8 +40,10 @@ export class ActivationService {
       row.sendLockedAt ||
       row.tenantId !== row.membership.tenantId ||
       row.membership.status !== "INVITED" ||
-      row.membership.role !== "INSTITUTION_ADMIN" ||
-      !row.membership.isInitialAdmin ||
+      !(
+        (row.membership.role === "INSTITUTION_ADMIN" && row.membership.isInitialAdmin) ||
+        (row.membership.role === "ANALYST" && !row.membership.isInitialAdmin)
+      ) ||
       row.membership.tenant.status !== "ACTIVE" ||
       row.membership.user.status === "BLOCKED"
     )
@@ -55,7 +57,7 @@ export class ActivationService {
       valid: true,
       institution: { name: row.membership.tenant.legalName },
       invitedUser: { name: row.membership.user.fullName, email: row.membership.user.email },
-      role: "INSTITUTION_ADMIN",
+      role: row.membership.role,
       requiresCredentialSetup: !row.membership.user.passwordHash,
       expiresAt: row.expiresAt.toISOString(),
     };
@@ -105,7 +107,13 @@ export class ActivationService {
         if (active.count !== 1) throw new BadRequestException("La identidad cambió. Actualiza la página.");
       }
       const membership = await this.db.client.tenantMembership.updateMany({
-        where: { id: row.membershipId, tenantId: row.tenantId, status: "INVITED", role: "INSTITUTION_ADMIN" },
+        where: {
+          id: row.membershipId,
+          tenantId: row.tenantId,
+          status: "INVITED",
+          role: row.membership.role,
+          isInitialAdmin: row.membership.isInitialAdmin,
+        },
         data: { status: "ACTIVE" },
       });
       if (membership.count !== 1) throw new BadRequestException("El acceso ya no está disponible.");

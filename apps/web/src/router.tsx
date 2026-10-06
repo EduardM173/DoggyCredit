@@ -50,4 +50,6 @@ export const router = createBrowserRouter([
   { path: "/:tenantSlug/institucion", element: <InstitutionHomePage step="institution" /> },
   { path: "/:tenantSlug/fuentes-financieras", element: <InstitutionHomePage step="source" /> },
   { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },
+  { path: "/:tenantSlug/equipo", element: <InstitutionHomePage step="team" /> },
+  { path: "/:tenantSlug/evaluaciones", element: <InstitutionHomePage step="evaluations" /> },
 ]);

@@ -38,6 +38,9 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
 import { FinancialIntegrationsModule } from "../financial-integrations/financial-integrations.module.js";
 import { RecommendationsModule } from "../recommendations/recommendations.module.js";
 import { TenantPreparationService } from "./institution-auth/tenant-preparation.service.js";
+import { TeamController } from "./institution-auth/team.controller.js";
+import { TeamService } from "./institution-auth/team.service.js";
+import { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
 
 @Module({
   imports: [
@@ -51,6 +54,7 @@ import { TenantPreparationService } from "./institution-auth/tenant-preparation.
   controllers: [
     InstitutionAuthController,
     InstitutionTenantController,
+    TeamController,
     ActivationController,
     InstitutionsController,
     InstitutionRequestsController,
@@ -60,6 +64,8 @@ import { TenantPreparationService } from "./institution-auth/tenant-preparation.
   ],
   providers: [
     TenantPreparationService,
+    TeamService,
+    InvitationDeliveryService,
     InstitutionAuthService,
     InstitutionLoginRateGuard,
     InstitutionOriginGuard,
@@ -87,6 +93,7 @@ import { TenantPreparationService } from "./institution-auth/tenant-preparation.
     AdminAuthGuard,
     AdminOriginGuard,
     OperatorGuard,
+    InvitationDeliveryService,
   ],
 })
 export class IdentityTenantsModule {}
