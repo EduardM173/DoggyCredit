@@ -53,8 +53,12 @@ DATABASE_URL="postgresql://postgres:CHANGE_ME@localhost:5432/doggycredit?schema=
 NODE_ENV="development"
 API_PORT=3000
 WEB_ORIGIN="http://localhost:5173"
-RESEND_API_KEY=""
-RESEND_FROM_EMAIL=""
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=""
+SMTP_PASSWORD=""
+SMTP_FROM_EMAIL=""
 PUBLIC_APP_URL="http://localhost:5173"
 EMAIL_VERIFICATION_TOKEN_TTL_MINUTES=30
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS=60
@@ -66,7 +70,9 @@ El backend valida estas variables al arrancar y falla con un mensaje explícito 
 
 Los archivos `.env` están ignorados por Git. Nunca subas contraseñas, tokens ni secretos reales.
 
-HU-02 utiliza Resend desde backend. Configura `RESEND_API_KEY` y una dirección autorizada en `RESEND_FROM_EMAIL`; `PUBLIC_APP_URL` es el origen del frontend que abrirá el destinatario. En desarrollo sin credenciales la solicitud se guarda y la pantalla informa fallo de envío. Producción exige esas variables y HTTPS. TTL técnico: 30 minutos; cooldown persistente: 60 segundos, ambos configurables. Consulta [docs/hu-02.md](docs/hu-02.md) para estados, reenvío, despliegue seguro y pruebas. Los tests automatizados sustituyen `EmailSender` y nunca envían correos reales.
+El backend envía correo por SMTP; para la demostración se puede usar Gmail con `SMTP_HOST=smtp.gmail.com`, puerto `465`, TLS y una contraseña de aplicación. Configura `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM_EMAIL` con el buzón Gmail emisor; los destinatarios pueden ser distintas cuentas. Google requiere la verificación en dos pasos para crear contraseñas de aplicación, que solo deben guardarse en `.env` local, nunca en Git ni en el chat. Gmail impone límites y no es una plataforma de correo transaccional de producción. `PUBLIC_APP_URL` es el origen del frontend que abrirá el destinatario. En desarrollo sin credenciales la solicitud se guarda y la pantalla informa fallo de envío. Producción exige esas variables y HTTPS. TTL técnico: 30 minutos; cooldown persistente: 60 segundos, ambos configurables. Consulta [docs/hu-02.md](docs/hu-02.md) para estados, reenvío, despliegue seguro y pruebas. Los tests automatizados sustituyen `EmailSender` y nunca envían correos reales.
+
+Para crear la contraseña de aplicación, habilita primero la verificación en dos pasos en la cuenta Google emisora y luego sigue [la guía oficial de Google](https://support.google.com/accounts/answer/185833). Google puede ocultar esta opción en cuentas escolares/organizacionales o con Protección Avanzada. Consulta también los [límites de envío de Gmail](https://support.google.com/mail/answer/22839?hl=es).
 
 ## Base de datos
 
