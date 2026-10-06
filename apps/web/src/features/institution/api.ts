@@ -42,7 +42,9 @@ export async function institutionApi<T>(path: string, options: { body?: object; 
   const response = await fetch(`${base}/institution${path}`, {
     credentials: "include",
     cache: "no-store",
-    signal: options.signal,
+    signal: options.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(15000)])
+      : AbortSignal.timeout(15000),
     ...(options.body !== undefined
       ? {
           method: "POST",

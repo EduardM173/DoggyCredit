@@ -86,6 +86,11 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     RequestReviewService,
   ],
   exports: [
+    InstitutionSessionGuard,
+    InstitutionOriginGuard,
+    InstitutionAuthService,
+    TenantContextGuard,
+    TenantPreparationService,
     ProvisioningQueue,
     RequestContextReader,
     RequestReviewService,

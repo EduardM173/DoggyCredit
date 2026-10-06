@@ -30,6 +30,7 @@ try {
   console.log("Running e2e against a disposable database; development data is untouched.");
   const files = readdirSync(resolve(api, "test"))
     .filter((f) => f.endsWith(".e2e-spec.mjs"))
+    .filter((f) => !process.env.E2E_TEST_FILE || f === process.env.E2E_TEST_FILE)
     .map((f) => `test/${f}`);
   process.exitCode = await new Promise((done, reject) => {
     const child = spawn(process.execPath, ["--test", "--test-concurrency=1", ...files], {

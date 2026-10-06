@@ -8,6 +8,22 @@ import type { TenantContext } from "./tenant-context.guard.js";
 
 @Injectable()
 export class TenantPreparationService {
+  async requireAnalyst(ctx: TenantContext) {
+    const membership = await this.db.client.tenantMembership.findFirst({
+      where: {
+        id: ctx.membershipId,
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        role: "ANALYST",
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+        tenant: { status: "ACTIVE" },
+      },
+      select: { id: true },
+    });
+    if (!membership) throw new ForbiddenException("Solo un analista activo puede preparar evaluaciones.");
+  }
+
   constructor(
     private readonly db: DatabaseUnitOfWork,
     private readonly bank: BankMockSource,

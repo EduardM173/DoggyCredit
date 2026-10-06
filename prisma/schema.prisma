@@ -552,6 +552,9 @@ model Client {
   documentType     DocumentType
   documentNumber   String       @db.VarChar(60)
   name             String       @db.VarChar(180)
+  firstName        String?      @db.VarChar(90)
+  lastName         String?      @db.VarChar(90)
+  birthDate        DateTime?    @db.Date
   email            String?      @db.VarChar(254)
   phone            String?      @db.VarChar(40)
   address          String?      @db.VarChar(250)
@@ -574,6 +577,7 @@ model Evaluation {
   clientId              String           @db.Uuid
   createdByMembershipId String           @db.Uuid
   idempotencyKey        String           @unique @db.VarChar(80)
+  requestFingerprint    String?          @db.VarChar(64)
   purpose               CreditPurpose
   requestedAmount       Decimal          @db.Decimal(14, 2)
   status                EvaluationStatus @default(DRAFT)

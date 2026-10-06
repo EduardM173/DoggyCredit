@@ -22,6 +22,8 @@ NestJS / Express: una aplicacion backend
 
 El schema ya contiene modelos futuros. Eso no significa que existan servicios ejecutables para ellos. No crear modulos vacios a partir del diagrama.
 
+HU-10 implementa Clients y Evaluations: Evaluations consume ApplicantRecords de Clients, los guards/contexto y readiness públicos de Identity, y AuditWriter. Identity no depende de Evaluations. Se guarda Client + Evaluation DRAFT + auditoría en DatabaseUnitOfWork, sin llamar a Integrations ni a Financial Profile. Ver [HU-10](../hu-10.md).
+
 ## Responsabilidades y propiedad logica
 
 | Capacidad / slug de codigo                        | Responsabilidad y datos propios                                                                                                                                                                                       | Limite                                                                                                                        |

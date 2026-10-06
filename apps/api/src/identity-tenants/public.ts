@@ -8,3 +8,10 @@ export { ProvisioningQueue } from "./provisioning/provisioning-queue.js";
 export { ProvisionInstitutionService } from "./provisioning/provision-institution.service.js";
 export { TenantProvisioningWorker } from "./provisioning/tenant-provisioning.worker.js";
 export { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
+export {
+  InstitutionSessionGuard,
+  InstitutionOriginGuard,
+} from "./institution-auth/institution-auth.guards.js";
+export { TenantContextGuard } from "./institution-auth/tenant-context.guard.js";
+export type { TenantContext, TenantRequest } from "./institution-auth/tenant-context.guard.js";
+export { TenantPreparationService } from "./institution-auth/tenant-preparation.service.js";

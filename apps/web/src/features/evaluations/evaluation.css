@@ -1,0 +1,327 @@
+.evaluation-page h1 {
+  font-size: 32px;
+  line-height: 1.2;
+}
+.evaluation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(260px, 1fr);
+  gap: 22px;
+  margin-top: 24px;
+  align-items: start;
+}
+.evaluation-wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+.evaluation-form {
+  padding: 26px;
+  border: 1px solid #cce2f3;
+  border-radius: 8px;
+  background: #fff;
+  min-width: 0;
+}
+.evaluation-form h2,
+.evaluation-aside h2 {
+  font-size: 22px;
+  margin: 0 0 22px;
+}
+.evaluation-form label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  min-width: 0;
+}
+.evaluation-form input:not([type="checkbox"]),
+.evaluation-form select {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #b4cfe4;
+  border-radius: 6px;
+  background: #fff;
+  color: #082c4b;
+  margin-top: 7px;
+  font: inherit;
+}
+.evaluation-form [aria-invalid="true"]:not([type="checkbox"]) {
+  border-color: #be3030;
+}
+.evaluation-form input:focus,
+.evaluation-form select:focus,
+.evaluation-form button:focus-visible {
+  outline: 2px solid #0070db;
+  outline-offset: 3px;
+}
+.evaluation-field-error {
+  display: block;
+  color: #b62424;
+  font-weight: 400;
+  margin-top: 7px;
+}
+.evaluation-field-hint {
+  color: #416582;
+  font-size: 14px;
+  margin: -8px 0 20px;
+}
+.evaluation-document {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+.evaluation-document > button {
+  margin-top: 26px;
+  min-height: 46px;
+}
+.evaluation-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #416582;
+  font-size: 14px;
+}
+.evaluation-info svg {
+  flex-shrink: 0;
+  color: #0070db;
+}
+.evaluation-lookup {
+  text-align: center;
+  padding: 30px 18px;
+  border: 1px dashed #b4cfe4;
+  border-radius: 6px;
+  margin-top: 25px;
+  background: #f6fbff;
+}
+.evaluation-lookup > svg {
+  color: #0070db;
+  margin-bottom: 16px;
+}
+.evaluation-lookup h2 {
+  margin-bottom: 10px;
+}
+.evaluation-lookup p {
+  color: #416582;
+}
+.evaluation-lookup.found {
+  background: #edfaf4;
+  border-style: solid;
+  border-color: #a4dec4;
+}
+.evaluation-lookup.found > svg {
+  color: #008c58;
+}
+.evaluation-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 24px;
+}
+.evaluation-actions button,
+.evaluation-review button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 12px 18px;
+  border: 1px solid #0070db;
+  border-radius: 6px;
+  background: #fff;
+  color: #0064bd;
+  font: inherit;
+  cursor: pointer;
+}
+.evaluation-actions .institution-primary,
+.evaluation-document .institution-primary {
+  background: #009f69;
+  color: white;
+  border-color: #009f69;
+}
+.evaluation-form button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.evaluation-person-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+}
+.evaluation-applicant {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  background: #eef7fd;
+  border-radius: 6px;
+  margin: 0 0 24px;
+  flex-wrap: wrap;
+}
+.evaluation-applicant svg {
+  color: #0070db;
+}
+.evaluation-applicant strong,
+.evaluation-applicant small {
+  display: block;
+}
+.evaluation-amount {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.evaluation-amount input {
+  flex: 1;
+  min-width: 0;
+}
+.evaluation-amount span {
+  color: #416582;
+}
+.evaluation-review {
+  border-top: 1px solid #dceaf5;
+}
+.evaluation-review > div {
+  padding: 20px 0;
+  border-bottom: 1px solid #dceaf5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.evaluation-review small,
+.evaluation-review strong {
+  display: block;
+}
+.evaluation-review strong {
+  margin-top: 8px;
+  font-size: 17px;
+}
+.evaluation-review p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #416582;
+}
+.evaluation-consent {
+  display: flex !important;
+  align-items: start;
+  gap: 14px;
+  padding: 20px 16px;
+  border: 1px solid #cce2f3;
+  border-radius: 6px;
+  margin-top: 24px;
+}
+.evaluation-consent input {
+  width: 22px;
+  height: 22px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: #009f69;
+}
+.evaluation-consent strong,
+.evaluation-consent span > span {
+  display: block;
+}
+.evaluation-consent span > span {
+  color: #416582;
+  font-weight: 400;
+  margin-top: 8px;
+}
+.evaluation-consent.invalid {
+  border-color: #be3030;
+  background: #fff4f3;
+}
+.evaluation-aside section {
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #cce2f3;
+  border-radius: 8px;
+  margin-bottom: 18px;
+}
+.evaluation-aside ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.evaluation-aside li {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #dceaf5;
+  color: #416582;
+  font-size: 15px;
+}
+.evaluation-aside li:last-child {
+  border: 0;
+}
+.evaluation-aside li span {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e2f3ff;
+  color: #0070db;
+  font-weight: 700;
+}
+.evaluation-aside p {
+  font-size: 14px;
+  color: #416582;
+}
+.evaluation-result {
+  background: #fff;
+  border-top: 1px solid #cce2f3;
+  padding: 28px 0;
+  max-width: 760px;
+}
+.evaluation-result > svg {
+  color: #009f69;
+}
+.evaluation-result dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.evaluation-result dd {
+  margin: 0;
+  font-weight: 600;
+}
+@media (max-width: 1200px) {
+  .evaluation-document {
+    grid-template-columns: 130px minmax(0, 1fr);
+  }
+  .evaluation-document > button {
+    margin-top: 0;
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 950px) {
+  .evaluation-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .evaluation-aside {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .evaluation-page h1 {
+    font-size: 26px;
+  }
+  .evaluation-form {
+    padding: 18px;
+  }
+  .evaluation-document,
+  .evaluation-person-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .evaluation-actions {
+    flex-direction: column;
+  }
+  .evaluation-review > div {
+    align-items: start;
+    flex-direction: column;
+  }
+  .evaluation-result dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}

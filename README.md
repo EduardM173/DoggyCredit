@@ -167,6 +167,10 @@ npm run dev:web
 
 El backend de desarrollo compila con TypeScript y ejecuta el resultado con `node --watch`; así conserva los metadatos de los decoradores necesarios para la inyección de dependencias y la validación de DTOs de NestJS.
 
+## HU-10: Preparar Evaluaciones
+
+El analista prepara una evaluación en tres pasos, reutiliza o crea el expediente de su institución y confirma el consentimiento. El caso queda DRAFT con snapshot, auditoría e idempotencia, sin consultar fuentes financieras todavía. Demo opt-in: `SEED_DEMO_EVALUATIONS=true` y `npm run prisma:seed`. Credenciales, documentos ficticios y garantías en [docs/hu-10.md](docs/hu-10.md).
+
 ## Calidad
 
 ```bash

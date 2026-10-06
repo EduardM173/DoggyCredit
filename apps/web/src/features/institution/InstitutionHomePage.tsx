@@ -19,10 +19,12 @@ import {
 import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
 import { AnalystHome } from "./AnalystHome";
+import { EvaluationPanel } from "../evaluations/EvaluationPanel";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
-type Step = "home" | "settings" | "institution" | "source" | "products" | "team" | "evaluations";
+type Step =
+  "home" | "settings" | "institution" | "source" | "products" | "team" | "evaluations" | "evaluation";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -139,6 +141,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
     );
 
   const admin = home.membership.role === "INSTITUTION_ADMIN";
+  if (admin && ["evaluation", "evaluations"].includes(step))
+    return (
+      <main className="institution-gate">
+        <p>No tienes permiso para preparar evaluaciones.</p>
+        <Link to={base}>Volver al inicio</Link>
+      </main>
+    );
   if (!admin && ["settings", "institution", "source", "products", "team"].includes(step))
     return (
       <main className="institution-gate">
@@ -189,7 +198,7 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             <>
               <span className="institution-nav-heading">EVALUACIONES</span>
               <Link
-                className={step === "evaluations" ? "institution-nav-active" : ""}
+                className={["evaluations", "evaluation"].includes(step) ? "institution-nav-active" : ""}
                 to={`${base}/evaluaciones`}
               >
                 <ListChecks size={20} /> Evaluaciones
@@ -217,6 +226,8 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
         </header>
         {step === "team" ? (
           <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
+        ) : step === "evaluation" ? (
+          <EvaluationPanel home={home} />
         ) : !admin ? (
           <AnalystHome
             slug={home.tenant.slug}
