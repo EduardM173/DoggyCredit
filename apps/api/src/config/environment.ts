@@ -14,14 +14,28 @@ export const environmentValidationSchema = Joi.object({
     .messages({ "any.required": "DATABASE_URL is required" }),
   API_PORT: Joi.number().port().default(3000),
   WEB_ORIGIN: Joi.string().uri().required().messages({ "any.required": "WEB_ORIGIN is required" }),
-  RESEND_API_KEY: Joi.string()
-    .trim()
+  SMTP_HOST: Joi.string()
+    .hostname()
     .when("NODE_ENV", {
       is: "production",
       then: Joi.required(),
       otherwise: Joi.allow("").optional(),
     }),
-  RESEND_FROM_EMAIL: Joi.string()
+  SMTP_PORT: Joi.number().integer().min(1).max(65535).default(465),
+  SMTP_SECURE: Joi.boolean().default(true),
+  SMTP_USER: Joi.string()
+    .email({ tlds: { allow: false } })
+    .when("NODE_ENV", {
+      is: "production",
+      then: Joi.required(),
+      otherwise: Joi.allow("").optional(),
+    }),
+  SMTP_PASSWORD: Joi.string().when("NODE_ENV", {
+    is: "production",
+    then: Joi.required(),
+    otherwise: Joi.allow("").optional(),
+  }),
+  SMTP_FROM_EMAIL: Joi.string()
     .email({ tlds: { allow: false } })
     .when("NODE_ENV", {
       is: "production",

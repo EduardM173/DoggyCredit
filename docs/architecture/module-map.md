@@ -58,7 +58,7 @@ Los contratos futuros precisaran entrada, salida, errores, autorizacion e idempo
 - Persistencia: solo `InstitutionRequest`; conserva locks PostgreSQL ordenados y transaccion atomica para duplicados. Un repository no aporta suficiente valor en esta iteracion.
 - Errores actuales: HTTP 400 por entrada invalida y 409 por duplicado. El servicio conserva `ConflictException` de Nest como compromiso local; si se reutiliza desde otro transporte, mapear errores propios en la frontera cuando aporte valor.
 - Hasta HU-03 el contrato de solicitudes era interno. HU-04 agrega `identity-tenants/public.ts` con `RequestContextReader` para la consulta autorizada desde Plans & Metering y guards reutilizables para su frontera HTTP administrativa. No expone Prisma ni el servicio completo de solicitudes.
-- HU-02 agrega `email-verification/` dentro de Identity & Tenants y controla `EmailVerificationToken`. Envia mediante `infrastructure/email/EmailSender -> ResendEmailAdapter`. Verificacion y reenvio usan contratos propios y llamadas en proceso. No crea tenants ni usuarios. Ver [contrato HU-02](../hu-02.md).
+- HU-02 agrega `email-verification/` dentro de Identity & Tenants y controla `EmailVerificationToken`. Envia mediante `infrastructure/email/EmailSender -> SmtpEmailAdapter`. Verificacion y reenvio usan contratos propios y llamadas en proceso. No crea tenants ni usuarios. Ver [contrato HU-02](../hu-02.md).
 
 ## Convencion de interfaz publica
 

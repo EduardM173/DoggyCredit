@@ -11,6 +11,21 @@ export type InstitutionHome = {
   user: { name: string };
   tenant: { name: string; slug: string; taxId: string; type: string };
   membership: { role: string; status: "ACTIVE" };
+  source: { available: boolean; enabled: boolean };
+  products: {
+    id: string;
+    name: string;
+    category: string;
+    applicantScope: string;
+    minAmount: string;
+    maxAmount: string;
+    purposes: string[];
+    selected: boolean;
+  }[];
+  steps: { institution: boolean; source: boolean; products: boolean };
+  completed: number;
+  percentage: number;
+  ready: boolean;
 };
 
 export class InstitutionError extends Error {

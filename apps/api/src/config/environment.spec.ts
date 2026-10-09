@@ -17,7 +17,7 @@ describe("environmentValidationSchema", () => {
 
     expect(error).toBeUndefined();
   });
-  it("requires email configuration and HTTPS in production", () => {
+  it("requires SMTP configuration and HTTPS in production", () => {
     const { error } = environmentValidationSchema.validate(
       {
         NODE_ENV: "production",
@@ -27,8 +27,10 @@ describe("environmentValidationSchema", () => {
       },
       { abortEarly: false },
     );
-    expect(error?.message).toContain("RESEND_API_KEY");
-    expect(error?.message).toContain("RESEND_FROM_EMAIL");
+    expect(error?.message).toContain("SMTP_HOST");
+    expect(error?.message).toContain("SMTP_USER");
+    expect(error?.message).toContain("SMTP_PASSWORD");
+    expect(error?.message).toContain("SMTP_FROM_EMAIL");
     expect(error?.message).toContain("PUBLIC_APP_URL");
   });
   it("rejects unsafe URLs and nonpositive durations", () => {

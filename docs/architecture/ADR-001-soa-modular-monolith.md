@@ -34,7 +34,7 @@ Se mantiene un PrismaClient administrado por `PrismaModule`, importado explicita
 
 Cada capacidad controla sus consultas y mutaciones; otra capacidad solicita operaciones por su contrato publico. Los contratos transportan datos minimos, identificadores/contexto autorizado y resultados propios. Los futuros workflows transaccionales entre propietarios deben disenar atomicidad e idempotencia antes de implementarse, sin entregar el cliente Prisma al consumidor ni introducir sagas preventivamente.
 
-Prisma, configuracion, logging tecnico y proveedores son infraestructura. La configuracion global actual es transversal y justificada para validar el entorno al iniciar; los modulos de negocio permanecen locales. Email no es un servicio de negocio separado: HU-02 podra usar `EmailVerificationService -> EmailSender -> ResendEmailAdapter -> Resend API`. Ese contrato y adaptador se implementaran cuando exista el caso de uso. No se agrega Resend ahora.
+Prisma, configuracion, logging tecnico y proveedores son infraestructura. La configuracion global actual es transversal y justificada para validar el entorno al iniciar; los modulos de negocio permanecen locales. Email no es un servicio de negocio separado: HU-02 implementa `EmailVerificationService -> EmailSender -> SmtpEmailAdapter -> SMTP`. El proveedor concreto permanece en infraestructura y puede sustituirse sin alterar las capacidades que usan el port.
 
 ## Consecuencias
 

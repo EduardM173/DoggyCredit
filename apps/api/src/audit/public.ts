@@ -5,6 +5,21 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
+  abstract recordTeamInvitation(event: {
+    tenantId: string;
+    actorUserId: string;
+    invitationId: string;
+    action: "ANALYST_INVITATION_CREATED" | "ANALYST_INVITATION_RESENT";
+  }): Promise<void>;
+  abstract recordInstitutionPreparation(event: {
+    tenantId: string;
+    actorUserId: string;
+    action:
+      | "INSTITUTION_INFORMATION_CONFIRMED"
+      | "BANK_MOCK_ENABLED"
+      | "INSTITUTION_PRODUCTS_CONFIRMED"
+      | "INSTITUTION_PREPARED";
+  }): Promise<void>;
   abstract recordMembershipActivation(event: {
     userId: string;
     tenantId: string;

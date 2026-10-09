@@ -22,6 +22,6 @@
 - Do not make business modules global. Keep Common limited to stable technical primitives, with no business entities, rules or DTOs.
 - Add repositories/ports only where they reduce real coupling. No automatic GenericRepository, BaseService, BaseController or empty future scaffolding.
 - Avoid cycles; resolve responsibility/direction before considering `forwardRef()`. Register new capability slugs in the root ESLint boundary list.
-- Isolate external providers behind small adapters/ports when useful. Email is infrastructure: verification -> EmailSender -> ResendEmailAdapter. Automated tests override EmailSender and never send real email. Keep external calls outside database transactions.
+- Isolate external providers behind small adapters/ports when useful. Email is infrastructure: use `EmailSender` -> `SmtpEmailAdapter`; automated tests override `EmailSender` and never send real email. Keep external calls outside database transactions.
 - Never expose credentials or tokens in frontend, URLs used for diagnostics, or logs. No speculative queues, gateways, CQRS or distributed infrastructure.
 - Run relevant tests, backend build and lint after changes; verify Nest startup and HU-01 when affected. Run Prisma validation when changing schema/persistence. Review cross-owner queries and cycles manually; lint is partial enforcement.

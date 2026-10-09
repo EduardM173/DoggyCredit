@@ -18,6 +18,7 @@ async function main() {
       process.env.SEED_DEMO_PLANS,
       process.env.SEED_DEMO_OPERATOR,
       process.env.SEED_DEMO_BACKOFFICE_USERS,
+      process.env.SEED_DEMO_PRODUCTS,
     ].includes("true") &&
     !["development", "test"].includes(process.env.NODE_ENV ?? "")
   )
@@ -77,6 +78,61 @@ async function main() {
         update: { isPublic: true, displayOrder: plan.displayOrder },
         create: { ...plan, isPublic: true, currency: "BOB", billingPeriod: "MONTHLY" },
       });
+  }
+  if (process.env.SEED_DEMO_PRODUCTS === "true") {
+    const tenants = await prisma.tenant.findMany({
+      where: {
+        status: "ACTIVE",
+        ...(process.env.SEED_DEMO_TENANT_SLUG ? { slug: process.env.SEED_DEMO_TENANT_SLUG } : {}),
+      },
+      select: { id: true },
+    });
+    const products = [
+      {
+        name: "Microcrédito Emprendedor",
+        category: "MICRO_CREDIT" as const,
+        applicantScope: "PERSON" as const,
+        minAmount: "5000",
+        maxAmount: "50000",
+        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
+      },
+      {
+        name: "Crédito Verde",
+        category: "GREEN_CREDIT" as const,
+        applicantScope: "PERSON" as const,
+        minAmount: "10000",
+        maxAmount: "80000",
+        purposes: ["GREEN_PROJECT"] as const,
+      },
+      {
+        name: "Pyme Crece",
+        category: "SME_CREDIT" as const,
+        applicantScope: "COMPANY" as const,
+        minAmount: "20000",
+        maxAmount: "150000",
+        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
+      },
+    ];
+    for (const tenant of tenants)
+      for (const product of products) {
+        const existing = await prisma.financialProduct.findUnique({
+          where: { tenantId_name: { tenantId: tenant.id, name: product.name } },
+          select: { id: true },
+        });
+        if (existing) continue;
+        await prisma.financialProduct.create({
+          data: {
+            tenant: { connect: { id: tenant.id } },
+            name: product.name,
+            category: product.category,
+            applicantScope: product.applicantScope,
+            minAmount: product.minAmount,
+            maxAmount: product.maxAmount,
+            active: false,
+            purposes: { create: product.purposes.map((purpose) => ({ purpose })) },
+          },
+        });
+      }
   }
   if (process.env.SEED_DEMO_OPERATOR !== "true") return;
   if (!["development", "test"].includes(process.env.NODE_ENV ?? "")) {

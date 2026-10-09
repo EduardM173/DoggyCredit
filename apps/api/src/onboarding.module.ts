@@ -1,10 +1,6 @@
 import { Module } from "@nestjs/common";
 import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
-import {
-  ProvisionInstitutionService,
-  TenantProvisioningWorker,
-  InvitationDeliveryService,
-} from "./identity-tenants/public.js";
+import { ProvisionInstitutionService, TenantProvisioningWorker } from "./identity-tenants/public.js";
 import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
 import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
 import { EmailModule } from "./infrastructure/email/email.module.js";
@@ -20,7 +16,6 @@ import { ContractingEmailDeliveryService } from "./plans-metering/public.js";
   providers: [
     ProvisionInstitutionService,
     TenantProvisioningWorker,
-    InvitationDeliveryService,
     ContractingEmailDeliveryService,
     ContractingApprovalService,
   ],

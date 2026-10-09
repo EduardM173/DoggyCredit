@@ -35,12 +35,26 @@ import {
 } from "./institution-auth/institution-auth.guards.js";
 import { TenantContextGuard } from "./institution-auth/tenant-context.guard.js";
 import { PlanCatalogModule } from "../plans-metering/public.js";
+import { FinancialIntegrationsModule } from "../financial-integrations/financial-integrations.module.js";
+import { RecommendationsModule } from "../recommendations/recommendations.module.js";
+import { TenantPreparationService } from "./institution-auth/tenant-preparation.service.js";
+import { TeamController } from "./institution-auth/team.controller.js";
+import { TeamService } from "./institution-auth/team.service.js";
+import { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
 
 @Module({
-  imports: [PrismaModule, EmailModule, AuditModule, PlanCatalogModule],
+  imports: [
+    PrismaModule,
+    EmailModule,
+    AuditModule,
+    PlanCatalogModule,
+    FinancialIntegrationsModule,
+    RecommendationsModule,
+  ],
   controllers: [
     InstitutionAuthController,
     InstitutionTenantController,
+    TeamController,
     ActivationController,
     InstitutionsController,
     InstitutionRequestsController,
@@ -49,6 +63,9 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
     RequestReviewController,
   ],
   providers: [
+    TenantPreparationService,
+    TeamService,
+    InvitationDeliveryService,
     InstitutionAuthService,
     InstitutionLoginRateGuard,
     InstitutionOriginGuard,
@@ -76,6 +93,7 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
     AdminAuthGuard,
     AdminOriginGuard,
     OperatorGuard,
+    InvitationDeliveryService,
   ],
 })
 export class IdentityTenantsModule {}
