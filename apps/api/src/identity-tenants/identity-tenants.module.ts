@@ -94,6 +94,10 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     AdminOriginGuard,
     OperatorGuard,
     InvitationDeliveryService,
+    TenantContextGuard,
+    InstitutionSessionGuard,
+    InstitutionOriginGuard,
+    TenantPreparationService,
   ],
 })
 export class IdentityTenantsModule {}

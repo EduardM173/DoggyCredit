@@ -8,3 +8,4 @@ coverage
 *.tsbuildinfo
 *.log
 apps/api/src/generated/prisma
+*.pdf

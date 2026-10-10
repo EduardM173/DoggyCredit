@@ -28,6 +28,41 @@ export type InstitutionHome = {
   ready: boolean;
 };
 
+export type EvaluationItem = {
+  id: string;
+  tenantId: string;
+  clientId: string;
+  clientName: string;
+  documentType: string;
+  documentNumber: string;
+  purpose: string;
+  requestedAmount: number;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "FAILED";
+  consentGivenAt: string | null;
+  applicantSnapshot: unknown;
+  ruleVersion: string | null;
+  createdAt: string;
+};
+
+export type ClientSearchResult = {
+  id: string;
+  name: string;
+  documentType: string;
+  documentNumber: string;
+  type: string;
+  economicActivity: string | null;
+} | null;
+
+export type CreateEvaluationPayload = {
+  documentType: "CI" | "NIT" | "PASSPORT" | "OTHER";
+  documentNumber: string;
+  name: string;
+  purpose: "WORKING_CAPITAL" | "GREEN_PROJECT" | "BUSINESS_INVESTMENT" | "EQUIPMENT" | "OTHER";
+  requestedAmount: number;
+  consentGiven: boolean;
+  idempotencyKey?: string;
+};
+
 export class InstitutionError extends Error {
   constructor(
     public status: number,

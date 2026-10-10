@@ -34,6 +34,11 @@ export abstract class AuditWriter {
     membershipId: string;
     planId: string;
   }): Promise<void>;
+  abstract recordEvaluationDraft(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+  }): Promise<void>;
 }
 
 export interface CommerceAuditEvent {

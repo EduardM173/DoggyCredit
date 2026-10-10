@@ -5,6 +5,8 @@ import { HealthController } from "./health.controller.js";
 import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
 import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
 import { OnboardingModule } from "./onboarding.module.js";
+import { ClientsModule } from "./clients/public.js";
+import { EvaluationsModule } from "./evaluations/public.js";
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { OnboardingModule } from "./onboarding.module.js";
     IdentityTenantsModule,
     PlansMeteringModule,
     OnboardingModule,
+    ClientsModule,
+    EvaluationsModule,
   ],
   controllers: [HealthController],
 })

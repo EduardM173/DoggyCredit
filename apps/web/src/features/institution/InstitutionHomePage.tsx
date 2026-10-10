@@ -18,10 +18,19 @@ import {
 import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
 import { AnalystHome } from "./AnalystHome";
+import { EvaluationWizard } from "./EvaluationWizard";
+import { EvaluationsList } from "./EvaluationsList";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
-type Step = "home" | "institution" | "source" | "products" | "team" | "evaluations";
+type Step =
+  | "home"
+  | "institution"
+  | "source"
+  | "products"
+  | "team"
+  | "evaluations"
+  | "new-evaluation";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -225,13 +234,17 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
         </header>
         {step === "team" ? (
           <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
+        ) : step === "new-evaluation" ? (
+          <EvaluationWizard slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
+        ) : step === "evaluations" ? (
+          <EvaluationsList slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
         ) : !admin ? (
           <AnalystHome
             slug={home.tenant.slug}
             tenantName={home.tenant.name}
             userName={home.user.name}
             ready={home.ready}
-            evaluations={step === "evaluations"}
+            evaluations={false}
           />
         ) : step === "home" ? (
           <main className="institution-dashboard">
