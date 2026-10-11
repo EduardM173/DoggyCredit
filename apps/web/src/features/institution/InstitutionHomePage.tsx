@@ -20,6 +20,7 @@ import { TeamPanel } from "./TeamPanel";
 import { AnalystHome } from "./AnalystHome";
 import { EvaluationWizard } from "./EvaluationWizard";
 import { EvaluationsList } from "./EvaluationsList";
+import { EvaluationDetail } from "./EvaluationDetail";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
@@ -30,7 +31,8 @@ type Step =
   | "products"
   | "team"
   | "evaluations"
-  | "new-evaluation";
+  | "new-evaluation"
+  | "evaluation-detail";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -238,6 +240,8 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
           <EvaluationWizard slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
         ) : step === "evaluations" ? (
           <EvaluationsList slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
+        ) : step === "evaluation-detail" ? (
+          <EvaluationDetail slug={home.tenant.slug} />
         ) : !admin ? (
           <AnalystHome
             slug={home.tenant.slug}

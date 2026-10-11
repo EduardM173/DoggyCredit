@@ -9,6 +9,8 @@ import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-wo
 import { ClientsService } from "../clients/public.js";
 import { TenantPreparationService, type TenantContext } from "../identity-tenants/public.js";
 import { AuditWriter } from "../audit/public.js";
+import { BankMockSource } from "../financial-integrations/public.js";
+import { FinancialProfileCalculator } from "../financial-profile/public.js";
 import type { CreateEvaluationDto, DocumentTypeDto } from "./dto/create-evaluation.dto.js";
 import type { DocumentType, CreditPurpose } from "../generated/prisma/client.js";
 
@@ -19,6 +21,8 @@ export class EvaluationsService {
     private readonly clients: ClientsService,
     private readonly preparation: TenantPreparationService,
     private readonly audit: AuditWriter,
+    private readonly bank: BankMockSource,
+    private readonly profileCalculator: FinancialProfileCalculator,
   ) {}
 
   async checkReadiness(ctx: TenantContext) {
@@ -71,7 +75,7 @@ export class EvaluationsService {
 
     const existing = await this.db.client.evaluation.findUnique({
       where: { idempotencyKey },
-      include: { client: true },
+      include: { client: true, profile: true, sourceResults: true },
     });
     if (existing) {
       if (existing.tenantId !== ctx.tenantId) {
@@ -119,7 +123,7 @@ export class EvaluationsService {
           applicantSnapshot,
           ruleVersion: "1.0.0",
         },
-        include: { client: true },
+        include: { client: true, profile: true, sourceResults: true },
       });
 
       await this.audit.recordEvaluationDraft({
@@ -137,7 +141,7 @@ export class EvaluationsService {
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },
       take: 20,
-      include: { client: true },
+      include: { client: true, profile: true, sourceResults: true },
     });
     return list.map((ev) => this.serializeEvaluation(ev));
   }
@@ -145,12 +149,167 @@ export class EvaluationsService {
   async getById(ctx: TenantContext, evaluationId: string) {
     const evaluation = await this.db.client.evaluation.findFirst({
       where: { id: evaluationId, tenantId: ctx.tenantId },
-      include: { client: true, profile: true, recommendations: true },
+      include: { client: true, profile: true, sourceResults: true },
     });
     if (!evaluation) {
       throw new NotFoundException("Evaluación no encontrada.");
     }
     return this.serializeEvaluation(evaluation);
+  }
+
+  async processEvaluation(ctx: TenantContext, evaluationId: string) {
+    const evaluation = await this.db.client.evaluation.findFirst({
+      where: { id: evaluationId, tenantId: ctx.tenantId },
+      include: { client: true, profile: true, sourceResults: true },
+    });
+    if (!evaluation) {
+      throw new NotFoundException("Evaluación no encontrada.");
+    }
+
+    // CA-11.19: If already COMPLETED, return current state without creating a duplicate
+    if (evaluation.status === "COMPLETED") {
+      return this.serializeEvaluation(evaluation);
+    }
+
+    const readiness = await this.checkReadiness(ctx);
+    if (!readiness.ready) {
+      throw new BadRequestException(
+        "La institución no cumple las condiciones mínimas para evaluar.",
+      );
+    }
+
+    if (!evaluation.consentGivenAt) {
+      throw new BadRequestException(
+        "La evaluación no cuenta con consentimiento registrado para consultar fuentes.",
+      );
+    }
+
+    // CA-11.01: Transition to IN_PROGRESS
+    await this.db.client.evaluation.update({
+      where: { id: evaluation.id },
+      data: {
+        status: "IN_PROGRESS",
+        startedAt: evaluation.startedAt ?? new Date(),
+      },
+    });
+
+    const snapshot = evaluation.applicantSnapshot as Record<string, unknown> | null;
+    const documentNumber = evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
+
+    // CA-11.05: Encapsulated query to Bank Mock
+    const queryResult = await this.bank.query(ctx.tenantId, documentNumber);
+
+    // CA-11.08: Save source result with provenance, state and timestamp
+    const existingSource = await this.db.client.evaluationSourceResult.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        evaluationId: evaluation.id,
+        providerId: queryResult.providerId,
+      },
+    });
+    const attemptCount = existingSource ? existingSource.attemptCount + 1 : 1;
+    const sourceResultId = existingSource?.id ?? randomUUID();
+
+    const persistedSource = await this.db.client.evaluationSourceResult.upsert({
+      where: { id: sourceResultId },
+      update: {
+        status: queryResult.status,
+        attemptCount,
+        externalReference:
+          "externalReference" in queryResult ? queryResult.externalReference : null,
+        errorCode: "errorCode" in queryResult ? queryResult.errorCode : null,
+        normalizedPayload:
+          queryResult.status === "SUCCESS" ? (queryResult.data as unknown as object) : undefined,
+        respondedAt: new Date(),
+      },
+      create: {
+        id: sourceResultId,
+        tenantId: ctx.tenantId,
+        evaluationId: evaluation.id,
+        providerId: queryResult.providerId,
+        status: queryResult.status,
+        attemptCount: 1,
+        externalReference:
+          "externalReference" in queryResult ? queryResult.externalReference : null,
+        errorCode: "errorCode" in queryResult ? queryResult.errorCode : null,
+        normalizedPayload:
+          queryResult.status === "SUCCESS" ? (queryResult.data as unknown as object) : undefined,
+        respondedAt: new Date(),
+      },
+    });
+
+    // Handle outcome according to S2-RF-05 / CA-11.09
+    if (queryResult.status === "SUCCESS") {
+      const indicators = this.profileCalculator.calculate(queryResult.data);
+      await this.profileCalculator.saveProfile(
+        ctx.tenantId,
+        evaluation.id,
+        persistedSource.id,
+        indicators,
+      );
+
+      const completed = await this.db.client.evaluation.update({
+        where: { id: evaluation.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          failureCode: null,
+          failureMessage: null,
+        },
+        include: { client: true, profile: true, sourceResults: true },
+      });
+
+      await this.audit.recordEvaluationProcessed({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        evaluationId: evaluation.id,
+        status: "COMPLETED",
+      });
+
+      return this.serializeEvaluation(completed);
+    }
+
+    if (queryResult.status === "NO_DATA") {
+      const incomplete = await this.db.client.evaluation.update({
+        where: { id: evaluation.id },
+        data: {
+          status: "INCOMPLETE",
+          completedAt: new Date(),
+          failureCode: "NO_FINANCIAL_DATA",
+          failureMessage: queryResult.message,
+        },
+        include: { client: true, profile: true, sourceResults: true },
+      });
+
+      await this.audit.recordEvaluationProcessed({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        evaluationId: evaluation.id,
+        status: "INCOMPLETE",
+      });
+
+      return this.serializeEvaluation(incomplete);
+    }
+
+    // UNAVAILABLE or ERROR -> FAILED (retryable)
+    const failed = await this.db.client.evaluation.update({
+      where: { id: evaluation.id },
+      data: {
+        status: "FAILED",
+        failureCode: queryResult.errorCode,
+        failureMessage: queryResult.message,
+      },
+      include: { client: true, profile: true, sourceResults: true },
+    });
+
+    await this.audit.recordEvaluationProcessed({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.userId,
+      evaluationId: evaluation.id,
+      status: "FAILED",
+    });
+
+    return this.serializeEvaluation(failed);
   }
 
   private serializeEvaluation(ev: {
@@ -164,25 +323,94 @@ export class EvaluationsService {
     consentGivenAt: Date | null;
     applicantSnapshot: unknown;
     ruleVersion: string | null;
+    failureCode?: string | null;
+    failureMessage?: string | null;
+    startedAt?: Date | null;
+    completedAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    profile?: {
+      id: string;
+      averageMonthlyIncome: unknown;
+      averageMonthlyExpenses: unknown;
+      disposableIncome: unknown;
+      totalDebt: unknown;
+      activeCredits: number | null;
+      debtToIncome: unknown;
+      hasRecentArrears: boolean | null;
+      completeness: unknown;
+      profileVersion: string;
+      calculatedAt: Date;
+    } | null;
+    sourceResults?: Array<{
+      id: string;
+      providerId: string;
+      status: string;
+      attemptCount: number;
+      externalReference: string | null;
+      errorCode: string | null;
+      requestedAt: Date;
+      respondedAt: Date | null;
+    }>;
   }) {
     const snapshot = ev.applicantSnapshot as Record<string, unknown> | null;
     return {
       id: ev.id,
       tenantId: ev.tenantId,
       clientId: ev.clientId,
-      clientName: ev.client?.name ?? snapshot?.name ?? "Solicitante",
-      documentType: ev.client?.documentType ?? snapshot?.documentType ?? "CI",
-      documentNumber: ev.client?.documentNumber ?? snapshot?.documentNumber ?? "",
+      clientName: ev.client?.name ?? (snapshot?.name as string) ?? "Solicitante",
+      documentType: ev.client?.documentType ?? (snapshot?.documentType as string) ?? "CI",
+      documentNumber: ev.client?.documentNumber ?? (snapshot?.documentNumber as string) ?? "",
       purpose: ev.purpose,
       requestedAmount: Number(ev.requestedAmount),
       status: ev.status,
       consentGivenAt: ev.consentGivenAt,
       applicantSnapshot: ev.applicantSnapshot,
       ruleVersion: ev.ruleVersion,
+      failureCode: ev.failureCode ?? null,
+      failureMessage: ev.failureMessage ?? null,
+      startedAt: ev.startedAt ?? null,
+      completedAt: ev.completedAt ?? null,
       createdAt: ev.createdAt,
       updatedAt: ev.updatedAt,
+      profile: ev.profile
+        ? {
+            id: ev.profile.id,
+            averageMonthlyIncome:
+              ev.profile.averageMonthlyIncome !== null
+                ? Number(ev.profile.averageMonthlyIncome)
+                : null,
+            averageMonthlyExpenses:
+              ev.profile.averageMonthlyExpenses !== null
+                ? Number(ev.profile.averageMonthlyExpenses)
+                : null,
+            disposableIncome:
+              ev.profile.disposableIncome !== null
+                ? Number(ev.profile.disposableIncome)
+                : null,
+            totalDebt:
+              ev.profile.totalDebt !== null ? Number(ev.profile.totalDebt) : null,
+            activeCredits: ev.profile.activeCredits,
+            debtToIncome:
+              ev.profile.debtToIncome !== null
+                ? Number(ev.profile.debtToIncome)
+                : null,
+            hasRecentArrears: ev.profile.hasRecentArrears,
+            completeness: Number(ev.profile.completeness),
+            profileVersion: ev.profile.profileVersion,
+            calculatedAt: ev.profile.calculatedAt,
+          }
+        : null,
+      sourceResults: (ev.sourceResults ?? []).map((sr) => ({
+        id: sr.id,
+        providerId: sr.providerId,
+        status: sr.status,
+        attemptCount: sr.attemptCount,
+        externalReference: sr.externalReference,
+        errorCode: sr.errorCode,
+        requestedAt: sr.requestedAt,
+        respondedAt: sr.respondedAt,
+      })),
     };
   }
 }

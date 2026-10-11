@@ -109,6 +109,7 @@ export function EvaluationsList({
                 <th>Monto solicitado</th>
                 <th>Estado</th>
                 <th>Fecha</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody>
@@ -129,6 +130,14 @@ export function EvaluationsList({
                   </td>
                   <td style={{ color: "#51627d", fontSize: 13 }}>
                     {new Date(ev.createdAt).toLocaleDateString("es-BO")}
+                  </td>
+                  <td>
+                    <Link
+                      to={`/${slug}/evaluaciones/${ev.id}`}
+                      style={{ color: "#1267e8", fontWeight: 600, fontSize: 13, textDecoration: "none" }}
+                    >
+                      Ver detalle
+                    </Link>
                   </td>
                 </tr>
               ))}

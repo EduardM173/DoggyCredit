@@ -1,0 +1,369 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Lock,
+  Plus,
+  RefreshCw,
+  TrendingUp,
+} from "lucide-react";
+import {
+  fetchEvaluation,
+  processEvaluation,
+  type EvaluationDetailItem,
+} from "./api";
+import "./evaluations.css";
+
+const PURPOSE_LABELS: Record<string, string> = {
+  WORKING_CAPITAL: "Capital de trabajo",
+  BUSINESS_INVESTMENT: "Inversión empresarial",
+  GREEN_PROJECT: "Proyecto verde / sostenible",
+  EQUIPMENT: "Maquinaria y equipamiento",
+  OTHER: "Otra finalidad",
+};
+
+export function EvaluationDetail({ slug }: { slug: string }) {
+  const { id } = useParams<{ id: string }>();
+  const [evaluation, setEvaluation] = useState<EvaluationDetailItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (!id) return;
+    fetchEvaluation(slug, id)
+      .then((data) => {
+        if (active) setEvaluation(data);
+      })
+      .catch((err) => {
+        if (active) setError(err instanceof Error ? err.message : "Error al cargar la evaluación.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [slug, id]);
+
+  async function handleStartProcessing() {
+    if (!id) return;
+    setProcessing(true);
+    setError("");
+    try {
+      const updated = await processEvaluation(slug, id);
+      setEvaluation(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo completar el procesamiento.");
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  function formatMoney(val: number | null | undefined): string {
+    if (val === null || val === undefined) return "No disponible";
+    return `Bs. ${val.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  if (loading) {
+    return (
+      <main className="eval-container">
+        <div className="eval-card" style={{ textAlign: "center", padding: 48 }}>
+          <div className="eval-spinner" />
+          <p style={{ color: "#51627d" }}>Cargando datos de la evaluación...</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error && !evaluation) {
+    return (
+      <main className="eval-container">
+        <div className="eval-card">
+          <div className="eval-client-badge" style={{ borderColor: "#fda29b", background: "#fef3f2" }}>
+            <AlertCircle size={24} color="#b42318" />
+            <div>
+              <h3 style={{ color: "#b42318" }}>Error</h3>
+              <p style={{ color: "#7a271a" }}>{error}</p>
+            </div>
+          </div>
+          <div className="eval-actions" style={{ borderTop: "none", marginTop: 20 }}>
+            <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+              <ArrowLeft size={16} /> Volver a evaluaciones
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!evaluation) return null;
+
+  const profile = evaluation.profile;
+
+  return (
+    <main className="eval-container">
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          to={`/${slug}/evaluaciones`}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1267e8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+        >
+          <ArrowLeft size={16} /> Volver a lista de evaluaciones
+        </Link>
+      </div>
+
+      <div className="eval-card">
+        {/* Header Summary */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, borderBottom: "1px solid #d9e4f0", paddingBottom: 20 }}>
+          <div>
+            <div className="eval-eyebrow">Evaluación crediticia</div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0b1f4d", margin: "4px 0" }}>
+              {evaluation.clientName}
+            </h1>
+            <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
+              {evaluation.documentType}: <strong>{evaluation.documentNumber}</strong> · Finalidad:{" "}
+              <strong>{PURPOSE_LABELS[evaluation.purpose] || evaluation.purpose}</strong>
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span className={`eval-status-badge eval-status-${evaluation.status}`}>
+              {evaluation.status === "COMPLETED"
+                ? "COMPLETADA"
+                : evaluation.status === "IN_PROGRESS"
+                  ? "EN PROCESO"
+                  : evaluation.status === "INCOMPLETE"
+                    ? "INFORMACIÓN PARCIAL"
+                    : evaluation.status === "FAILED"
+                      ? "NO COMPLETADA"
+                      : "BORRADOR"}
+            </span>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", marginTop: 6 }}>
+              Bs. {evaluation.requestedAmount.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+
+        {/* Processing in flight */}
+        {processing && (
+          <div className="eval-processing-box" role="status">
+            <div className="eval-spinner" />
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: "0 0 6px" }}>
+              Procesando evaluación...
+            </h3>
+            <p style={{ margin: 0, color: "#51627d", fontSize: 14 }}>
+              Consultando información financiera disponible del solicitante y calculando su perfil crediticio.
+            </p>
+          </div>
+        )}
+
+        {/* Error alert if processing failed */}
+        {error && (
+          <div className="eval-client-badge" style={{ borderColor: "#fda29b", background: "#fef3f2", marginTop: 16 }}>
+            <AlertCircle size={20} color="#b42318" />
+            <p style={{ margin: 0, color: "#7a271a", fontSize: 14 }}>{error}</p>
+          </div>
+        )}
+
+        {/* Status DRAFT view */}
+        {!processing && evaluation.status === "DRAFT" && (
+          <div style={{ padding: "28px 0 12px" }}>
+            <div style={{ background: "#f5f9fb", border: "1px solid #d9e4f0", borderRadius: 12, padding: 20, marginBottom: 20 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: "#0b1f4d", margin: "0 0 8px" }}>
+                Expediente preparado y autorizado
+              </h3>
+              <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
+                El caso se encuentra en borrador con el consentimiento informado registrado. Al iniciar,
+                DoggyCredit consultará automáticamente los antecedentes de la fuente bancaria para derivar
+                el perfil financiero.
+              </p>
+            </div>
+            <button className="eval-btn-primary" onClick={handleStartProcessing}>
+              <TrendingUp size={18} /> Iniciar evaluación
+            </button>
+          </div>
+        )}
+
+        {/* Status COMPLETED: Financial Profile Dashboard */}
+        {!processing && evaluation.status === "COMPLETED" && profile && (
+          <div className="eval-profile-section">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
+                Perfil Financiero Básico
+              </h2>
+              <span style={{ fontSize: 13, color: "#51627d", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <Clock size={14} /> Calculado el {new Date(profile.calculatedAt).toLocaleDateString()}
+              </span>
+            </div>
+
+            <div className="eval-profile-grid">
+              {/* 1. Ingreso promedio */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Ingreso mensual promedio</span>
+                <span className={`eval-indicator-value ${profile.averageMonthlyIncome === null ? "eval-indicator-unavailable" : ""}`}>
+                  {formatMoney(profile.averageMonthlyIncome)}
+                </span>
+                <span className="eval-indicator-sub">Promedio de ingresos reportados</span>
+              </div>
+
+              {/* 2. Gastos promedio */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Gastos mensuales promedio</span>
+                <span className={`eval-indicator-value ${profile.averageMonthlyExpenses === null ? "eval-indicator-unavailable" : ""}`}>
+                  {formatMoney(profile.averageMonthlyExpenses)}
+                </span>
+                <span className="eval-indicator-sub">Egresos habituales registrados</span>
+              </div>
+
+              {/* 3. Ingreso disponible */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Capacidad disponible</span>
+                <span className={`eval-indicator-value ${profile.disposableIncome === null ? "eval-indicator-unavailable" : ""}`}>
+                  {formatMoney(profile.disposableIncome)}
+                </span>
+                <span className="eval-indicator-sub">Margen neto (Ingresos - Gastos)</span>
+              </div>
+
+              {/* 4. Deuda total */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Deuda total acumulada</span>
+                <span className={`eval-indicator-value ${profile.totalDebt === null ? "eval-indicator-unavailable" : ""}`}>
+                  {formatMoney(profile.totalDebt)}
+                </span>
+                <span className="eval-indicator-sub">Saldo vigente de obligaciones</span>
+              </div>
+
+              {/* 5. Creditos activos */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Créditos activos</span>
+                <span className="eval-indicator-value">
+                  {profile.activeCredits !== null ? profile.activeCredits : "No disponible"}
+                </span>
+                <span className="eval-indicator-sub">Obligaciones bancarias vigentes</span>
+              </div>
+
+              {/* 6. DTI */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Relación deuda / ingreso (DTI)</span>
+                <span className={`eval-indicator-value ${profile.debtToIncome === null ? "eval-indicator-unavailable" : ""}`}>
+                  {profile.debtToIncome !== null ? `${(profile.debtToIncome * 100).toFixed(2)}%` : "No disponible"}
+                </span>
+                <span className="eval-indicator-sub">Porcentaje de ingresos para pago de deuda</span>
+              </div>
+
+              {/* 7. Mora reciente */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Historial de mora reciente</span>
+                <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+                  {profile.hasRecentArrears === null ? (
+                    <span className="eval-indicator-unavailable">No disponible</span>
+                  ) : profile.hasRecentArrears ? (
+                    <span style={{ color: "#b42318", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <AlertTriangle size={18} /> Con atrasos vigentes
+                    </span>
+                  ) : (
+                    <span style={{ color: "#067647", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <CheckCircle2 size={18} /> Sin mora registrada
+                    </span>
+                  )}
+                </span>
+                <span className="eval-indicator-sub">Días de atraso en entidades financieras</span>
+              </div>
+
+              {/* 8. Completitud */}
+              <div className="eval-indicator-card">
+                <span className="eval-indicator-label">Completitud del perfil</span>
+                <span className="eval-indicator-value" style={{ color: "#1267e8" }}>
+                  {(profile.completeness * 100).toFixed(0)}%
+                </span>
+                <span className="eval-indicator-sub">Indicadores calculables / evaluables</span>
+              </div>
+            </div>
+
+            {/* Provenance and immutability notice */}
+            <div className="eval-provenance-box">
+              <Lock size={16} />
+              <span>
+                Datos provistos por la fuente bancaria (Mock) · Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-11.16).
+              </span>
+            </div>
+
+            <div className="eval-actions" style={{ marginTop: 28 }}>
+              <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
+                <Plus size={18} /> Nueva evaluación
+              </Link>
+              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+                <FileText size={18} /> Ver evaluaciones
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Status INCOMPLETE (NO_DATA) */}
+        {!processing && evaluation.status === "INCOMPLETE" && (
+          <div style={{ marginTop: 24 }}>
+            <div className="eval-client-badge" style={{ borderColor: "#fedf89", background: "#fffaeb", padding: 20 }}>
+              <AlertCircle size={28} color="#b54708" />
+              <div>
+                <h3 style={{ color: "#b54708", margin: "0 0 6px", fontSize: 16 }}>
+                  Fuente sin antecedentes disponibles
+                </h3>
+                <p style={{ color: "#712f06", margin: 0, fontSize: 14 }}>
+                  {evaluation.failureMessage ||
+                    "La fuente bancaria consultada no dispone de información financiera para este solicitante."}
+                </p>
+              </div>
+            </div>
+            <p style={{ fontSize: 14, color: "#51627d", marginTop: 12 }}>
+              La evaluación se cerró con información parcial debido a la ausencia de registros previos en
+              la entidad bancaria consultada.
+            </p>
+            <div className="eval-actions" style={{ marginTop: 24 }}>
+              <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
+                <Plus size={18} /> Nueva evaluación
+              </Link>
+              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+                <FileText size={18} /> Ver evaluaciones
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Status FAILED (UNAVAILABLE or ERROR) */}
+        {!processing && evaluation.status === "FAILED" && (
+          <div style={{ marginTop: 24 }}>
+            <div className="eval-client-badge" style={{ borderColor: "#fda29b", background: "#fef3f2", padding: 20 }}>
+              <AlertTriangle size={28} color="#b42318" />
+              <div>
+                <h3 style={{ color: "#b42318", margin: "0 0 6px", fontSize: 16 }}>
+                  Servicio no disponible temporalmente
+                </h3>
+                <p style={{ color: "#7a271a", margin: 0, fontSize: 14 }}>
+                  {evaluation.failureMessage ||
+                    "Ocurrió una interrupción al consultar la fuente bancaria externa. Esta situación es reintentable."}
+                </p>
+              </div>
+            </div>
+            <p style={{ fontSize: 14, color: "#51627d", marginTop: 12 }}>
+              Puedes reintentar la operación sobre este mismo caso sin necesidad de volver a crear o capturar
+              la información del solicitante.
+            </p>
+            <div className="eval-actions" style={{ marginTop: 24 }}>
+              <button className="eval-btn-primary" onClick={handleStartProcessing}>
+                <RefreshCw size={18} /> Reintentar evaluación
+              </button>
+              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+                <FileText size={18} /> Ver evaluaciones
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}

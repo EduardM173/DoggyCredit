@@ -39,6 +39,12 @@ export abstract class AuditWriter {
     actorUserId: string;
     evaluationId: string;
   }): Promise<void>;
+  abstract recordEvaluationProcessed(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    status: string;
+  }): Promise<void>;
 }
 
 export interface CommerceAuditEvent {

@@ -67,4 +67,12 @@ export class EvaluationsController {
   getById(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
     return this.evaluations.getById(request.tenantContext, evaluationId);
   }
+
+  @Post(":evaluationId/process")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Procesar evaluación: consultar fuentes bancarias y derivar perfil financiero" })
+  process(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
+    return this.evaluations.processEvaluation(request.tenantContext, evaluationId);
+  }
 }

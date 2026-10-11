@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  TrendingUp,
   UserCheck,
 } from "lucide-react";
 import {
@@ -191,13 +192,16 @@ export function EvaluationWizard({
             <strong>Bs {Number(createdEvaluation.requestedAmount ?? requestedAmount).toLocaleString()}</strong> ha
             sido registrado con su snapshot inmutable y consentimiento legal.
           </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-            <button className="eval-btn-primary" onClick={resetForm}>
-              <Plus size={18} /> Nueva evaluación
-            </button>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/${createdEvaluation.id}`}>
+              <TrendingUp size={18} /> Procesar evaluación ahora
+            </Link>
             <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
               <FileText size={18} /> Ver evaluaciones
             </Link>
+            <button className="eval-btn-secondary" onClick={resetForm}>
+              <Plus size={18} /> Preparar otra
+            </button>
           </div>
         </div>
       </main>

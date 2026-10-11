@@ -44,6 +44,40 @@ export type EvaluationItem = {
   createdAt: string;
 };
 
+export type FinancialProfileDto = {
+  id: string;
+  averageMonthlyIncome: number | null;
+  averageMonthlyExpenses: number | null;
+  disposableIncome: number | null;
+  totalDebt: number | null;
+  activeCredits: number | null;
+  debtToIncome: number | null;
+  hasRecentArrears: boolean | null;
+  completeness: number;
+  profileVersion: string;
+  calculatedAt: string;
+};
+
+export type EvaluationSourceResultDto = {
+  id: string;
+  providerId: string;
+  status: "SUCCESS" | "NO_DATA" | "UNAVAILABLE" | "ERROR";
+  attemptCount: number;
+  externalReference: string | null;
+  errorCode: string | null;
+  requestedAt: string;
+  respondedAt: string | null;
+};
+
+export type EvaluationDetailItem = EvaluationItem & {
+  failureCode: string | null;
+  failureMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  profile: FinancialProfileDto | null;
+  sourceResults: EvaluationSourceResultDto[];
+};
+
 export type ClientSearchResult = {
   id: string;
   name: string;
@@ -62,6 +96,16 @@ export type CreateEvaluationPayload = {
   consentGiven: boolean;
   idempotencyKey?: string;
 };
+
+export async function fetchEvaluation(tenantSlug: string, evaluationId: string): Promise<EvaluationDetailItem> {
+  return institutionApi<EvaluationDetailItem>(`/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}`);
+}
+
+export async function processEvaluation(tenantSlug: string, evaluationId: string): Promise<EvaluationDetailItem> {
+  return institutionApi<EvaluationDetailItem>(`/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}/process`, {
+    body: {},
+  });
+}
 
 export class InstitutionError extends Error {
   constructor(
