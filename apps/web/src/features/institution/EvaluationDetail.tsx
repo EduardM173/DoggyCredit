@@ -4,13 +4,18 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Award,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileText,
   Lock,
   Plus,
   RefreshCw,
+  ShieldCheck,
   TrendingUp,
+  XCircle,
 } from "lucide-react";
 import {
   fetchEvaluation,
@@ -27,12 +32,19 @@ const PURPOSE_LABELS: Record<string, string> = {
   OTHER: "Otra finalidad",
 };
 
+const CATEGORY_NAMES: Record<string, string> = {
+  MICRO_CREDIT: "Microcrédito",
+  GREEN_CREDIT: "Crédito Verde",
+  SME_CREDIT: "Crédito PYME",
+};
+
 export function EvaluationDetail({ slug }: { slug: string }) {
   const { id } = useParams<{ id: string }>();
   const [evaluation, setEvaluation] = useState<EvaluationDetailItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [showIncompatible, setShowIncompatible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -292,6 +304,170 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                 Datos provistos por la fuente bancaria (Mock) · Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-11.16).
               </span>
             </div>
+
+            {/* Recommendations Section (HU-12) */}
+            {(() => {
+              const recommendations = evaluation.recommendations || [];
+              const recommended = recommendations.filter((r) => r.outcome === "RECOMMENDED");
+              const incompatible = recommendations.filter((r) => r.outcome === "NOT_COMPATIBLE");
+
+              return (
+                <div className="eval-recommendations-section">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
+                      Recomendación de Productos Crediticios
+                    </h2>
+                    <span style={{ fontSize: 13, color: "#51627d" }}>
+                      Reglas v{evaluation.ruleVersion || "1.0.0"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 14, color: "#51627d", margin: "0 0 16px" }}>
+                    Comparación automática del perfil financiero con el catálogo de productos activos de tu institución.
+                  </p>
+
+                  {recommended.length > 0 ? (
+                    <div className="eval-rec-grid">
+                      {recommended.map((rec, index) => (
+                        <div key={rec.id} className="eval-rec-card eval-rec-card-recommended">
+                          <div className="eval-rec-header">
+                            <div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                                <h3 className="eval-rec-title">{rec.productName}</h3>
+                                <span className="eval-rec-badge-secondary">
+                                  {CATEGORY_NAMES[rec.category] || rec.category}
+                                </span>
+                                {index === 0 && recommended.length > 1 && (
+                                  <span className="eval-rec-badge-primary">
+                                    <Award size={13} /> Recomendación principal
+                                  </span>
+                                )}
+                                {index > 0 && recommended.length > 1 && (
+                                  <span className="eval-rec-badge-secondary">
+                                    Alternativa compatible
+                                  </span>
+                                )}
+                              </div>
+                              <div className="eval-rec-meta">
+                                Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                              </div>
+                            </div>
+                            <span className="eval-rec-badge-primary">
+                              <CheckCircle2 size={14} /> Compatible
+                            </span>
+                          </div>
+
+                          <div style={{ borderTop: "1px solid #d9f3e4", paddingTop: 12 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "#027a48", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              Criterios evaluados y cumplidos
+                            </span>
+                            <ul className="eval-rec-reasons-list">
+                              {rec.reasons.map((reason) => (
+                                <li key={reason.code} className="eval-rec-reason-item eval-rec-reason-passed">
+                                  <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                  <span>{reason.message}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="eval-no-compat-box">
+                      <AlertCircle size={36} color="#b54708" style={{ margin: "0 auto 12px" }} />
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0b1f4d", margin: "0 0 6px" }}>
+                        Ningún producto compatible para este perfil
+                      </h3>
+                      <p style={{ margin: 0, fontSize: 14, color: "#51627d", maxWidth: 520, marginInline: "auto" }}>
+                        El perfil financiero del solicitante no cumple con los criterios de admisibilidad ni parámetros
+                        de los productos crediticios activos actualmente en la institución.
+                      </p>
+                    </div>
+                  )}
+
+                  {incompatible.length > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowIncompatible((prev) => !prev)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#1267e8",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: 0,
+                        }}
+                      >
+                        {showIncompatible ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {showIncompatible
+                          ? "Ocultar otros productos evaluados"
+                          : `Ver otros productos evaluados no compatibles (${incompatible.length})`}
+                      </button>
+
+                      {showIncompatible && (
+                        <div className="eval-rec-grid" style={{ marginTop: 12 }}>
+                          {incompatible.map((rec) => (
+                            <div key={rec.id} className="eval-rec-card eval-rec-card-incompatible">
+                              <div className="eval-rec-header">
+                                <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                                    <h3 className="eval-rec-title" style={{ color: "#344054" }}>{rec.productName}</h3>
+                                    <span className="eval-rec-badge-secondary">
+                                      {CATEGORY_NAMES[rec.category] || rec.category}
+                                    </span>
+                                  </div>
+                                  <div className="eval-rec-meta">
+                                    Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                                  </div>
+                                </div>
+                                <span className="eval-rec-badge-incompatible">
+                                  <XCircle size={14} /> No compatible
+                                </span>
+                              </div>
+
+                              <div style={{ borderTop: "1px solid #eaecf0", paddingTop: 12 }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "#475467", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                  Motivos de no compatibilidad
+                                </span>
+                                <ul className="eval-rec-reasons-list">
+                                  {rec.reasons.map((reason) => (
+                                    <li
+                                      key={reason.code}
+                                      className={`eval-rec-reason-item ${reason.passed ? "eval-rec-reason-passed" : "eval-rec-reason-failed"}`}
+                                    >
+                                      {reason.passed ? (
+                                        <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                      ) : (
+                                        <XCircle size={16} color="#b42318" style={{ flexShrink: 0, marginTop: 1 }} />
+                                      )}
+                                      <span>{reason.message}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="eval-disclaimer-box">
+                    <ShieldCheck size={20} color="#1267e8" style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>
+                      <strong>Aviso de recomendación:</strong> Este resultado constituye una recomendación técnica de
+                      compatibilidad crediticia basada en reglas institucionales. No representa una aprobación formal
+                      ni compromiso de desembolso por parte de la institución (CA-12.12).
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="eval-actions" style={{ marginTop: 28 }}>
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>

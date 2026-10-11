@@ -44,6 +44,7 @@ describe("HU-11 EvaluationDetail", () => {
     completedAt: null,
     profile: null,
     sourceResults: [],
+    recommendations: [],
   };
 
   it("PA-11.1 & CA-11.02: shows draft, processes evaluation, and renders basic financial profile", async () => {
@@ -259,6 +260,219 @@ describe("HU-11 EvaluationDetail", () => {
       expect(screen.queryByText("NaN")).not.toBeInTheDocument();
       expect(screen.queryByText("undefined")).not.toBeInTheDocument();
       expect(screen.queryByText("null")).not.toBeInTheDocument();
+    });
+  });
+
+  it("PA-12.1 & CA-12.06 & CA-12.12: renders recommended product with explainable reasons and official disclaimer", async () => {
+    const mockRecommendedEvaluation = {
+      ...mockDraftEvaluation,
+      status: "COMPLETED",
+      completedAt: "2026-10-10T20:20:00.000Z",
+      ruleVersion: "1.0.0",
+      profile: {
+        id: "prof-1",
+        averageMonthlyIncome: 6500,
+        averageMonthlyExpenses: 2800,
+        disposableIncome: 3700,
+        totalDebt: 4200,
+        activeCredits: 1,
+        debtToIncome: 0.0692,
+        hasRecentArrears: false,
+        completeness: 1,
+        profileVersion: "1.0.0",
+        calculatedAt: "2026-10-10T20:20:00.000Z",
+      },
+      recommendations: [
+        {
+          id: "rec-1",
+          productId: "prod-1",
+          productName: "Microcrédito Emprendedor",
+          category: "MICRO_CREDIT",
+          outcome: "RECOMMENDED",
+          ruleVersion: "1.0.0",
+          minAmount: 5000,
+          maxAmount: 50000,
+          evaluatedAt: "2026-10-10T20:20:00.000Z",
+          reasons: [
+            {
+              code: "RULE_PURPOSE",
+              message: "Finalidad del crédito admitida para este producto.",
+              passed: true,
+            },
+            {
+              code: "RULE_AMOUNT_RANGE",
+              message: "Monto solicitado dentro del rango permitido (Bs. 5.000 - Bs. 50.000).",
+              passed: true,
+            },
+            {
+              code: "RULE_MAX_DTI",
+              message: "Relación deuda/ingreso (6.9%) dentro del límite admisible (máximo 40%).",
+              passed: true,
+            },
+          ],
+        },
+      ],
+      sourceResults: [],
+    };
+
+    fetchMock.mockReturnValueOnce(jsonResponse(mockRecommendedEvaluation));
+
+    render(
+      <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+        <Routes>
+          <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Recomendación de Productos Crediticios")).toBeInTheDocument();
+      expect(screen.getByText("Microcrédito Emprendedor")).toBeInTheDocument();
+      expect(screen.getByText("Compatible")).toBeInTheDocument();
+      expect(screen.getByText("Finalidad del crédito admitida para este producto.")).toBeInTheDocument();
+      expect(screen.getByText("Monto solicitado dentro del rango permitido (Bs. 5.000 - Bs. 50.000).")).toBeInTheDocument();
+      expect(screen.getByText(/Este resultado constituye una recomendación técnica/)).toBeInTheDocument();
+      expect(screen.getByText("Nueva evaluación")).toBeInTheDocument();
+      expect(screen.getByText("Ver evaluaciones")).toBeInTheDocument();
+    });
+  });
+
+  it("PA-12.2 & CA-12.09 & CA-12.10: renders friendly notice when no product is compatible without error/failure", async () => {
+    const mockNoCompatEvaluation = {
+      ...mockDraftEvaluation,
+      status: "COMPLETED",
+      completedAt: "2026-10-10T20:25:00.000Z",
+      ruleVersion: "1.0.0",
+      profile: {
+        id: "prof-1",
+        averageMonthlyIncome: 3000,
+        averageMonthlyExpenses: 2500,
+        disposableIncome: 500,
+        totalDebt: 5000,
+        activeCredits: 2,
+        debtToIncome: 0.65,
+        hasRecentArrears: true,
+        completeness: 1,
+        profileVersion: "1.0.0",
+        calculatedAt: "2026-10-10T20:25:00.000Z",
+      },
+      recommendations: [
+        {
+          id: "rec-1",
+          productId: "prod-1",
+          productName: "Microcrédito Emprendedor",
+          category: "MICRO_CREDIT",
+          outcome: "NOT_COMPATIBLE",
+          ruleVersion: "1.0.0",
+          minAmount: 5000,
+          maxAmount: 50000,
+          evaluatedAt: "2026-10-10T20:25:00.000Z",
+          reasons: [
+            {
+              code: "RULE_MAX_DTI",
+              message: "Relación deuda/ingreso (65.0%) excede el límite máximo admisible (40%).",
+              passed: false,
+            },
+          ],
+        },
+      ],
+      sourceResults: [],
+    };
+
+    fetchMock.mockReturnValueOnce(jsonResponse(mockNoCompatEvaluation));
+
+    render(
+      <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+        <Routes>
+          <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("COMPLETADA")).toBeInTheDocument();
+      expect(screen.getByText("Ningún producto compatible para este perfil")).toBeInTheDocument();
+      expect(
+        screen.getByText("Ver otros productos evaluados no compatibles (1)"),
+      ).toBeInTheDocument();
+      // Should not be presented as a failure
+      expect(screen.queryByText("NO COMPLETADA")).not.toBeInTheDocument();
+      expect(screen.queryByText("FALLIDA")).not.toBeInTheDocument();
+    });
+
+    // Expand non-compatible products to view explainable failed reasons
+    const toggleBtn = screen.getByText("Ver otros productos evaluados no compatibles (1)");
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("No compatible")).toBeInTheDocument();
+      expect(
+        screen.getByText("Relación deuda/ingreso (65.0%) excede el límite máximo admisible (40%)."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("CA-12.08: distinguishes multiple compatible products with recommendation priority badges", async () => {
+    const mockMultipleCompatEvaluation = {
+      ...mockDraftEvaluation,
+      status: "COMPLETED",
+      completedAt: "2026-10-10T20:30:00.000Z",
+      ruleVersion: "1.0.0",
+      profile: {
+        id: "prof-1",
+        averageMonthlyIncome: 12000,
+        averageMonthlyExpenses: 4000,
+        disposableIncome: 8000,
+        totalDebt: 3000,
+        activeCredits: 1,
+        debtToIncome: 0.1,
+        hasRecentArrears: false,
+        completeness: 1,
+        profileVersion: "1.0.0",
+        calculatedAt: "2026-10-10T20:30:00.000Z",
+      },
+      recommendations: [
+        {
+          id: "rec-1",
+          productId: "prod-1",
+          productName: "Microcrédito Emprendedor",
+          category: "MICRO_CREDIT",
+          outcome: "RECOMMENDED",
+          ruleVersion: "1.0.0",
+          minAmount: 5000,
+          maxAmount: 50000,
+          evaluatedAt: "2026-10-10T20:30:00.000Z",
+          reasons: [],
+        },
+        {
+          id: "rec-2",
+          productId: "prod-2",
+          productName: "Crédito Verde",
+          category: "GREEN_CREDIT",
+          outcome: "RECOMMENDED",
+          ruleVersion: "1.0.0",
+          minAmount: 10000,
+          maxAmount: 80000,
+          evaluatedAt: "2026-10-10T20:30:00.000Z",
+          reasons: [],
+        },
+      ],
+      sourceResults: [],
+    };
+
+    fetchMock.mockReturnValueOnce(jsonResponse(mockMultipleCompatEvaluation));
+
+    render(
+      <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+        <Routes>
+          <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Recomendación principal")).toBeInTheDocument();
+      expect(screen.getByText("Alternativa compatible")).toBeInTheDocument();
     });
   });
 });

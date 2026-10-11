@@ -8,6 +8,7 @@ import type { TenantPreparationService, TenantContext } from "../identity-tenant
 import type { AuditWriter } from "../audit/public.js";
 import type { BankMockSource } from "../financial-integrations/public.js";
 import type { FinancialProfileCalculator } from "../financial-profile/public.js";
+import type { EvaluationRecommender } from "../recommendations/public.js";
 
 const makeContext = (overrides?: Partial<TenantContext>): TenantContext => ({
   userId: "user-1",
@@ -63,6 +64,9 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
     calculate: MockFn;
     saveProfile: MockFn;
   };
+  let mockRecommender: {
+    evaluate: MockFn;
+  };
 
   beforeEach(() => {
     mockDb = {
@@ -107,6 +111,10 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       saveProfile: jest.fn(),
     };
 
+    mockRecommender = {
+      evaluate: jest.fn<any>().mockResolvedValue([]),
+    };
+
     service = new EvaluationsService(
       mockDb as unknown as DatabaseUnitOfWork,
       mockClients as unknown as ClientsService,
@@ -114,6 +122,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       mockAudit as unknown as AuditWriter,
       mockBank as unknown as BankMockSource,
       mockProfileCalculator as unknown as FinancialProfileCalculator,
+      mockRecommender as unknown as EvaluationRecommender,
     );
   });
 
@@ -218,6 +227,8 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       tenantId: "tenant-a",
       clientId: "client-1",
       documentNumber: "1234567",
+      purpose: "WORKING_CAPITAL",
+      requestedAmount: 15000,
       status: "DRAFT",
       consentGivenAt: new Date("2026-10-10T20:00:00Z"),
       startedAt: null,
@@ -320,6 +331,15 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       expect(res.profile?.averageMonthlyIncome).toBe(6500);
       expect(res.profile?.disposableIncome).toBe(3700);
       expect(res.sourceResults.length).toBe(1);
+      expect(mockRecommender.evaluate).toHaveBeenCalledWith(
+        "tenant-a",
+        "eval-1",
+        expect.objectContaining({
+          applicantScope: "PERSON",
+          purpose: "WORKING_CAPITAL",
+          requestedAmount: 15000,
+        }),
+      );
       expect(mockAudit.recordEvaluationProcessed).toHaveBeenCalledWith(
         expect.objectContaining({ status: "COMPLETED" }),
       );

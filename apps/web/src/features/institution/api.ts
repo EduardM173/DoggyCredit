@@ -69,6 +69,25 @@ export type EvaluationSourceResultDto = {
   respondedAt: string | null;
 };
 
+export type RecommendationReasonDto = {
+  code: string;
+  message: string;
+  passed: boolean;
+};
+
+export type ProductRecommendationDto = {
+  id: string;
+  productId: string;
+  productName: string;
+  category: string;
+  outcome: "RECOMMENDED" | "NOT_COMPATIBLE";
+  ruleVersion: string;
+  minAmount: number;
+  maxAmount: number;
+  evaluatedAt: string;
+  reasons: RecommendationReasonDto[];
+};
+
 export type EvaluationDetailItem = EvaluationItem & {
   failureCode: string | null;
   failureMessage: string | null;
@@ -76,6 +95,7 @@ export type EvaluationDetailItem = EvaluationItem & {
   completedAt: string | null;
   profile: FinancialProfileDto | null;
   sourceResults: EvaluationSourceResultDto[];
+  recommendations: ProductRecommendationDto[];
 };
 
 export type ClientSearchResult = {

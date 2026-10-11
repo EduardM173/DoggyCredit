@@ -11,6 +11,7 @@ import { TenantPreparationService, type TenantContext } from "../identity-tenant
 import { AuditWriter } from "../audit/public.js";
 import { BankMockSource } from "../financial-integrations/public.js";
 import { FinancialProfileCalculator } from "../financial-profile/public.js";
+import { EvaluationRecommender } from "../recommendations/public.js";
 import type { CreateEvaluationDto, DocumentTypeDto } from "./dto/create-evaluation.dto.js";
 import type { DocumentType, CreditPurpose } from "../generated/prisma/client.js";
 
@@ -23,6 +24,7 @@ export class EvaluationsService {
     private readonly audit: AuditWriter,
     private readonly bank: BankMockSource,
     private readonly profileCalculator: FinancialProfileCalculator,
+    private readonly recommender: EvaluationRecommender,
   ) {}
 
   async checkReadiness(ctx: TenantContext) {
@@ -141,7 +143,15 @@ export class EvaluationsService {
       where: { tenantId: ctx.tenantId },
       orderBy: { createdAt: "desc" },
       take: 20,
-      include: { client: true, profile: true, sourceResults: true },
+      include: {
+        client: true,
+        profile: true,
+        sourceResults: true,
+        recommendations: {
+          include: { product: true, reasons: true },
+          orderBy: { evaluatedAt: "asc" },
+        },
+      },
     });
     return list.map((ev) => this.serializeEvaluation(ev));
   }
@@ -149,7 +159,15 @@ export class EvaluationsService {
   async getById(ctx: TenantContext, evaluationId: string) {
     const evaluation = await this.db.client.evaluation.findFirst({
       where: { id: evaluationId, tenantId: ctx.tenantId },
-      include: { client: true, profile: true, sourceResults: true },
+      include: {
+        client: true,
+        profile: true,
+        sourceResults: true,
+        recommendations: {
+          include: { product: true, reasons: true },
+          orderBy: { evaluatedAt: "asc" },
+        },
+      },
     });
     if (!evaluation) {
       throw new NotFoundException("Evaluación no encontrada.");
@@ -160,7 +178,15 @@ export class EvaluationsService {
   async processEvaluation(ctx: TenantContext, evaluationId: string) {
     const evaluation = await this.db.client.evaluation.findFirst({
       where: { id: evaluationId, tenantId: ctx.tenantId },
-      include: { client: true, profile: true, sourceResults: true },
+      include: {
+        client: true,
+        profile: true,
+        sourceResults: true,
+        recommendations: {
+          include: { product: true, reasons: true },
+          orderBy: { evaluatedAt: "asc" },
+        },
+      },
     });
     if (!evaluation) {
       throw new NotFoundException("Evaluación no encontrada.");
@@ -238,7 +264,7 @@ export class EvaluationsService {
       },
     });
 
-    // Handle outcome according to S2-RF-05 / CA-11.09
+    // Handle outcome according to S2-RF-05 / CA-11.09 / HU-12
     if (queryResult.status === "SUCCESS") {
       const indicators = this.profileCalculator.calculate(queryResult.data);
       await this.profileCalculator.saveProfile(
@@ -248,15 +274,32 @@ export class EvaluationsService {
         indicators,
       );
 
+      // CA-12.01 & CA-12.04: Run deterministic and versioned recommendations
+      await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
+        applicantScope: "PERSON",
+        purpose: evaluation.purpose,
+        requestedAmount: Number(evaluation.requestedAmount),
+        profile: indicators,
+      });
+
       const completed = await this.db.client.evaluation.update({
         where: { id: evaluation.id },
         data: {
           status: "COMPLETED",
+          ruleVersion: "1.0.0",
           completedAt: new Date(),
           failureCode: null,
           failureMessage: null,
         },
-        include: { client: true, profile: true, sourceResults: true },
+        include: {
+          client: true,
+          profile: true,
+          sourceResults: true,
+          recommendations: {
+            include: { product: true, reasons: true },
+            orderBy: { evaluatedAt: "asc" },
+          },
+        },
       });
 
       await this.audit.recordEvaluationProcessed({
@@ -278,7 +321,15 @@ export class EvaluationsService {
           failureCode: "NO_FINANCIAL_DATA",
           failureMessage: queryResult.message,
         },
-        include: { client: true, profile: true, sourceResults: true },
+        include: {
+          client: true,
+          profile: true,
+          sourceResults: true,
+          recommendations: {
+            include: { product: true, reasons: true },
+            orderBy: { evaluatedAt: "asc" },
+          },
+        },
       });
 
       await this.audit.recordEvaluationProcessed({
@@ -299,7 +350,15 @@ export class EvaluationsService {
         failureCode: queryResult.errorCode,
         failureMessage: queryResult.message,
       },
-      include: { client: true, profile: true, sourceResults: true },
+      include: {
+        client: true,
+        profile: true,
+        sourceResults: true,
+        recommendations: {
+          include: { product: true, reasons: true },
+          orderBy: { evaluatedAt: "asc" },
+        },
+      },
     });
 
     await this.audit.recordEvaluationProcessed({
@@ -351,6 +410,24 @@ export class EvaluationsService {
       errorCode: string | null;
       requestedAt: Date;
       respondedAt: Date | null;
+    }>;
+    recommendations?: Array<{
+      id: string;
+      productId: string;
+      product?: {
+        name: string;
+        category: string;
+        minAmount: unknown;
+        maxAmount: unknown;
+      } | null;
+      outcome: string;
+      ruleVersion: string;
+      evaluatedAt: Date;
+      reasons?: Array<{
+        code: string;
+        message: string;
+        passed: boolean;
+      }>;
     }>;
   }) {
     const snapshot = ev.applicantSnapshot as Record<string, unknown> | null;
@@ -410,6 +487,22 @@ export class EvaluationsService {
         errorCode: sr.errorCode,
         requestedAt: sr.requestedAt,
         respondedAt: sr.respondedAt,
+      })),
+      recommendations: (ev.recommendations ?? []).map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        productName: r.product?.name ?? "Producto",
+        category: r.product?.category ?? "MICRO_CREDIT",
+        outcome: r.outcome,
+        ruleVersion: r.ruleVersion,
+        minAmount: r.product?.minAmount !== undefined ? Number(r.product.minAmount) : 0,
+        maxAmount: r.product?.maxAmount !== undefined ? Number(r.product.maxAmount) : 0,
+        evaluatedAt: r.evaluatedAt,
+        reasons: (r.reasons ?? []).map((reas) => ({
+          code: reas.code,
+          message: reas.message,
+          passed: reas.passed,
+        })),
       })),
     };
   }
