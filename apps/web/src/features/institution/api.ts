@@ -7,11 +7,24 @@ export type LoginResolution =
   | { authenticated: true; resolution: "NO_ACTIVE_TENANT" }
   | { authenticated: true; resolution: "SINGLE_TENANT"; tenant: Membership["tenant"] }
   | { authenticated: true; resolution: "MULTIPLE_TENANTS"; tenants: Membership["tenant"][] };
+export type SourceItem = {
+  code: string;
+  name: string;
+  kind: string;
+  description: string;
+  purpose: string;
+  coverage: string;
+  available: boolean;
+  enabled: boolean;
+  healthStatus: "ACTIVE" | "DEGRADED" | "INACTIVE" | string;
+};
+
 export type InstitutionHome = {
   user: { name: string };
   tenant: { name: string; slug: string; taxId: string; type: string };
   membership: { role: string; status: "ACTIVE" };
   source: { available: boolean; enabled: boolean };
+  sources?: SourceItem[];
   products: {
     id: string;
     name: string;

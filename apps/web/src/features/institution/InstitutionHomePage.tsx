@@ -121,6 +121,26 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
     }
   }
 
+  async function submitToggleSource(code: string, enabled: boolean) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const endpoint = code === "BUREAU_MOCK" ? "source/bureau" : "source";
+      const value = await institutionApi<InstitutionHome>(
+        `/tenants/${encodeURIComponent(tenantSlug ?? "")}/${endpoint}`,
+        { body: { enabled } },
+      );
+      setHome(value);
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "No se pudo actualizar la fuente. Intenta nuevamente.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function logout() {
     setBusy(true);
     try {
@@ -397,33 +417,144 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                 )}
                 {step === "source" && (
                   <>
-                    <h2>Fuente disponible</h2>
-                    <div className="institution-source">
-                      <Database size={38} />
-                      <div>
-                        <h3>Fuente bancaria simulada</h3>
-                        <p>Proporciona información financiera simulada necesaria para las evaluaciones.</p>
-                        <span
-                          className={
-                            home.source?.enabled ? "institution-badge complete" : "institution-badge"
-                          }
-                        >
-                          {home.source?.enabled
-                            ? "Habilitada"
-                            : home.source?.available
-                              ? "Disponible"
-                              : "No disponible"}
-                        </span>
-                      </div>
-                    </div>
-                    <h3>Qué aporta esta fuente</h3>
+                    <h2>Fuentes financieras disponibles</h2>
                     <p>
-                      Aporta la información simulada necesaria para construir el perfil financiero utilizado
-                      durante cada evaluación.
+                      DoggyCredit consulta las fuentes habilitadas para construir el perfil integral de los solicitantes.
+                    </p>
+                    <div className="institution-sources-list">
+                      {(home.sources && home.sources.length > 0
+                        ? home.sources
+                        : [
+                            {
+                              code: "BANK_MOCK",
+                              name: "Fuente bancaria simulada",
+                              kind: "BANK",
+                              description:
+                                "Proporciona información financiera simulada necesaria para las evaluaciones.",
+                              purpose:
+                                "Construcción del perfil financiero básico a partir de cuentas, balances y flujos de efectivo.",
+                              coverage: "Personas y microempresas con cuentas bancarias registradas.",
+                              available: home.source?.available ?? true,
+                              enabled: home.source?.enabled ?? false,
+                              healthStatus: "ACTIVE",
+                            },
+                            {
+                              code: "BUREAU_MOCK",
+                              name: "Buró crediticio simulado",
+                              kind: "CREDIT_BUREAU",
+                              description:
+                                "Aporta historial crediticio consolidado, deuda global en el sistema financiero y comportamiento de mora histórico.",
+                              purpose:
+                                "Evaluación complementaria de riesgo crediticio, antecedentes en el sistema y morosidad.",
+                              coverage: "Cobertura orientada a solicitantes particulares y personas naturales.",
+                              available: true,
+                              enabled: false,
+                              healthStatus: "ACTIVE",
+                            },
+                          ]
+                      ).map((src) => {
+                        const isBureau = src.code === "BUREAU_MOCK";
+                        return (
+                          <div className="institution-source" key={src.code}>
+                            {isBureau ? <Building2 size={38} /> : <Database size={38} />}
+                            <div className="institution-source-content">
+                              <div className="institution-source-header">
+                                <h3>{src.name}</h3>
+                                <div className="institution-source-badges">
+                                  <span
+                                    className={
+                                      src.enabled
+                                        ? "institution-badge complete"
+                                        : "institution-badge badge-neutral"
+                                    }
+                                  >
+                                    {src.enabled
+                                      ? "Habilitada para la institución"
+                                      : "No habilitada"}
+                                  </span>
+                                  <span
+                                    className={
+                                      src.available && src.healthStatus === "ACTIVE"
+                                        ? "institution-badge complete"
+                                        : src.healthStatus === "DEGRADED"
+                                          ? "institution-badge badge-degraded"
+                                          : "institution-badge badge-inactive"
+                                    }
+                                  >
+                                    {src.available && src.healthStatus === "ACTIVE"
+                                      ? "Salud técnica: Operativa"
+                                      : src.healthStatus === "DEGRADED"
+                                        ? "Salud técnica: Degradada"
+                                        : "Salud técnica: No disponible"}
+                                  </span>
+                                </div>
+                              </div>
+                              <p>{src.description}</p>
+                              <div className="institution-source-purpose">
+                                <strong>Propósito:</strong> {src.purpose}
+                              </div>
+                              <div className="institution-source-coverage">
+                                <Info size={16} />
+                                <span>
+                                  <strong>Limitación de cobertura:</strong> {src.coverage}
+                                </span>
+                              </div>
+                              {admin && (
+                                <div className="institution-source-actions">
+                                  {!src.available ? (
+                                    <div className="institution-source-unavailable-msg" role="status">
+                                      Esta fuente no se encuentra disponible actualmente en la plataforma o para tu plan.
+                                    </div>
+                                  ) : isBureau ? (
+                                    <button
+                                      type="button"
+                                      className={
+                                        src.enabled
+                                          ? "institution-secondary-button"
+                                          : "institution-primary-button"
+                                      }
+                                      disabled={busy}
+                                      onClick={() => submitToggleSource(src.code, !src.enabled)}
+                                    >
+                                      {busy
+                                        ? "Actualizando..."
+                                        : src.enabled
+                                          ? "Deshabilitar Buró Mock"
+                                          : "Habilitar Buró Mock"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className={
+                                        src.enabled
+                                          ? "institution-secondary-button"
+                                          : "institution-primary-button"
+                                      }
+                                      disabled={busy}
+                                      onClick={() => submitToggleSource(src.code, !src.enabled)}
+                                    >
+                                      {busy
+                                        ? "Actualizando..."
+                                        : src.enabled
+                                          ? "Fuente bancaria habilitada"
+                                          : "Habilitar fuente bancaria"}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <h3>Condiciones de integración y cobertura</h3>
+                    <p className="institution-note">
+                      <Info size={20} />
+                      <strong>Sin configuraciones técnicas:</strong> No necesitas introducir URLs, claves de API, secretos ni configurar timeouts. Toda la comunicación está encapsulada internamente por DoggyCredit.
                     </p>
                     <p className="institution-note">
                       <Info size={20} />
-                      No necesitas introducir credenciales ni realizar configuraciones técnicas.
+                      <strong>Disponibilidad de antecedentes:</strong> La habilitación autoriza la consulta institucional, pero no garantiza que existan antecedentes para cada solicitante. Cuando una fuente no posea información, el sistema continuará reportando ausencia de datos (Sin datos) sin interrumpir la evaluación.
                     </p>
                   </>
                 )}
@@ -507,7 +638,7 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   step === "institution"
                     ? base
                     : step === "source"
-                      ? `${base}/institucion`
+                      ? base
                       : `${base}/fuentes-financieras`
                 }
               >
@@ -525,18 +656,23 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                     <ArrowRight size={20} />
                   </button>
                 ) : step === "source" ? (
-                  <button
-                    className="institution-primary"
-                    disabled={busy || !home.source?.available}
-                    onClick={() => submit("source", {}, `${base}/productos`)}
-                  >
-                    {busy
-                      ? "Habilitando..."
-                      : home.source?.enabled
-                        ? "Continuar a productos"
-                        : "Habilitar fuente y continuar"}
-                    <ArrowRight size={20} />
-                  </button>
+                  <div className="institution-actionbar-buttons">
+                    <Link className="institution-secondary-link" to={`${base}/productos`}>
+                      Ir a productos
+                    </Link>
+                    <button
+                      className="institution-primary"
+                      disabled={busy || !home.source?.available}
+                      onClick={() => submit("source", {}, `${base}/productos`)}
+                    >
+                      {busy
+                        ? "Habilitando..."
+                        : home.source?.enabled
+                          ? "Continuar a productos"
+                          : "Habilitar fuente y continuar"}
+                      <ArrowRight size={20} />
+                    </button>
+                  </div>
                 ) : (
                   <button
                     className="institution-primary"

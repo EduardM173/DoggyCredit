@@ -10,6 +10,7 @@ import {
 } from "./institution-auth.guards.js";
 import type { InstitutionAuthService } from "./institution-auth.service.js";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const context = (request: unknown) =>
   ({ switchToHttp: () => ({ getRequest: () => request }) }) as ExecutionContext;
 
@@ -59,5 +60,33 @@ describe("institutional auth protections", () => {
     expect(JSON.stringify(guard)).not.toContain("Test@Example.test");
     now.mockReturnValue(901001);
     expect(guard.canActivate(context(req))).toBe(true);
+  });
+
+  describe("InstitutionTenantController source management", () => {
+    it("routes enableBureauSource and toggleSource with tenant context", async () => {
+      const mockPreparation = {
+        enableBureau: jest.fn<any>().mockResolvedValue({ ok: true }),
+        enableBank: jest.fn<any>().mockResolvedValue({ ok: true }),
+      };
+      const { InstitutionTenantController } = await import("./institution-auth.controller.js");
+      const controller = new InstitutionTenantController(mockPreparation as any);
+      const tenantContext = {
+        tenantId: "t-1",
+        userId: "u-1",
+        userName: "Ana",
+        role: "INSTITUTION_ADMIN" as const,
+        token: "tok",
+      };
+      const tenantReq = { tenantContext } as any;
+
+      await controller.enableBureauSource(tenantReq, { enabled: true });
+      expect(mockPreparation.enableBureau).toHaveBeenCalledWith(tenantContext, true);
+
+      await controller.toggleSource("BUREAU_MOCK", tenantReq, { enabled: false });
+      expect(mockPreparation.enableBureau).toHaveBeenCalledWith(tenantContext, false);
+
+      await controller.toggleSource("BANK_MOCK", tenantReq);
+      expect(mockPreparation.enableBank).toHaveBeenCalledWith(tenantContext);
+    });
   });
 });

@@ -53,8 +53,20 @@ export type SourceQueryResult =
       providerId: string;
     };
 
+export interface SourceStatus {
+  available: boolean;
+  enabled: boolean;
+  healthStatus?: "ACTIVE" | "DEGRADED" | "INACTIVE";
+}
+
 export abstract class BankMockSource {
-  abstract status(tenantId: string): Promise<{ available: boolean; enabled: boolean }>;
+  abstract status(tenantId: string): Promise<SourceStatus>;
   abstract enable(tenantId: string): Promise<boolean>;
   abstract query(tenantId: string, documentNumber: string): Promise<SourceQueryResult>;
 }
+
+export abstract class BureauMockSource {
+  abstract status(tenantId: string): Promise<SourceStatus>;
+  abstract enable(tenantId: string, enabled?: boolean): Promise<boolean>;
+}
+

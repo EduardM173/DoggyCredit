@@ -13,7 +13,7 @@ export class BankMockSourceService extends BankMockSource {
       where: { code: "BANK_MOCK" },
       select: { id: true, status: true },
     });
-    if (!provider) return { available: false, enabled: false };
+    if (!provider) return { available: false, enabled: false, healthStatus: "INACTIVE" as const };
     const source = await this.db.client.tenantIntegration.findUnique({
       where: { tenantId_providerId: { tenantId, providerId: provider.id } },
       select: { enabled: true, status: true },
@@ -21,6 +21,7 @@ export class BankMockSourceService extends BankMockSource {
     return {
       available: provider.status === "ACTIVE",
       enabled: provider.status === "ACTIVE" && source?.enabled === true && source.status === "ACTIVE",
+      healthStatus: provider.status as "ACTIVE" | "DEGRADED" | "INACTIVE",
     };
   }
 

@@ -26,6 +26,8 @@ export class AuditService extends AuditWriter {
     action:
       | "INSTITUTION_INFORMATION_CONFIRMED"
       | "BANK_MOCK_ENABLED"
+      | "BUREAU_MOCK_ENABLED"
+      | "BUREAU_MOCK_DISABLED"
       | "INSTITUTION_PRODUCTS_CONFIRMED"
       | "INSTITUTION_PREPARED";
   }): Promise<void> {
