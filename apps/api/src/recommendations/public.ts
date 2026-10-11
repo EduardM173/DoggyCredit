@@ -58,3 +58,5 @@ export abstract class EvaluationRecommender {
     },
   ): Promise<ProductRecommendationDto[]>;
 }
+
+export { ProductsCatalogService } from "./products-catalog.service.js";

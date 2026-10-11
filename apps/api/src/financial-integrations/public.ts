@@ -115,10 +115,9 @@ export type BureauQueryResult =
       providerId: string;
     };
 
-export abstract class BureauMockSource {
-  abstract status(tenantId: string): Promise<SourceStatus>;
-  abstract enable(tenantId: string, enabled?: boolean): Promise<boolean>;
-  abstract query(tenantId: string, documentNumber: string): Promise<BureauQueryResult>;
-}
+export {
+  BureauMockSource,
+  BureauMockSourceService,
+} from "./bureau-mock-source.service.js";
 
 
