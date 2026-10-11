@@ -21,6 +21,7 @@ import {
   fetchEvaluation,
   processEvaluation,
   type EvaluationDetailItem,
+  type ProfileIndicatorProvenanceDto,
 } from "./api";
 import "./evaluations.css";
 
@@ -82,6 +83,29 @@ export function EvaluationDetail({ slug }: { slug: string }) {
     if (val === null || val === undefined) return "No disponible";
     return `Bs. ${val.toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
+
+  function renderProvenance(provKey: keyof ProfileIndicatorProvenanceDto) {
+    const prov = evaluation?.profile?.indicatorProvenance?.[provKey];
+    if (!prov) return null;
+    const label =
+      prov === "BANK_MOCK"
+        ? "Fuente: Banco"
+        : prov === "BUREAU_MOCK"
+          ? "Fuente: Buró"
+          : prov === "CONSOLIDATED"
+            ? "Consolidado (Banco + Buró)"
+            : "No disponible";
+    const cls =
+      prov === "BANK_MOCK"
+        ? "eval-provenance-bank"
+        : prov === "BUREAU_MOCK"
+          ? "eval-provenance-bureau"
+          : prov === "CONSOLIDATED"
+            ? "eval-provenance-consolidated"
+            : "eval-provenance-unavailable";
+    return <span className={`eval-indicator-provenance ${cls}`}>{label}</span>;
+  }
+
 
   if (loading) {
     return (
@@ -161,6 +185,35 @@ export function EvaluationDetail({ slug }: { slug: string }) {
           </div>
         </div>
 
+        {/* Multi-source coverage badges (HU-15) */}
+        {evaluation.sourceResults && evaluation.sourceResults.length > 0 && (
+          <div className="eval-sources-container" aria-label="Fuentes consultadas">
+            <span className="eval-sources-title">Fuentes consultadas:</span>
+            {evaluation.sourceResults.map((sr) => (
+              <span
+                key={sr.id}
+                className={`eval-source-badge eval-source-badge-${sr.status.toLowerCase()}`}
+              >
+                {sr.status === "SUCCESS" ? (
+                  <CheckCircle2 size={13} />
+                ) : sr.status === "NO_DATA" ? (
+                  <AlertCircle size={13} />
+                ) : (
+                  <AlertTriangle size={13} />
+                )}
+                {sr.providerName || (sr.providerCode === "BANK_MOCK" ? "Banco Unión" : "Buró de Crédito")}:{" "}
+                {sr.status === "SUCCESS"
+                  ? "Disponible"
+                  : sr.status === "NO_DATA"
+                    ? "Sin antecedentes"
+                    : sr.status === "UNAVAILABLE"
+                      ? "No disponible"
+                      : "Error de conexión"}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Processing in flight */}
         {processing && (
           <div className="eval-processing-box" role="status">
@@ -191,8 +244,8 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               </h3>
               <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
                 El caso se encuentra en borrador con el consentimiento informado registrado. Al iniciar,
-                DoggyCredit consultará automáticamente los antecedentes de la fuente bancaria para derivar
-                el perfil financiero.
+                DoggyCredit consultará automáticamente los antecedentes de las fuentes financieras habilitadas
+                para derivar el perfil financiero consolidado.
               </p>
             </div>
             <button className="eval-btn-primary" onClick={handleStartProcessing}>
@@ -206,12 +259,30 @@ export function EvaluationDetail({ slug }: { slug: string }) {
           <div className="eval-profile-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
-                Perfil Financiero Básico
+                Perfil Financiero {evaluation.sourceResults && evaluation.sourceResults.length > 1 ? "Consolidado" : "Básico"}
               </h2>
               <span style={{ fontSize: 13, color: "#51627d", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <Clock size={14} /> Calculado el {new Date(profile.calculatedAt).toLocaleDateString()}
               </span>
             </div>
+
+            {/* Buró NO_DATA banner (CA-15.06, CA-15.13) */}
+            {(() => {
+              const bureauSr = evaluation.sourceResults?.find(
+                (sr) => sr.providerCode === "BUREAU_MOCK" || sr.providerName?.toLowerCase().includes("buró"),
+              );
+              if (bureauSr && bureauSr.status === "NO_DATA") {
+                return (
+                  <div className="eval-bureau-nodata-banner" role="status">
+                    <AlertCircle size={18} color="#b54708" style={{ flexShrink: 0 }} />
+                    <span>
+                      <strong>Sin antecedentes en Buró:</strong> El solicitante no registra historial previo en el Buró de Crédito. El perfil financiero se calculó con los datos disponibles de la fuente bancaria (CA-15.06, CA-15.13).
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div className="eval-profile-grid">
               {/* 1. Ingreso promedio */}
@@ -221,6 +292,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {formatMoney(profile.averageMonthlyIncome)}
                 </span>
                 <span className="eval-indicator-sub">Promedio de ingresos reportados</span>
+                {renderProvenance("averageMonthlyIncome")}
               </div>
 
               {/* 2. Gastos promedio */}
@@ -230,6 +302,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {formatMoney(profile.averageMonthlyExpenses)}
                 </span>
                 <span className="eval-indicator-sub">Egresos habituales registrados</span>
+                {renderProvenance("averageMonthlyExpenses")}
               </div>
 
               {/* 3. Ingreso disponible */}
@@ -239,6 +312,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {formatMoney(profile.disposableIncome)}
                 </span>
                 <span className="eval-indicator-sub">Margen neto (Ingresos - Gastos)</span>
+                {renderProvenance("disposableIncome")}
               </div>
 
               {/* 4. Deuda total */}
@@ -248,6 +322,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {formatMoney(profile.totalDebt)}
                 </span>
                 <span className="eval-indicator-sub">Saldo vigente de obligaciones</span>
+                {renderProvenance("totalDebt")}
               </div>
 
               {/* 5. Creditos activos */}
@@ -256,7 +331,8 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                 <span className="eval-indicator-value">
                   {profile.activeCredits !== null ? profile.activeCredits : "No disponible"}
                 </span>
-                <span className="eval-indicator-sub">Obligaciones bancarias vigentes</span>
+                <span className="eval-indicator-sub">Obligaciones financieras vigentes</span>
+                {renderProvenance("activeCredits")}
               </div>
 
               {/* 6. DTI */}
@@ -266,6 +342,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {profile.debtToIncome !== null ? `${(profile.debtToIncome * 100).toFixed(2)}%` : "No disponible"}
                 </span>
                 <span className="eval-indicator-sub">Porcentaje de ingresos para pago de deuda</span>
+                {renderProvenance("debtToIncome")}
               </div>
 
               {/* 7. Mora reciente */}
@@ -285,6 +362,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   )}
                 </span>
                 <span className="eval-indicator-sub">Días de atraso en entidades financieras</span>
+                {renderProvenance("hasRecentArrears")}
               </div>
 
               {/* 8. Completitud */}
@@ -301,7 +379,13 @@ export function EvaluationDetail({ slug }: { slug: string }) {
             <div className="eval-provenance-box">
               <Lock size={16} />
               <span>
-                Datos provistos por la fuente bancaria (Mock) · Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-11.16).
+                Fuentes consultadas:{" "}
+                {evaluation.sourceResults && evaluation.sourceResults.length > 0
+                  ? evaluation.sourceResults
+                      .map((s) => s.providerName || (s.providerCode === "BANK_MOCK" ? "Banco Unión" : "Buró de Crédito"))
+                      .join(", ")
+                  : "Banco Unión Mock"}
+                {" "}· Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-15.11).
               </span>
             </div>
 

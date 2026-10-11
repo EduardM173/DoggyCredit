@@ -9,8 +9,16 @@ import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-wo
 import { ClientsService } from "../clients/public.js";
 import { TenantPreparationService, type TenantContext } from "../identity-tenants/public.js";
 import { AuditWriter } from "../audit/public.js";
-import { BankMockSource } from "../financial-integrations/public.js";
-import { FinancialProfileCalculator } from "../financial-profile/public.js";
+import {
+  BankMockSource,
+  BureauMockSource,
+  type NormalizedFinancialData,
+  type NormalizedBureauData,
+} from "../financial-integrations/public.js";
+import {
+  FinancialProfileCalculator,
+  type ProfileIndicatorProvenance,
+} from "../financial-profile/public.js";
 import { EvaluationRecommender } from "../recommendations/public.js";
 import type { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
 import type { DocumentType, CreditPurpose, ClientType } from "../generated/prisma/client.js";
@@ -23,9 +31,11 @@ export class EvaluationsService {
     private readonly preparation: TenantPreparationService,
     private readonly audit: AuditWriter,
     private readonly bank: BankMockSource,
+    private readonly bureau: BureauMockSource,
     private readonly profileCalculator: FinancialProfileCalculator,
     private readonly recommender: EvaluationRecommender,
   ) {}
+
 
   async checkReadiness(ctx: TenantContext) {
     const status = await this.preparation.read(ctx);
@@ -218,7 +228,10 @@ export class EvaluationsService {
       include: {
         client: true,
         profile: true,
-        sourceResults: true,
+        sourceResults: {
+          include: { provider: true },
+          orderBy: { requestedAt: "asc" },
+        },
         recommendations: {
           include: { product: true, reasons: true },
           orderBy: { evaluatedAt: "asc" },
@@ -234,7 +247,10 @@ export class EvaluationsService {
       include: {
         client: true,
         profile: true,
-        sourceResults: true,
+        sourceResults: {
+          include: { provider: true },
+          orderBy: { requestedAt: "asc" },
+        },
         recommendations: {
           include: { product: true, reasons: true },
           orderBy: { evaluatedAt: "asc" },
@@ -253,7 +269,10 @@ export class EvaluationsService {
       include: {
         client: true,
         profile: true,
-        sourceResults: true,
+        sourceResults: {
+          include: { provider: true },
+          orderBy: { requestedAt: "asc" },
+        },
         recommendations: {
           include: { product: true, reasons: true },
           orderBy: { evaluatedAt: "asc" },
@@ -264,7 +283,7 @@ export class EvaluationsService {
       throw new NotFoundException("Evaluación no encontrada.");
     }
 
-    // CA-11.19: If already COMPLETED, return current state without creating a duplicate
+    // CA-11.19 / CA-15.09: If already COMPLETED, return current state without creating a duplicate
     if (evaluation.status === "COMPLETED") {
       return this.serializeEvaluation(evaluation);
     }
@@ -292,89 +311,190 @@ export class EvaluationsService {
     });
 
     const snapshot = evaluation.applicantSnapshot as Record<string, unknown> | null;
-    const documentNumber = evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
+    const documentNumber =
+      evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
 
-    // CA-11.05: Encapsulated query to Bank Mock
-    const queryResult = await this.bank.query(ctx.tenantId, documentNumber);
+    // Identify enabled sources for the tenant (CA-15.01, CA-15.02)
+    const bureauStatus = await this.bureau.status(ctx.tenantId);
+    const isBureauEnabled = Boolean(bureauStatus.enabled && bureauStatus.available);
 
-    // CA-11.08: Save source result with provenance, state and timestamp
-    const existingSource = await this.db.client.evaluationSourceResult.findFirst({
-      where: {
-        tenantId: ctx.tenantId,
-        evaluationId: evaluation.id,
-        providerId: queryResult.providerId,
-      },
+    const bankProvider = await this.db.client.integrationProvider.findUnique({
+      where: { code: "BANK_MOCK" },
     });
-    const attemptCount = existingSource ? existingSource.attemptCount + 1 : 1;
-    const sourceResultId = existingSource?.id ?? randomUUID();
+    const bureauProvider = isBureauEnabled
+      ? await this.db.client.integrationProvider.findUnique({
+          where: { code: "BUREAU_MOCK" },
+        })
+      : null;
 
-    const persistedSource = await this.db.client.evaluationSourceResult.upsert({
-      where: { id: sourceResultId },
-      update: {
-        status: queryResult.status,
-        attemptCount,
-        externalReference:
-          "externalReference" in queryResult ? queryResult.externalReference : null,
-        errorCode: "errorCode" in queryResult ? queryResult.errorCode : null,
-        normalizedPayload:
-          queryResult.status === "SUCCESS" ? (queryResult.data as unknown as object) : undefined,
-        respondedAt: new Date(),
-      },
-      create: {
-        id: sourceResultId,
-        tenantId: ctx.tenantId,
-        evaluationId: evaluation.id,
-        providerId: queryResult.providerId,
-        status: queryResult.status,
-        attemptCount: 1,
-        externalReference:
-          "externalReference" in queryResult ? queryResult.externalReference : null,
-        errorCode: "errorCode" in queryResult ? queryResult.errorCode : null,
-        normalizedPayload:
-          queryResult.status === "SUCCESS" ? (queryResult.data as unknown as object) : undefined,
-        respondedAt: new Date(),
-      },
-    });
+    // CA-15.10: Safe re-attempting - inspect existing source results
+    const existingBank = (evaluation.sourceResults ?? []).find(
+      (sr) =>
+        sr.provider?.code === "BANK_MOCK" ||
+        (bankProvider && sr.providerId === bankProvider.id),
+    );
+    const existingBureau = isBureauEnabled
+      ? (evaluation.sourceResults ?? []).find(
+          (sr) =>
+            sr.provider?.code === "BUREAU_MOCK" ||
+            (bureauProvider && sr.providerId === bureauProvider.id),
+        )
+      : null;
 
-    // Handle outcome according to S2-RF-05 / CA-11.09 / HU-12
-    if (queryResult.status === "SUCCESS") {
-      const indicators = this.profileCalculator.calculate(queryResult.data);
-      await this.profileCalculator.saveProfile(
-        ctx.tenantId,
-        evaluation.id,
-        persistedSource.id,
-        indicators,
-      );
+    // 1. Bank Mock Query or Reuse
+    let bankStatus: "SUCCESS" | "NO_DATA" | "UNAVAILABLE" | "ERROR";
+    let bankResultId: string;
+    let bankPayload: NormalizedFinancialData | null = null;
+    let bankErrorMessage: string | null = null;
+    let bankErrorCode: string | null = null;
 
-      // CA-12.01, CA-12.04 & CA-14.01: Run deterministic and versioned recommendations
-      const snapshot = evaluation.applicantSnapshot as {
-        type?: "PERSON" | "COMPANY";
-      } | null;
-      const applicantScope: "PERSON" | "COMPANY" =
-        (evaluation.client?.type as "PERSON" | "COMPANY") ||
-        snapshot?.type ||
-        "PERSON";
+    if (existingBank && existingBank.status === "SUCCESS") {
+      bankStatus = "SUCCESS";
+      bankResultId = existingBank.id;
+      bankPayload = existingBank.normalizedPayload as unknown as NormalizedFinancialData;
+    } else {
+      const bankQueryResult = await this.bank.query(ctx.tenantId, documentNumber);
+      bankStatus = bankQueryResult.status;
+      const attemptCount = existingBank ? existingBank.attemptCount + 1 : 1;
+      const id = existingBank?.id ?? randomUUID();
 
-      await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
-        applicantScope,
-        purpose: evaluation.purpose,
-        requestedAmount: Number(evaluation.requestedAmount),
-        profile: indicators,
+      const persistedBank = await this.db.client.evaluationSourceResult.upsert({
+        where: { id },
+        update: {
+          status: bankQueryResult.status,
+          attemptCount,
+          externalReference:
+            "externalReference" in bankQueryResult ? bankQueryResult.externalReference : null,
+          errorCode: "errorCode" in bankQueryResult ? bankQueryResult.errorCode : null,
+          normalizedPayload:
+            bankQueryResult.status === "SUCCESS"
+              ? (bankQueryResult.data as unknown as object)
+              : undefined,
+          respondedAt: new Date(),
+        },
+        create: {
+          id,
+          tenantId: ctx.tenantId,
+          evaluationId: evaluation.id,
+          providerId: bankQueryResult.providerId,
+          status: bankQueryResult.status,
+          attemptCount: 1,
+          externalReference:
+            "externalReference" in bankQueryResult ? bankQueryResult.externalReference : null,
+          errorCode: "errorCode" in bankQueryResult ? bankQueryResult.errorCode : null,
+          normalizedPayload:
+            bankQueryResult.status === "SUCCESS"
+              ? (bankQueryResult.data as unknown as object)
+              : undefined,
+          respondedAt: new Date(),
+        },
       });
 
-      const completed = await this.db.client.evaluation.update({
+      bankResultId = persistedBank.id;
+      if (bankQueryResult.status === "SUCCESS") {
+        bankPayload = bankQueryResult.data;
+      } else {
+        bankErrorCode = "errorCode" in bankQueryResult ? bankQueryResult.errorCode : null;
+        bankErrorMessage = "message" in bankQueryResult ? bankQueryResult.message : null;
+      }
+    }
+
+    // 2. Bureau Mock Query or Reuse (if enabled)
+    let bureauStatusVal: "SUCCESS" | "NO_DATA" | "UNAVAILABLE" | "ERROR" | null = null;
+    let bureauResultId: string | null = null;
+    let bureauPayload: NormalizedBureauData | null = null;
+    let bureauErrorMessage: string | null = null;
+    let bureauErrorCode: string | null = null;
+
+    if (isBureauEnabled) {
+      if (existingBureau && existingBureau.status === "SUCCESS") {
+        bureauStatusVal = "SUCCESS";
+        bureauResultId = existingBureau.id;
+        bureauPayload = existingBureau.normalizedPayload as unknown as NormalizedBureauData;
+      } else {
+        const bureauQueryResult = await this.bureau.query(ctx.tenantId, documentNumber);
+        bureauStatusVal = bureauQueryResult.status;
+        const attemptCount = existingBureau ? existingBureau.attemptCount + 1 : 1;
+        const id = existingBureau?.id ?? randomUUID();
+
+        const persistedBureau = await this.db.client.evaluationSourceResult.upsert({
+          where: { id },
+          update: {
+            status: bureauQueryResult.status,
+            attemptCount,
+            externalReference:
+              "externalReference" in bureauQueryResult
+                ? bureauQueryResult.externalReference
+                : null,
+            errorCode:
+              "errorCode" in bureauQueryResult ? bureauQueryResult.errorCode : null,
+            normalizedPayload:
+              bureauQueryResult.status === "SUCCESS"
+                ? (bureauQueryResult.data as unknown as object)
+                : undefined,
+            respondedAt: new Date(),
+          },
+          create: {
+            id,
+            tenantId: ctx.tenantId,
+            evaluationId: evaluation.id,
+            providerId: bureauQueryResult.providerId,
+            status: bureauQueryResult.status,
+            attemptCount: 1,
+            externalReference:
+              "externalReference" in bureauQueryResult
+                ? bureauQueryResult.externalReference
+                : null,
+            errorCode:
+              "errorCode" in bureauQueryResult ? bureauQueryResult.errorCode : null,
+            normalizedPayload:
+              bureauQueryResult.status === "SUCCESS"
+                ? (bureauQueryResult.data as unknown as object)
+                : undefined,
+            respondedAt: new Date(),
+          },
+        });
+
+        bureauResultId = persistedBureau.id;
+        if (bureauQueryResult.status === "SUCCESS") {
+          bureauPayload = bureauQueryResult.data;
+        } else {
+          bureauErrorCode =
+            "errorCode" in bureauQueryResult ? bureauQueryResult.errorCode : null;
+          bureauErrorMessage =
+            "message" in bureauQueryResult ? bureauQueryResult.message : null;
+        }
+      }
+    }
+
+    // 3. Evaluate combined outcome (CA-15.06, CA-15.07, S3-RF-03)
+    const isBankFailure = bankStatus === "UNAVAILABLE" || bankStatus === "ERROR";
+    const isBureauFailure =
+      isBureauEnabled &&
+      (bureauStatusVal === "UNAVAILABLE" || bureauStatusVal === "ERROR");
+
+    if (isBankFailure || isBureauFailure) {
+      const failingSource = isBureauFailure ? "Buró de Crédito" : "Banco Unión";
+      const failureCode =
+        (isBureauFailure ? bureauErrorCode : bankErrorCode) ?? "SOURCE_UNAVAILABLE";
+      const failureMessage =
+        (isBureauFailure ? bureauErrorMessage : bankErrorMessage) ??
+        `${failingSource} no está disponible temporalmente.`;
+
+      const failed = await this.db.client.evaluation.update({
         where: { id: evaluation.id },
         data: {
-          status: "COMPLETED",
-          ruleVersion: "1.0.0",
-          completedAt: new Date(),
-          failureCode: null,
-          failureMessage: null,
+          status: "FAILED",
+          failureCode,
+          failureMessage,
         },
         include: {
           client: true,
           profile: true,
-          sourceResults: true,
+          sourceResults: {
+            include: { provider: true },
+            orderBy: { requestedAt: "asc" },
+          },
           recommendations: {
             include: { product: true, reasons: true },
             orderBy: { evaluatedAt: "asc" },
@@ -386,25 +506,32 @@ export class EvaluationsService {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
         evaluationId: evaluation.id,
-        status: "COMPLETED",
+        status: "FAILED",
       });
 
-      return this.serializeEvaluation(completed);
+      return this.serializeEvaluation(failed);
     }
 
-    if (queryResult.status === "NO_DATA") {
+    const isBankNoData = bankStatus === "NO_DATA";
+    const isBureauNoDataOrDisabled = !isBureauEnabled || bureauStatusVal === "NO_DATA";
+
+    if (isBankNoData && isBureauNoDataOrDisabled) {
       const incomplete = await this.db.client.evaluation.update({
         where: { id: evaluation.id },
         data: {
           status: "INCOMPLETE",
           completedAt: new Date(),
           failureCode: "NO_FINANCIAL_DATA",
-          failureMessage: queryResult.message,
+          failureMessage:
+            "Sin antecedentes ni actividad financiera en las fuentes consultadas.",
         },
         include: {
           client: true,
           profile: true,
-          sourceResults: true,
+          sourceResults: {
+            include: { provider: true },
+            orderBy: { requestedAt: "asc" },
+          },
           recommendations: {
             include: { product: true, reasons: true },
             orderBy: { evaluatedAt: "asc" },
@@ -422,18 +549,52 @@ export class EvaluationsService {
       return this.serializeEvaluation(incomplete);
     }
 
-    // UNAVAILABLE or ERROR -> FAILED (retryable)
-    const failed = await this.db.client.evaluation.update({
+    // At least one source has data: derive consolidated profile (CA-15.04, CA-15.06)
+    const consolidated = this.profileCalculator.consolidate({
+      bankData: bankPayload,
+      bureauData: bureauPayload,
+    });
+
+    const sourceResultIds: string[] = [bankResultId];
+    if (bureauResultId) {
+      sourceResultIds.push(bureauResultId);
+    }
+
+    await this.profileCalculator.saveProfile(
+      ctx.tenantId,
+      evaluation.id,
+      sourceResultIds,
+      consolidated.indicators,
+    );
+
+    const applicantScope: "PERSON" | "COMPANY" =
+      (evaluation.client?.type as "PERSON" | "COMPANY") ||
+      snapshot?.type ||
+      "PERSON";
+
+    await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
+      applicantScope,
+      purpose: evaluation.purpose,
+      requestedAmount: Number(evaluation.requestedAmount),
+      profile: consolidated.indicators,
+    });
+
+    const completed = await this.db.client.evaluation.update({
       where: { id: evaluation.id },
       data: {
-        status: "FAILED",
-        failureCode: queryResult.errorCode,
-        failureMessage: queryResult.message,
+        status: "COMPLETED",
+        ruleVersion: "1.0.0",
+        completedAt: new Date(),
+        failureCode: null,
+        failureMessage: null,
       },
       include: {
         client: true,
         profile: true,
-        sourceResults: true,
+        sourceResults: {
+          include: { provider: true },
+          orderBy: { requestedAt: "asc" },
+        },
         recommendations: {
           include: { product: true, reasons: true },
           orderBy: { evaluatedAt: "asc" },
@@ -445,10 +606,10 @@ export class EvaluationsService {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
       evaluationId: evaluation.id,
-      status: "FAILED",
+      status: "COMPLETED",
     });
 
-    return this.serializeEvaluation(failed);
+    return this.serializeEvaluation(completed);
   }
 
   private serializeEvaluation(ev: {
@@ -484,12 +645,14 @@ export class EvaluationsService {
     sourceResults?: Array<{
       id: string;
       providerId: string;
+      provider?: { code: string; name: string } | null;
       status: string;
       attemptCount: number;
       externalReference: string | null;
       errorCode: string | null;
       requestedAt: Date;
       respondedAt: Date | null;
+      normalizedPayload?: unknown;
     }>;
     recommendations?: Array<{
       id: string;
@@ -511,6 +674,23 @@ export class EvaluationsService {
     }>;
   }) {
     const snapshot = ev.applicantSnapshot as Record<string, unknown> | null;
+
+    let indicatorProvenance: ProfileIndicatorProvenance | null = null;
+    if (ev.profile) {
+      const bankResult = ev.sourceResults?.find(
+        (sr) => sr.provider?.code === "BANK_MOCK" && sr.status === "SUCCESS",
+      );
+      const bureauResult = ev.sourceResults?.find(
+        (sr) => sr.provider?.code === "BUREAU_MOCK" && sr.status === "SUCCESS",
+      );
+      const bankData = (bankResult?.normalizedPayload as unknown as NormalizedFinancialData) ?? null;
+      const bureauData = (bureauResult?.normalizedPayload as unknown as NormalizedBureauData) ?? null;
+      indicatorProvenance = this.profileCalculator.consolidate({
+        bankData,
+        bureauData,
+      }).provenance;
+    }
+
     return {
       id: ev.id,
       tenantId: ev.tenantId,
@@ -556,11 +736,14 @@ export class EvaluationsService {
             completeness: Number(ev.profile.completeness),
             profileVersion: ev.profile.profileVersion,
             calculatedAt: ev.profile.calculatedAt,
+            indicatorProvenance,
           }
         : null,
       sourceResults: (ev.sourceResults ?? []).map((sr) => ({
         id: sr.id,
         providerId: sr.providerId,
+        providerCode: sr.provider?.code ?? (sr.providerId ? "SOURCE" : "UNKNOWN"),
+        providerName: sr.provider?.name ?? "Fuente Financiera",
         status: sr.status,
         attemptCount: sr.attemptCount,
         externalReference: sr.externalReference,
@@ -587,3 +770,4 @@ export class EvaluationsService {
     };
   }
 }
+

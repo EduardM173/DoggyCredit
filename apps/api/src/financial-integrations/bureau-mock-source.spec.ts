@@ -184,4 +184,76 @@ describe("BureauMockSourceService (HU-13 / S3-RF-01)", () => {
       });
     });
   });
+
+  describe("query", () => {
+    it("throws ServiceUnavailableException when provider is missing or inactive", async () => {
+      mockDb.client.integrationProvider.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.query("tenant-1", "1234567")).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    it("throws ServiceUnavailableException when tenant has not enabled bureau", async () => {
+      mockDb.client.integrationProvider.findUnique.mockResolvedValueOnce({
+        id: "prov-bureau-1",
+        status: "ACTIVE",
+      });
+      mockDb.client.tenantIntegration.findUnique.mockResolvedValueOnce(null);
+
+      await expect(service.query("tenant-1", "1234567")).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    it("returns UNAVAILABLE for document ending with 999", async () => {
+      mockDb.client.integrationProvider.findUnique.mockResolvedValueOnce({
+        id: "prov-bureau-1",
+        status: "ACTIVE",
+      });
+      mockDb.client.tenantIntegration.findUnique.mockResolvedValueOnce({
+        enabled: true,
+        status: "ACTIVE",
+      });
+
+      const res = await service.query("tenant-1", "1234999");
+      expect(res.status).toBe("UNAVAILABLE");
+      if (res.status === "UNAVAILABLE") {
+        expect(res.errorCode).toBe("BUREAU_UNAVAILABLE");
+        expect(res.retryable).toBe(true);
+      }
+    });
+
+    it("returns NO_DATA for document ending with 000", async () => {
+      mockDb.client.integrationProvider.findUnique.mockResolvedValueOnce({
+        id: "prov-bureau-1",
+        status: "ACTIVE",
+      });
+      mockDb.client.tenantIntegration.findUnique.mockResolvedValueOnce({
+        enabled: true,
+        status: "ACTIVE",
+      });
+
+      const res = await service.query("tenant-1", "1234000");
+      expect(res.status).toBe("NO_DATA");
+    });
+
+    it("returns SUCCESS with clean history for standard document", async () => {
+      mockDb.client.integrationProvider.findUnique.mockResolvedValueOnce({
+        id: "prov-bureau-1",
+        status: "ACTIVE",
+      });
+      mockDb.client.tenantIntegration.findUnique.mockResolvedValueOnce({
+        enabled: true,
+        status: "ACTIVE",
+      });
+
+      const res = await service.query("tenant-1", "1234567");
+      expect(res.status).toBe("SUCCESS");
+      if (res.status === "SUCCESS") {
+        expect(res.data.hasRecentArrears).toBe(false);
+        expect(res.data.totalSystemDebt).toBe(18000);
+      }
+    });
+  });
 });

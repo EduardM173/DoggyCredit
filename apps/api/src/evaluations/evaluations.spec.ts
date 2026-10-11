@@ -41,6 +41,9 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         findFirst: MockFn;
         upsert: MockFn;
       };
+      integrationProvider: {
+        findUnique: MockFn;
+      };
     };
     run: MockFn;
   };
@@ -60,8 +63,14 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
     status: MockFn;
     enable: MockFn;
   };
+  let mockBureau: {
+    query: MockFn;
+    status: MockFn;
+    enable: MockFn;
+  };
   let mockProfileCalculator: {
     calculate: MockFn;
+    consolidate: MockFn;
     saveProfile: MockFn;
   };
   let mockRecommender: {
@@ -81,6 +90,17 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         evaluationSourceResult: {
           findFirst: jest.fn(),
           upsert: jest.fn(),
+        },
+        integrationProvider: {
+          findUnique: jest.fn<any>().mockImplementation((args: any) => {
+            if (args?.where?.code === "BANK_MOCK") {
+              return Promise.resolve({ id: "p-bank", code: "BANK_MOCK", name: "Banco Unión Mock" });
+            }
+            if (args?.where?.code === "BUREAU_MOCK") {
+              return Promise.resolve({ id: "p-bureau", code: "BUREAU_MOCK", name: "Buró de Crédito Mock" });
+            }
+            return Promise.resolve(null);
+          }),
         },
       },
       run: jest.fn(async (cb: () => Promise<unknown>) => cb()),
@@ -106,8 +126,34 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       enable: jest.fn(),
     };
 
+    mockBureau = {
+      query: jest.fn(),
+      status: jest.fn<any>().mockResolvedValue({
+        available: false,
+        enabled: false,
+        healthStatus: "INACTIVE",
+      }),
+      enable: jest.fn(),
+    };
+
     mockProfileCalculator = {
       calculate: jest.fn(),
+      consolidate: jest.fn<any>().mockReturnValue({
+        indicators: {
+          averageMonthlyIncome: 5000,
+          completeness: 1,
+          profileVersion: "1.0.0",
+        },
+        provenance: {
+          averageMonthlyIncome: "BANK_MOCK",
+          averageMonthlyExpenses: "BANK_MOCK",
+          disposableIncome: "BANK_MOCK",
+          totalDebt: "BANK_MOCK",
+          activeCredits: "BANK_MOCK",
+          debtToIncome: "BANK_MOCK",
+          hasRecentArrears: "BANK_MOCK",
+        },
+      }),
       saveProfile: jest.fn(),
     };
 
@@ -121,6 +167,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       mockPreparation as unknown as TenantPreparationService,
       mockAudit as unknown as AuditWriter,
       mockBank as unknown as BankMockSource,
+      mockBureau as unknown as any,
       mockProfileCalculator as unknown as FinancialProfileCalculator,
       mockRecommender as unknown as EvaluationRecommender,
     );
@@ -445,6 +492,15 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         ...mockDraftEval,
         status: "FAILED",
         failureCode: "BANK_UNAVAILABLE",
+        sourceResults: [
+          {
+            id: "sr-1",
+            providerId: "p-bank",
+            provider: { code: "BANK_MOCK", name: "Bank Mock" },
+            status: "FAILED",
+            attemptCount: 1,
+          },
+        ],
       };
       mockDb.client.evaluation.findFirst.mockResolvedValueOnce(existingFailedEval);
       mockDb.client.evaluation.update
@@ -753,4 +809,302 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       );
     });
   });
+
+  describe("HU-15 — Procesar Banco y Buró con procedencia y estados comprensibles", () => {
+    it("PA-15.01: queries both Bank and Buró when Buró is enabled, consolidates profile and links both sources", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        source: { enabled: true },
+        steps: { source: true, products: true },
+        products: [{ selected: true, applicantScope: "PERSON" }],
+      });
+
+      mockBureau.status.mockResolvedValueOnce({
+        available: true,
+        enabled: true,
+        healthStatus: "ACTIVE",
+      });
+
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-multi-1",
+        tenantId: "tenant-a",
+        clientId: "client-1",
+        purpose: "HOME_IMPROVEMENT",
+        requestedAmount: "25000",
+        status: "PREPARED",
+        consentGivenAt: new Date(),
+        applicantSnapshot: { type: "PERSON", documentNumber: "1234567" },
+        client: { documentNumber: "1234567", type: "PERSON" },
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      mockDb.client.evaluation.update
+        .mockResolvedValueOnce({ id: "eval-multi-1", status: "IN_PROGRESS" })
+        .mockResolvedValueOnce({
+          id: "eval-multi-1",
+          status: "COMPLETED",
+          profile: { id: "prof-multi-1" },
+          sourceResults: [
+            { id: "sr-bank-1", provider: { code: "BANK_MOCK", name: "Banco Unión Mock" }, status: "SUCCESS" },
+            { id: "sr-bureau-1", provider: { code: "BUREAU_MOCK", name: "Buró de Crédito Mock" }, status: "SUCCESS" },
+          ],
+        });
+
+      mockBank.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: { documentNumber: "1234567", accounts: [], loans: [] },
+        providerId: "p-bank",
+      });
+
+      mockBureau.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: { documentNumber: "1234567", totalSystemDebt: 15000, activeCreditsCount: 1 },
+        providerId: "p-bureau",
+      });
+
+      mockDb.client.evaluationSourceResult.upsert
+        .mockResolvedValueOnce({ id: "sr-bank-1", status: "SUCCESS" })
+        .mockResolvedValueOnce({ id: "sr-bureau-1", status: "SUCCESS" });
+
+      mockProfileCalculator.saveProfile.mockResolvedValueOnce({ id: "prof-multi-1" });
+
+      const res = await service.processEvaluation(makeContext(), "eval-multi-1");
+
+      expect(mockBank.query).toHaveBeenCalledWith("tenant-a", "1234567");
+      expect(mockBureau.query).toHaveBeenCalledWith("tenant-a", "1234567");
+      expect(mockProfileCalculator.consolidate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankData: expect.any(Object),
+          bureauData: expect.any(Object),
+        }),
+      );
+      expect(mockProfileCalculator.saveProfile).toHaveBeenCalledWith(
+        "tenant-a",
+        "eval-multi-1",
+        ["sr-bank-1", "sr-bureau-1"],
+        expect.any(Object),
+      );
+      expect(res.status).toBe("COMPLETED");
+    });
+
+    it("PA-15.02: reuses previously successful Bank result during retry without re-querying it (CA-15.10)", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        source: { enabled: true },
+        steps: { source: true, products: true },
+        products: [{ selected: true, applicantScope: "PERSON" }],
+      });
+
+      mockBureau.status.mockResolvedValueOnce({
+        available: true,
+        enabled: true,
+        healthStatus: "ACTIVE",
+      });
+
+      // Evaluation was previously FAILED because Buró timed out, but Bank had succeeded
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-retry-1",
+        tenantId: "tenant-a",
+        clientId: "client-1",
+        purpose: "CONSUMER",
+        requestedAmount: "10000",
+        status: "FAILED",
+        consentGivenAt: new Date(),
+        applicantSnapshot: { type: "PERSON", documentNumber: "1234567" },
+        client: { documentNumber: "1234567", type: "PERSON" },
+        sourceResults: [
+          {
+            id: "sr-bank-prev",
+            providerId: "p-bank",
+            provider: { code: "BANK_MOCK", name: "Banco Unión Mock" },
+            status: "SUCCESS",
+            attemptCount: 1,
+            normalizedPayload: { documentNumber: "1234567", accounts: [] },
+          },
+          {
+            id: "sr-bureau-prev",
+            providerId: "p-bureau",
+            provider: { code: "BUREAU_MOCK", name: "Buró de Crédito Mock" },
+            status: "UNAVAILABLE",
+            attemptCount: 1,
+          },
+        ],
+        recommendations: [],
+      });
+
+      mockDb.client.evaluation.update
+        .mockResolvedValueOnce({ id: "eval-retry-1", status: "IN_PROGRESS" })
+        .mockResolvedValueOnce({
+          id: "eval-retry-1",
+          status: "COMPLETED",
+          profile: { id: "prof-retry-1" },
+          sourceResults: [
+            { id: "sr-bank-prev", provider: { code: "BANK_MOCK" }, status: "SUCCESS" },
+            { id: "sr-bureau-prev", provider: { code: "BUREAU_MOCK" }, status: "SUCCESS" },
+          ],
+        });
+
+      // Buró is retried successfully this time
+      mockBureau.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: { documentNumber: "1234567", totalSystemDebt: 8000 },
+        providerId: "p-bureau",
+      });
+
+      mockDb.client.evaluationSourceResult.upsert.mockResolvedValueOnce({
+        id: "sr-bureau-prev",
+        status: "SUCCESS",
+        attemptCount: 2,
+      });
+
+      mockProfileCalculator.saveProfile.mockResolvedValueOnce({ id: "prof-retry-1" });
+
+      const res = await service.processEvaluation(makeContext(), "eval-retry-1");
+
+      // Bank must NOT be re-queried
+      expect(mockBank.query).not.toHaveBeenCalled();
+      // Buró is retried
+      expect(mockBureau.query).toHaveBeenCalledWith("tenant-a", "1234567");
+      expect(res.status).toBe("COMPLETED");
+    });
+
+    it("PA-15.03: handles Buró technical failure by marking evaluation FAILED with retry allowed (CA-15.07)", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        source: { enabled: true },
+        steps: { source: true, products: true },
+        products: [{ selected: true, applicantScope: "PERSON" }],
+      });
+
+      mockBureau.status.mockResolvedValueOnce({
+        available: true,
+        enabled: true,
+        healthStatus: "ACTIVE",
+      });
+
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-fail-1",
+        tenantId: "tenant-a",
+        clientId: "client-1",
+        purpose: "CONSUMER",
+        requestedAmount: "10000",
+        status: "PREPARED",
+        consentGivenAt: new Date(),
+        applicantSnapshot: { type: "PERSON", documentNumber: "1234999" },
+        client: { documentNumber: "1234999", type: "PERSON" },
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      mockDb.client.evaluation.update
+        .mockResolvedValueOnce({ id: "eval-fail-1", status: "IN_PROGRESS" })
+        .mockResolvedValueOnce({
+          id: "eval-fail-1",
+          status: "FAILED",
+          failureCode: "BUREAU_UNAVAILABLE",
+          failureMessage: "Buró de Crédito no está disponible temporalmente.",
+          sourceResults: [
+            { id: "sr-bank-1", provider: { code: "BANK_MOCK" }, status: "SUCCESS" },
+            { id: "sr-bureau-1", provider: { code: "BUREAU_MOCK" }, status: "UNAVAILABLE" },
+          ],
+        });
+
+      mockBank.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: { documentNumber: "1234999", accounts: [] },
+        providerId: "p-bank",
+      });
+
+      mockBureau.query.mockResolvedValueOnce({
+        status: "UNAVAILABLE",
+        errorCode: "BUREAU_UNAVAILABLE",
+        message: "Buró de Crédito no disponible temporalmente.",
+        retryable: true,
+        providerId: "p-bureau",
+      });
+
+      mockDb.client.evaluationSourceResult.upsert
+        .mockResolvedValueOnce({ id: "sr-bank-1", status: "SUCCESS" })
+        .mockResolvedValueOnce({ id: "sr-bureau-1", status: "UNAVAILABLE" });
+
+      const res = await service.processEvaluation(makeContext(), "eval-fail-1");
+
+      expect(res.status).toBe("FAILED");
+      expect(res.failureCode).toBe("BUREAU_UNAVAILABLE");
+      expect(mockProfileCalculator.saveProfile).not.toHaveBeenCalled();
+      expect(mockRecommender.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("PA-15.04: handles Buró NO_DATA alongside Bank SUCCESS completing evaluation normally (CA-15.06)", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        source: { enabled: true },
+        steps: { source: true, products: true },
+        products: [{ selected: true, applicantScope: "PERSON" }],
+      });
+
+      mockBureau.status.mockResolvedValueOnce({
+        available: true,
+        enabled: true,
+        healthStatus: "ACTIVE",
+      });
+
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-nodata-1",
+        tenantId: "tenant-a",
+        clientId: "client-1",
+        purpose: "CONSUMER",
+        requestedAmount: "10000",
+        status: "PREPARED",
+        consentGivenAt: new Date(),
+        applicantSnapshot: { type: "PERSON", documentNumber: "1234000" },
+        client: { documentNumber: "1234000", type: "PERSON" },
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      mockDb.client.evaluation.update
+        .mockResolvedValueOnce({ id: "eval-nodata-1", status: "IN_PROGRESS" })
+        .mockResolvedValueOnce({
+          id: "eval-nodata-1",
+          status: "COMPLETED",
+          profile: { id: "prof-nodata-1" },
+          sourceResults: [
+            { id: "sr-bank-1", provider: { code: "BANK_MOCK" }, status: "SUCCESS" },
+            { id: "sr-bureau-1", provider: { code: "BUREAU_MOCK" }, status: "NO_DATA" },
+          ],
+        });
+
+      mockBank.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: { documentNumber: "1234000", accounts: [] },
+        providerId: "p-bank",
+      });
+
+      mockBureau.query.mockResolvedValueOnce({
+        status: "NO_DATA",
+        message: "No se encontraron registros de crédito en el Buró.",
+        providerId: "p-bureau",
+      });
+
+      mockDb.client.evaluationSourceResult.upsert
+        .mockResolvedValueOnce({ id: "sr-bank-1", status: "SUCCESS" })
+        .mockResolvedValueOnce({ id: "sr-bureau-1", status: "NO_DATA" });
+
+      mockProfileCalculator.saveProfile.mockResolvedValueOnce({ id: "prof-nodata-1" });
+
+      const res = await service.processEvaluation(makeContext(), "eval-nodata-1");
+
+      expect(res.status).toBe("COMPLETED");
+      expect(mockProfileCalculator.consolidate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bankData: expect.any(Object),
+          bureauData: null,
+        }),
+      );
+      expect(mockRecommender.evaluate).toHaveBeenCalled();
+    });
+  });
 });
+

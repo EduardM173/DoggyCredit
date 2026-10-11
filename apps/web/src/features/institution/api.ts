@@ -57,6 +57,18 @@ export type EvaluationItem = {
   createdAt: string;
 };
 
+export type IndicatorProvenance = "BANK_MOCK" | "BUREAU_MOCK" | "CONSOLIDATED" | "NOT_AVAILABLE";
+
+export type ProfileIndicatorProvenanceDto = {
+  averageMonthlyIncome: IndicatorProvenance;
+  averageMonthlyExpenses: IndicatorProvenance;
+  disposableIncome: IndicatorProvenance;
+  totalDebt: IndicatorProvenance;
+  activeCredits: IndicatorProvenance;
+  debtToIncome: IndicatorProvenance;
+  hasRecentArrears: IndicatorProvenance;
+};
+
 export type FinancialProfileDto = {
   id: string;
   averageMonthlyIncome: number | null;
@@ -69,11 +81,14 @@ export type FinancialProfileDto = {
   completeness: number;
   profileVersion: string;
   calculatedAt: string;
+  indicatorProvenance?: ProfileIndicatorProvenanceDto | null;
 };
 
 export type EvaluationSourceResultDto = {
   id: string;
   providerId: string;
+  providerCode?: string;
+  providerName?: string;
   status: "SUCCESS" | "NO_DATA" | "UNAVAILABLE" | "ERROR";
   attemptCount: number;
   externalReference: string | null;

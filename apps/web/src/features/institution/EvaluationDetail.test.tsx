@@ -475,4 +475,179 @@ describe("HU-11 EvaluationDetail", () => {
       expect(screen.getByText("Alternativa compatible")).toBeInTheDocument();
     });
   });
+
+  describe("HU-15 — Procesar Banco y Buró con procedencia y estados comprensibles", () => {
+    it("renders multi-source coverage badges and indicator provenance labels (CA-15.03, CA-15.08)", async () => {
+      const mockMultiSourceEval = {
+        ...mockDraftEvaluation,
+        status: "COMPLETED",
+        profile: {
+          id: "prof-multi",
+          averageMonthlyIncome: 8000,
+          averageMonthlyExpenses: 3000,
+          disposableIncome: 5000,
+          totalDebt: 12000,
+          activeCredits: 2,
+          debtToIncome: 0.15,
+          hasRecentArrears: false,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-10T20:30:00.000Z",
+          indicatorProvenance: {
+            averageMonthlyIncome: "BANK_MOCK",
+            averageMonthlyExpenses: "BANK_MOCK",
+            disposableIncome: "BANK_MOCK",
+            totalDebt: "CONSOLIDATED",
+            activeCredits: "CONSOLIDATED",
+            debtToIncome: "CONSOLIDATED",
+            hasRecentArrears: "CONSOLIDATED",
+          },
+        },
+        sourceResults: [
+          {
+            id: "sr-1",
+            providerId: "p-bank",
+            providerCode: "BANK_MOCK",
+            providerName: "Banco Unión Mock",
+            status: "SUCCESS",
+            attemptCount: 1,
+            externalReference: "BM-1",
+            errorCode: null,
+            requestedAt: "2026-10-10T20:00:00.000Z",
+            respondedAt: "2026-10-10T20:01:00.000Z",
+          },
+          {
+            id: "sr-2",
+            providerId: "p-bureau",
+            providerCode: "BUREAU_MOCK",
+            providerName: "Buró de Crédito Mock",
+            status: "SUCCESS",
+            attemptCount: 1,
+            externalReference: "BUR-1",
+            errorCode: null,
+            requestedAt: "2026-10-10T20:00:00.000Z",
+            respondedAt: "2026-10-10T20:01:00.000Z",
+          },
+        ],
+        recommendations: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockMultiSourceEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Perfil Financiero Consolidado")).toBeInTheDocument();
+        expect(screen.getByText(/Banco Unión Mock: Disponible/i)).toBeInTheDocument();
+        expect(screen.getByText(/Buró de Crédito Mock: Disponible/i)).toBeInTheDocument();
+        expect(screen.getAllByText("Consolidado (Banco + Buró)").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Fuente: Banco").length).toBeGreaterThan(0);
+      });
+    });
+
+    it("renders 'Sin antecedentes en Buró' banner when Buró returns NO_DATA (CA-15.06, CA-15.13)", async () => {
+      const mockBureauNoDataEval = {
+        ...mockDraftEvaluation,
+        status: "COMPLETED",
+        profile: {
+          id: "prof-nodata",
+          averageMonthlyIncome: 5000,
+          averageMonthlyExpenses: 2000,
+          disposableIncome: 3000,
+          totalDebt: 3000,
+          activeCredits: 1,
+          debtToIncome: 0.06,
+          hasRecentArrears: false,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-10T20:30:00.000Z",
+          indicatorProvenance: {
+            averageMonthlyIncome: "BANK_MOCK",
+            totalDebt: "BANK_MOCK",
+            activeCredits: "BANK_MOCK",
+          },
+        },
+        sourceResults: [
+          {
+            id: "sr-1",
+            providerId: "p-bank",
+            providerCode: "BANK_MOCK",
+            providerName: "Banco Unión Mock",
+            status: "SUCCESS",
+            attemptCount: 1,
+          },
+          {
+            id: "sr-2",
+            providerId: "p-bureau",
+            providerCode: "BUREAU_MOCK",
+            providerName: "Buró de Crédito Mock",
+            status: "NO_DATA",
+            attemptCount: 1,
+          },
+        ],
+        recommendations: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockBureauNoDataEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Sin antecedentes en Buró:/i)).toBeInTheDocument();
+        expect(screen.getByText(/Buró de Crédito Mock: Sin antecedentes/i)).toBeInTheDocument();
+      });
+    });
+
+    it("renders FAILED state with retry button and preserves context (CA-15.07, CA-15.10)", async () => {
+      const mockFailedEval = {
+        ...mockDraftEvaluation,
+        status: "FAILED",
+        failureCode: "BUREAU_UNAVAILABLE",
+        failureMessage: "Buró de Crédito no está disponible temporalmente.",
+        sourceResults: [
+          {
+            id: "sr-1",
+            providerCode: "BANK_MOCK",
+            providerName: "Banco Unión Mock",
+            status: "SUCCESS",
+          },
+          {
+            id: "sr-2",
+            providerCode: "BUREAU_MOCK",
+            providerName: "Buró de Crédito Mock",
+            status: "UNAVAILABLE",
+          },
+        ],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockFailedEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("NO COMPLETADA")).toBeInTheDocument();
+        expect(screen.getByText("Buró de Crédito no está disponible temporalmente.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Reintentar evaluación/i })).toBeInTheDocument();
+      });
+    });
+  });
 });
+
