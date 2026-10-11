@@ -5,11 +5,9 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CreditCard,
   Database,
   House,
   Info,
-  Leaf,
   ListChecks,
   LogOut,
   Package,
@@ -21,6 +19,7 @@ import { AnalystHome } from "./AnalystHome";
 import { EvaluationWizard } from "./EvaluationWizard";
 import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
+import { ProductsCatalogPanel } from "./ProductsCatalogPanel";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
@@ -38,13 +37,6 @@ const types: Record<string, string> = {
   FINANCIAL_INSTITUTION: "Financiera",
   COOPERATIVE: "Cooperativa",
   OTHER: "Otra",
-};
-const purposes: Record<string, string> = {
-  WORKING_CAPITAL: "Capital de trabajo",
-  BUSINESS_INVESTMENT: "Inversión",
-  GREEN_PROJECT: "Proyecto verde",
-  EQUIPMENT: "Equipamiento",
-  OTHER: "Otro",
 };
 const steps = [
   {
@@ -559,50 +551,19 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   </>
                 )}
                 {step === "products" && (
-                  <>
-                    <h2>Productos disponibles</h2>
-                    <p>Selecciona los productos que participarán en las evaluaciones de tu institución.</p>
-                    <p className="institution-product-count">{selected.length} productos seleccionados</p>
-                    {home.products?.length ? (
-                      <div className="institution-product-list">
-                        {home.products.map((product) => (
-                          <label className="institution-product" key={product.id}>
-                            <input
-                              type="checkbox"
-                              checked={selected.includes(product.id)}
-                              disabled={!admin || busy}
-                              onChange={(event) =>
-                                setSelected((ids) =>
-                                  event.target.checked
-                                    ? [...ids, product.id]
-                                    : ids.filter((id) => id !== product.id),
-                                )
-                              }
-                            />
-                            {product.category === "GREEN_CREDIT" ? (
-                              <Leaf className="institution-product-icon" size={26} />
-                            ) : (
-                              <CreditCard className="institution-product-icon" size={26} />
-                            )}
-                            <span>
-                              <strong>{product.name}</strong>
-                              <small>
-                                {product.applicantScope === "COMPANY" ? "Empresa" : "Persona"} · Bs{" "}
-                                {Number(product.minAmount).toLocaleString("es-BO")} – Bs{" "}
-                                {Number(product.maxAmount).toLocaleString("es-BO")} ·{" "}
-                                {product.purposes.map((purpose) => purposes[purpose] ?? purpose).join(" · ")}
-                              </small>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="institution-note">
-                        Aún no hay productos disponibles para esta institución. Contacta al administrador de
-                        la plataforma.
-                      </p>
-                    )}
-                  </>
+                  <ProductsCatalogPanel
+                    slug={home.tenant.slug}
+                    tenantName={home.tenant.name}
+                    admin={admin}
+                    initialProducts={home.products}
+                    selectedProductIds={selected}
+                    onSelectProduct={(id) =>
+                      setSelected((ids) =>
+                        ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+                      )
+                    }
+                    onProductsChanged={() => setReload((v) => v + 1)}
+                  />
                 )}
               </section>
               <aside className="institution-help-panel">

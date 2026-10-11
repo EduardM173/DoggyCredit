@@ -49,7 +49,7 @@ export class TenantPreparationService {
       institution: Boolean(tenant.informationConfirmedAt),
       source: bankStatus.enabled,
       products: Boolean(
-        tenant.productsConfirmedAt &&
+        (tenant.productsConfirmedAt || products.some((product) => product.selected)) &&
         products.some((product) => product.selected && product.applicantScope !== "COMPANY"),
       ),
     };

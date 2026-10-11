@@ -47,6 +47,13 @@ export abstract class AuditWriter {
     evaluationId: string;
     status: string;
   }): Promise<void>;
+  abstract recordProductCatalogAction(event: {
+    tenantId: string;
+    actorUserId: string;
+    productId: string;
+    action: "PRODUCT_CREATED" | "PRODUCT_UPDATED" | "PRODUCT_ACTIVATED" | "PRODUCT_DEACTIVATED";
+    metadata?: Record<string, unknown>;
+  }): Promise<void>;
 }
 
 export interface CommerceAuditEvent {

@@ -169,44 +169,127 @@ export async function processEvaluation(tenantSlug: string, evaluationId: string
   });
 }
 
+export type ProductCategory = "MICRO_CREDIT" | "GREEN_CREDIT" | "SME_CREDIT" | "OTHER";
+export type ApplicantScope = "PERSON" | "COMPANY" | "BOTH";
+export type CreditPurpose =
+  | "WORKING_CAPITAL"
+  | "GREEN_PROJECT"
+  | "BUSINESS_INVESTMENT"
+  | "EQUIPMENT"
+  | "OTHER";
+
+export interface ProductCatalogItem {
+  id: string;
+  tenantId: string;
+  name: string;
+  category: ProductCategory;
+  applicantScope: ApplicantScope;
+  minAmount: number;
+  maxAmount: number;
+  maxDebtToIncome: number | null;
+  minMonthlyDisposableIncome: number | null;
+  allowsRecentArrears: boolean;
+  active: boolean;
+  purposes: CreditPurpose[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProductPayload {
+  name: string;
+  category: ProductCategory;
+  applicantScope: ApplicantScope;
+  purposes: CreditPurpose[];
+  minAmount: number;
+  maxAmount: number;
+  maxDebtToIncome?: number | null;
+  minMonthlyDisposableIncome?: number | null;
+  allowsRecentArrears?: boolean;
+  active?: boolean;
+}
+
+export interface UpdateProductPayload {
+  name?: string;
+  category?: ProductCategory;
+  applicantScope?: ApplicantScope;
+  purposes?: CreditPurpose[];
+  minAmount?: number;
+  maxAmount?: number;
+  maxDebtToIncome?: number | null;
+  minMonthlyDisposableIncome?: number | null;
+  allowsRecentArrears?: boolean;
+  active?: boolean;
+}
+
+export interface DeactivationImpactResponse {
+  isLastActive: boolean;
+  scope: ApplicantScope | null;
+  warningMessage?: string;
+}
+
 export class InstitutionError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
+    public data?: unknown,
   ) {
     super(message);
+    this.name = "InstitutionError";
   }
 }
 
-export async function institutionApi<T>(path: string, options: { body?: object; signal?: AbortSignal } = {}) {
+export async function institutionApi<T>(
+  path: string,
+  options: {
+    body?: object;
+    signal?: AbortSignal;
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  } = {},
+) {
   const base = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
+  const method = options.method ?? (options.body !== undefined ? "POST" : "GET");
   const response = await fetch(`${base}/institution${path}`, {
+    method,
     credentials: "include",
     cache: "no-store",
     signal: options.signal,
     ...(options.body !== undefined
       ? {
-          method: "POST",
           headers: { "Content-Type": "application/json", "X-DoggyCredit-Institution": "1" },
           body: JSON.stringify(options.body),
         }
       : {}),
   });
+
   if (!response.ok) {
+    const errorJson = await response.json().catch(() => null);
+    const serverMessage =
+      errorJson && typeof errorJson === "object"
+        ? (errorJson.message as string) || (errorJson.error as string)
+        : null;
+    const serverCode =
+      errorJson && typeof errorJson === "object" ? (errorJson.code as string) : undefined;
+
     const message =
-      response.status === 401
+      serverMessage ||
+      (response.status === 401
         ? path === "/auth/login"
           ? "Correo o contraseña incorrectos."
           : "Tu sesión terminó. Inicia sesión nuevamente."
         : response.status === 403
           ? "No tienes acceso a este espacio institucional."
           : response.status === 404
-            ? "La institución no existe."
-            : response.status === 429
-              ? "Demasiados intentos. Intenta nuevamente en unos minutos."
-              : "No se pudo completar la operación. Intenta nuevamente.";
-    throw new InstitutionError(response.status, message);
+            ? "El recurso solicitado no existe."
+            : response.status === 409
+              ? "Conflicto con los datos o estado de la institución."
+              : response.status === 429
+                ? "Demasiados intentos. Intenta nuevamente en unos minutos."
+                : "No se pudo completar la operación. Intenta nuevamente.");
+
+    throw new InstitutionError(response.status, message, serverCode, errorJson);
   }
+
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
