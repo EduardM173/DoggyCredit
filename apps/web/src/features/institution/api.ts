@@ -207,6 +207,59 @@ export async function fetchEvaluations(
   return res;
 }
 
+export type ClientDossierEvaluationItem = {
+  id: string;
+  purpose: string;
+  requestedAmount: number;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "FAILED";
+  createdAt: string;
+  completedAt: string | null;
+  ruleVersion: string | null;
+  applicantSnapshot: unknown;
+  recommendationsCount: number;
+  compatibleProductsCount: number;
+};
+
+export type ClientDossierDto = {
+  client: {
+    id: string;
+    tenantId: string;
+    type: "PERSON" | "COMPANY";
+    documentType: string;
+    documentNumber: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    economicActivity: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  evaluations: ClientDossierEvaluationItem[];
+  latestFinancialProfile?: {
+    id: string;
+    averageMonthlyIncome: number | null;
+    averageMonthlyExpenses: number | null;
+    disposableIncome: number | null;
+    totalDebt: number | null;
+    activeCredits: number | null;
+    debtToIncome: number | null;
+    hasRecentArrears: boolean | null;
+    completeness: number;
+    calculatedAt: string;
+    sourceEvaluationId?: string;
+  } | null;
+};
+
+export async function fetchClientDossier(
+  tenantSlug: string,
+  clientId: string,
+): Promise<ClientDossierDto> {
+  return institutionApi<ClientDossierDto>(
+    `/tenants/${encodeURIComponent(tenantSlug)}/clients/${encodeURIComponent(clientId)}`,
+  );
+}
+
 export type ProductCategory = "MICRO_CREDIT" | "GREEN_CREDIT" | "SME_CREDIT" | "OTHER";
 export type ApplicantScope = "PERSON" | "COMPANY" | "BOTH";
 export type CreditPurpose =

@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ShieldCheck,
   TrendingUp,
+  User,
   XCircle,
 } from "lucide-react";
 import {
@@ -168,6 +169,18 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               {evaluation.documentType}: <strong>{evaluation.documentNumber}</strong> · Finalidad:{" "}
               <strong>{PURPOSE_LABELS[evaluation.purpose] || evaluation.purpose}</strong>
             </p>
+            {evaluation.clientId && (
+              <div style={{ marginTop: 8 }}>
+                <Link
+                  to={`/${slug}/clientes/${evaluation.clientId}`}
+                  state={{ from: `${location.pathname}${location.search}` }}
+                  className="eval-btn-secondary"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, height: 32, padding: "0 10px", textDecoration: "none" }}
+                >
+                  <User size={15} /> Ver expediente del solicitante
+                </Link>
+              </div>
+            )}
           </div>
           <div style={{ textAlign: "right" }}>
             <span className={`eval-status-badge eval-status-${evaluation.status}`}>

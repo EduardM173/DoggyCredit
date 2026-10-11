@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
@@ -44,16 +44,31 @@ export function EvaluationWizard({
   ready: boolean;
   initialReadiness?: EvaluationReadiness;
 }) {
+  const location = useLocation();
+  const prefill = (
+    location.state as {
+      prefill?: {
+        clientType: "PERSON" | "COMPANY";
+        documentType: string;
+        documentNumber: string;
+        name: string;
+        economicActivity: string;
+      };
+    } | null
+  )?.prefill;
+
   const [readiness, setReadiness] = useState<EvaluationReadiness | null>(
     initialReadiness ?? null,
   );
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [applicantType, setApplicantType] = useState<"PERSON" | "COMPANY">("PERSON");
-  const [documentNumber, setDocumentNumber] = useState("");
-  const [name, setName] = useState("");
-  const [economicActivity, setEconomicActivity] = useState("");
-  const [isExistingClient, setIsExistingClient] = useState(false);
-  const [searchDone, setSearchDone] = useState(false);
+  const [applicantType, setApplicantType] = useState<"PERSON" | "COMPANY">(
+    prefill?.clientType === "COMPANY" ? "COMPANY" : "PERSON",
+  );
+  const [documentNumber, setDocumentNumber] = useState(prefill?.documentNumber || "");
+  const [name, setName] = useState(prefill?.name || "");
+  const [economicActivity, setEconomicActivity] = useState(prefill?.economicActivity || "");
+  const [isExistingClient, setIsExistingClient] = useState(Boolean(prefill));
+  const [searchDone, setSearchDone] = useState(Boolean(prefill));
   const [searching, setSearching] = useState(false);
 
   const [purpose, setPurpose] = useState<
