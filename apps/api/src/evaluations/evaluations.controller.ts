@@ -58,9 +58,20 @@ export class EvaluationsController {
 
   @Get()
   @ApiCookieAuth()
-  @ApiOperation({ summary: "Listar evaluaciones recientes del tenant" })
-  list(@Req() request: TenantRequest) {
-    return this.evaluations.list(request.tenantContext);
+  @ApiOperation({ summary: "Listar evaluaciones del tenant con búsqueda, filtros y paginación" })
+  list(
+    @Req() request: TenantRequest,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.evaluations.list(request.tenantContext, {
+      search,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Get(":evaluationId")

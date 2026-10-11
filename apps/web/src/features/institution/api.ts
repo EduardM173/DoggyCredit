@@ -173,6 +173,40 @@ export async function processEvaluation(tenantSlug: string, evaluationId: string
   });
 }
 
+export type PaginatedEvaluations = {
+  items: EvaluationItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export async function fetchEvaluations(
+  tenantSlug: string,
+  params?: { search?: string; status?: string; page?: number; limit?: number },
+): Promise<PaginatedEvaluations> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set("search", params.search);
+  if (params?.status && params.status !== "ALL") query.set("status", params.status);
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.limit) query.set("limit", String(params.limit));
+
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  const res = await institutionApi<PaginatedEvaluations | EvaluationItem[]>(
+    `/tenants/${encodeURIComponent(tenantSlug)}/evaluations${qs}`,
+  );
+  if (Array.isArray(res)) {
+    return {
+      items: res,
+      total: res.length,
+      page: 1,
+      limit: res.length || 10,
+      totalPages: 1,
+    };
+  }
+  return res;
+}
+
 export type ProductCategory = "MICRO_CREDIT" | "GREEN_CREDIT" | "SME_CREDIT" | "OTHER";
 export type ApplicantScope = "PERSON" | "COMPANY" | "BOTH";
 export type CreditPurpose =

@@ -34,6 +34,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         findUnique: MockFn;
         findFirst: MockFn;
         findMany: MockFn;
+        count: MockFn;
         create: MockFn;
         update: MockFn;
       };
@@ -84,6 +85,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
           findUnique: jest.fn(),
           findFirst: jest.fn(),
           findMany: jest.fn(),
+          count: jest.fn(),
           create: jest.fn(),
           update: jest.fn(),
         },
@@ -1207,5 +1209,124 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       expect(mockRecommender.evaluate).not.toHaveBeenCalled();
     });
   });
+
+  describe("HU-18 Consultar historial y estados de evaluaciones de la institución", () => {
+    it("PA-18.01 & CA-18.05 & CA-18.11: retrieves historical evaluation without altering state or re-calculating", async () => {
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-hist-2",
+        tenantId: "tenant-a",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 25000,
+        status: "COMPLETED",
+        ruleVersion: "1.0.0",
+        createdAt: new Date("2026-09-01T10:00:00.000Z"),
+        client: {
+          id: "client-2",
+          name: "Roberto Gomez",
+          documentType: "CI",
+          documentNumber: "6543210",
+        },
+        profile: {
+          id: "prof-hist-2",
+          averageMonthlyIncome: 8000,
+          averageMonthlyExpenses: 3000,
+          disposableIncome: 5000,
+          totalDebt: 2000,
+          activeCredits: 1,
+          debtToIncome: 0.05,
+          hasRecentArrears: false,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: new Date("2026-09-01T10:05:00.000Z"),
+        },
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      const res = await service.getById(makeContext({ tenantId: "tenant-a" }), "eval-hist-2");
+
+      expect(res.id).toBe("eval-hist-2");
+      expect(res.clientName).toBe("Roberto Gomez");
+      expect(res.status).toBe("COMPLETED");
+      // Assert no modifications or re-runs
+      expect(mockDb.client.evaluation.update).not.toHaveBeenCalled();
+      expect(mockRecommender.evaluate).not.toHaveBeenCalled();
+      expect(mockBank.query).not.toHaveBeenCalled();
+      expect(mockBureau.query).not.toHaveBeenCalled();
+    });
+
+    it("PA-18.02 & CA-18.02 & CA-18.08: lists evaluations with search, status filters, and pagination envelope", async () => {
+      mockDb.client.evaluation.count.mockResolvedValueOnce(25);
+      mockDb.client.evaluation.findMany.mockResolvedValueOnce([
+        {
+          id: "eval-p1",
+          tenantId: "tenant-a",
+          purpose: "WORKING_CAPITAL",
+          requestedAmount: 10000,
+          status: "COMPLETED",
+          ruleVersion: "1.0.0",
+          createdAt: new Date("2026-10-10T12:00:00.000Z"),
+          client: {
+            id: "c-1",
+            name: "Maria Lopez",
+            documentType: "CI",
+            documentNumber: "1234567",
+          },
+          profile: null,
+          sourceResults: [],
+          recommendations: [],
+        },
+      ]);
+
+      const res = await service.list(makeContext({ tenantId: "tenant-a" }), {
+        search: "Maria",
+        status: "COMPLETED",
+        page: 2,
+        limit: 10,
+      });
+
+      expect(res.total).toBe(25);
+      expect(res.page).toBe(2);
+      expect(res.limit).toBe(10);
+      expect(res.totalPages).toBe(3);
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].clientName).toBe("Maria Lopez");
+
+      // Verify Prisma query arguments
+      expect(mockDb.client.evaluation.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          tenantId: "tenant-a",
+          status: "COMPLETED",
+          OR: [
+            { client: { name: { contains: "Maria", mode: "insensitive" } } },
+            { client: { documentNumber: { contains: "Maria", mode: "insensitive" } } },
+          ],
+        }),
+      });
+
+      expect(mockDb.client.evaluation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 10,
+          orderBy: { createdAt: "desc" },
+        }),
+      );
+    });
+
+    it("PA-18.06 & CA-18.10: denies direct URL access to evaluations belonging to another tenant without leaking metadata", async () => {
+      // Evaluation exists in Banco Y ("tenant-b"), but Carlos is authenticated in Banco X ("tenant-a")
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.getById(makeContext({ tenantId: "tenant-a" }), "eval-of-tenant-b"),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockDb.client.evaluation.findFirst).toHaveBeenCalledWith({
+        where: { id: "eval-of-tenant-b", tenantId: "tenant-a" },
+        include: expect.any(Object),
+      });
+    });
+  });
 });
+
 

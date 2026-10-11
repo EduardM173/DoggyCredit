@@ -21,7 +21,14 @@ import {
 } from "../financial-profile/public.js";
 import { EvaluationRecommender } from "../recommendations/public.js";
 import type { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
-import type { DocumentType, CreditPurpose, ClientType } from "../generated/prisma/client.js";
+import type { DocumentType, CreditPurpose, ClientType, EvaluationStatus } from "../generated/prisma/client.js";
+
+export interface ListEvaluationsQuery {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
 
 @Injectable()
 export class EvaluationsService {
@@ -220,25 +227,67 @@ export class EvaluationsService {
     });
   }
 
-  async list(ctx: TenantContext) {
-    const list = await this.db.client.evaluation.findMany({
-      where: { tenantId: ctx.tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        client: true,
-        profile: true,
-        sourceResults: {
-          include: { provider: true },
-          orderBy: { requestedAt: "asc" },
+  async list(ctx: TenantContext, query?: ListEvaluationsQuery) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where: {
+      tenantId: string;
+      status?: EvaluationStatus;
+      OR?: Array<{
+        client?: {
+          name?: { contains: string; mode: "insensitive" };
+          documentNumber?: { contains: string; mode: "insensitive" };
+        };
+      }>;
+    } = {
+      tenantId: ctx.tenantId,
+    };
+
+    if (query?.status && query.status !== "ALL") {
+      where.status = query.status as EvaluationStatus;
+    }
+
+    if (query?.search && query.search.trim().length > 0) {
+      const term = query.search.trim();
+      where.OR = [
+        { client: { name: { contains: term, mode: "insensitive" } } },
+        { client: { documentNumber: { contains: term, mode: "insensitive" } } },
+      ];
+    }
+
+    const [total, list] = await Promise.all([
+      this.db.client.evaluation.count({ where }),
+      this.db.client.evaluation.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          client: true,
+          profile: true,
+          sourceResults: {
+            include: { provider: true },
+            orderBy: { requestedAt: "asc" },
+          },
+          recommendations: {
+            include: { product: true, reasons: true },
+            orderBy: { evaluatedAt: "asc" },
+          },
         },
-        recommendations: {
-          include: { product: true, reasons: true },
-          orderBy: { evaluatedAt: "asc" },
-        },
-      },
-    });
-    return list.map((ev) => this.serializeEvaluation(ev));
+      }),
+    ]);
+
+    const items = list.map((ev) => this.serializeEvaluation(ev));
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   async getById(ctx: TenantContext, evaluationId: string) {

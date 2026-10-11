@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   AlertCircle,
   AlertTriangle,
@@ -41,6 +41,8 @@ const CATEGORY_NAMES: Record<string, string> = {
 
 export function EvaluationDetail({ slug }: { slug: string }) {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const backUrl = (location.state as { from?: string } | null)?.from || `/${slug}/evaluaciones`;
   const [evaluation, setEvaluation] = useState<EvaluationDetailItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -147,7 +149,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
     <main className="eval-container">
       <div style={{ marginBottom: 16 }}>
         <Link
-          to={`/${slug}/evaluaciones`}
+          to={backUrl}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1267e8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
         >
           <ArrowLeft size={16} /> Volver a lista de evaluaciones
@@ -627,7 +629,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={18} /> Nueva evaluación
               </Link>
-              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+              <Link className="eval-btn-secondary" to={backUrl}>
                 <FileText size={18} /> Ver evaluaciones
               </Link>
             </div>
@@ -657,7 +659,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={18} /> Nueva evaluación
               </Link>
-              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+              <Link className="eval-btn-secondary" to={backUrl}>
                 <FileText size={18} /> Ver evaluaciones
               </Link>
             </div>
@@ -687,7 +689,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               <button className="eval-btn-primary" onClick={handleStartProcessing}>
                 <RefreshCw size={18} /> Reintentar evaluación
               </button>
-              <Link className="eval-btn-secondary" to={`/${slug}/evaluaciones`}>
+              <Link className="eval-btn-secondary" to={backUrl}>
                 <FileText size={18} /> Ver evaluaciones
               </Link>
             </div>
