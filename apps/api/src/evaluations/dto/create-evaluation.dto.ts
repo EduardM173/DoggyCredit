@@ -20,6 +20,11 @@ export enum DocumentTypeDto {
   OTHER = "OTHER",
 }
 
+export enum ClientTypeDto {
+  PERSON = "PERSON",
+  COMPANY = "COMPANY",
+}
+
 export enum CreditPurposeDto {
   WORKING_CAPITAL = "WORKING_CAPITAL",
   GREEN_PROJECT = "GREEN_PROJECT",
@@ -29,6 +34,11 @@ export enum CreditPurposeDto {
 }
 
 export class CreateEvaluationDto {
+  @ApiPropertyOptional({ enum: ClientTypeDto, default: ClientTypeDto.PERSON })
+  @IsOptional()
+  @IsEnum(ClientTypeDto)
+  clientType?: ClientTypeDto = ClientTypeDto.PERSON;
+
   @ApiProperty({ enum: DocumentTypeDto, default: DocumentTypeDto.CI })
   @IsEnum(DocumentTypeDto)
   documentType: DocumentTypeDto = DocumentTypeDto.CI;
@@ -40,12 +50,18 @@ export class CreateEvaluationDto {
   @MaxLength(60, { message: "El documento no puede superar 60 caracteres." })
   documentNumber!: string;
 
-  @ApiProperty({ description: "Nombre completo del solicitante", example: "Carlos Quispe" })
+  @ApiProperty({ description: "Nombre completo del solicitante o razón social de la empresa", example: "Carlos Quispe" })
   @IsString()
   @IsNotEmpty({ message: "Introduce el nombre del solicitante." })
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres." })
   @MaxLength(180, { message: "El nombre no puede superar 180 caracteres." })
   name!: string;
+
+  @ApiPropertyOptional({ description: "Actividad económica de la empresa", example: "Comercio mayorista" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  economicActivity?: string;
 
   @ApiProperty({ enum: CreditPurposeDto, example: CreditPurposeDto.WORKING_CAPITAL })
   @IsEnum(CreditPurposeDto, { message: "Selecciona una finalidad crediticia válida." })

@@ -12,8 +12,8 @@ import { AuditWriter } from "../audit/public.js";
 import { BankMockSource } from "../financial-integrations/public.js";
 import { FinancialProfileCalculator } from "../financial-profile/public.js";
 import { EvaluationRecommender } from "../recommendations/public.js";
-import type { CreateEvaluationDto, DocumentTypeDto } from "./dto/create-evaluation.dto.js";
-import type { DocumentType, CreditPurpose } from "../generated/prisma/client.js";
+import type { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
+import type { DocumentType, CreditPurpose, ClientType } from "../generated/prisma/client.js";
 
 @Injectable()
 export class EvaluationsService {
@@ -29,12 +29,57 @@ export class EvaluationsService {
 
   async checkReadiness(ctx: TenantContext) {
     const status = await this.preparation.read(ctx);
+    const products = status.products ?? [];
+    const isBankEnabled = Boolean(status.source?.enabled ?? status.steps?.source);
+
+    const hasCompanyProduct =
+      products.length > 0
+        ? products.some(
+            (p) =>
+              p.selected &&
+              (p.applicantScope === "COMPANY" || p.applicantScope === "BOTH"),
+          )
+        : false;
+
+    const hasPersonProduct =
+      products.length > 0
+        ? products.some(
+            (p) =>
+              p.selected &&
+              (p.applicantScope === "PERSON" || p.applicantScope === "BOTH"),
+          )
+        : Boolean(status.steps?.products);
+
+    const supportedApplicantTypes = {
+      PERSON: {
+        supported: isBankEnabled && hasPersonProduct,
+        reason: !isBankEnabled
+          ? "La institución no tiene fuentes financieras habilitadas."
+          : !hasPersonProduct
+            ? "Tu institución no cuenta con productos crediticios activos para personas."
+            : undefined,
+      },
+      COMPANY: {
+        supported: isBankEnabled && hasCompanyProduct,
+        reason: !isBankEnabled
+          ? "No hay fuentes financieras habilitadas con cobertura empresarial para tu institución."
+          : !hasCompanyProduct
+            ? "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos."
+            : undefined,
+      },
+    };
+
+    const statusObj = status as { ready?: boolean };
+    const isReady =
+      typeof statusObj.ready === "boolean" ? statusObj.ready : status.completed === 3;
+
     return {
-      ready: status.ready,
+      ready: isReady,
       completed: status.completed,
       percentage: status.percentage,
       steps: status.steps,
-      tenantName: status.tenant.name,
+      tenantName: status.tenant?.name ?? "",
+      supportedApplicantTypes,
     };
   }
 
@@ -42,11 +87,13 @@ export class EvaluationsService {
     ctx: TenantContext,
     documentType: DocumentTypeDto | DocumentType,
     documentNumber: string,
+    clientType: ClientTypeDto | ClientType = "PERSON",
   ) {
     const client = await this.clients.findByDocument(
       ctx.tenantId,
       documentType as unknown as DocumentType,
       documentNumber,
+      clientType as unknown as ClientType,
     );
     if (!client) return null;
     return {
@@ -65,6 +112,25 @@ export class EvaluationsService {
       throw new BadRequestException(
         "La institución no ha completado la preparación requerida (fuentes y productos) para realizar evaluaciones.",
       );
+    }
+
+    const clientType = (dto.clientType as unknown as ClientType) || "PERSON";
+    if (clientType === "COMPANY") {
+      const companySupport = readiness.supportedApplicantTypes.COMPANY;
+      if (!companySupport.supported) {
+        throw new BadRequestException(
+          companySupport.reason ||
+            "La evaluación de empresas no está admitida en esta institución debido a la cobertura de productos o fuentes vigentes.",
+        );
+      }
+    } else {
+      const personSupport = readiness.supportedApplicantTypes.PERSON;
+      if (!personSupport.supported) {
+        throw new BadRequestException(
+          personSupport.reason ||
+            "La evaluación de personas no está admitida en esta institución debido a la cobertura de productos o fuentes vigentes.",
+        );
+      }
     }
 
     if (!dto.consentGiven) {
@@ -88,27 +154,33 @@ export class EvaluationsService {
 
     return this.db.run(async () => {
       const { client } = await this.clients.findOrCreate(ctx.tenantId, {
-        type: "PERSON",
+        type: clientType,
         documentType: dto.documentType as unknown as DocumentType,
         documentNumber: dto.documentNumber,
         name: dto.name,
+        economicActivity: dto.economicActivity,
       });
 
       const now = new Date();
+      const statement =
+        clientType === "COMPANY"
+          ? "La empresa solicitante autoriza formalmente la consulta, verificación de antecedentes financieros y procesamiento de evaluación crediticia institucional."
+          : "El solicitante autoriza la consulta y verificación de su información financiera para fines de evaluación crediticia.";
+
       const applicantSnapshot = {
         id: client.id,
         type: client.type,
         documentType: client.documentType,
         documentNumber: client.documentNumber,
         name: client.name,
+        economicActivity: client.economicActivity ?? null,
         consent: {
           given: true,
           timestamp: now.toISOString(),
           actorMembershipId: ctx.membershipId,
           actorName: ctx.userName,
           actorUserId: ctx.userId,
-          statement:
-            "El solicitante autoriza la consulta y verificación de su información financiera para fines de evaluación crediticia.",
+          statement,
         },
       };
 
@@ -274,9 +346,17 @@ export class EvaluationsService {
         indicators,
       );
 
-      // CA-12.01 & CA-12.04: Run deterministic and versioned recommendations
+      // CA-12.01, CA-12.04 & CA-14.01: Run deterministic and versioned recommendations
+      const snapshot = evaluation.applicantSnapshot as {
+        type?: "PERSON" | "COMPANY";
+      } | null;
+      const applicantScope: "PERSON" | "COMPANY" =
+        (evaluation.client?.type as "PERSON" | "COMPANY") ||
+        snapshot?.type ||
+        "PERSON";
+
       await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
-        applicantScope: "PERSON",
+        applicantScope,
         purpose: evaluation.purpose,
         requestedAmount: Number(evaluation.requestedAmount),
         profile: indicators,

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Building2,
   Check,
   CheckCircle2,
   FileText,
@@ -11,6 +12,7 @@ import {
   Search,
   ShieldCheck,
   TrendingUp,
+  User,
   UserCheck,
 } from "lucide-react";
 import {
@@ -19,6 +21,7 @@ import {
   type ClientSearchResult,
   type CreateEvaluationPayload,
   type EvaluationItem,
+  type EvaluationReadiness,
 } from "./api";
 import "./evaluations.css";
 
@@ -34,14 +37,21 @@ export function EvaluationWizard({
   slug,
   tenantName,
   ready,
+  initialReadiness,
 }: {
   slug: string;
   tenantName: string;
   ready: boolean;
+  initialReadiness?: EvaluationReadiness;
 }) {
+  const [readiness, setReadiness] = useState<EvaluationReadiness | null>(
+    initialReadiness ?? null,
+  );
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [applicantType, setApplicantType] = useState<"PERSON" | "COMPANY">("PERSON");
   const [documentNumber, setDocumentNumber] = useState("");
   const [name, setName] = useState("");
+  const [economicActivity, setEconomicActivity] = useState("");
   const [isExistingClient, setIsExistingClient] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -56,25 +66,62 @@ export function EvaluationWizard({
   const [error, setError] = useState("");
   const [createdEvaluation, setCreatedEvaluation] = useState<EvaluationItem | null>(null);
 
-  // Search client by CI in the tenant
+  // Fetch full readiness when ready and not provided initially
+  useEffect(() => {
+    if (ready && !initialReadiness) {
+      institutionApi<EvaluationReadiness>(
+        `/tenants/${encodeURIComponent(slug)}/evaluations/readiness`,
+      )
+        .then((data) => setReadiness(data))
+        .catch(() => {});
+    }
+  }, [ready, slug, initialReadiness]);
+
+  const isCompanySupported = readiness?.supportedApplicantTypes
+    ? readiness.supportedApplicantTypes.COMPANY.supported
+    : true;
+  const companyReason = readiness?.supportedApplicantTypes?.COMPANY.reason;
+
+  function handleSelectApplicantType(type: "PERSON" | "COMPANY") {
+    if (type === applicantType) return;
+    setApplicantType(type);
+    setDocumentNumber("");
+    setName("");
+    setEconomicActivity("");
+    setIsExistingClient(false);
+    setSearchDone(false);
+    // CA-14.08: Changing applicant subject or type resets consent!
+    setConsentGiven(false);
+    setError("");
+  }
+
+  // Search client by CI or NIT in the tenant
   async function handleSearch() {
     const trimmed = documentNumber.trim();
     if (!trimmed || trimmed.length < 3) {
-      setError("Introduce un número de documento válido de al menos 3 dígitos.");
+      setError(
+        applicantType === "COMPANY"
+          ? "Introduce un NIT válido de al menos 3 caracteres."
+          : "Introduce un número de documento válido de al menos 3 dígitos.",
+      );
       return;
     }
     setSearching(true);
     setError("");
     try {
+      const docType = applicantType === "COMPANY" ? "NIT" : "CI";
       const result = await institutionApi<ClientSearchResult>(
-        `/tenants/${encodeURIComponent(slug)}/evaluations/clients/search?documentType=CI&documentNumber=${encodeURIComponent(
+        `/tenants/${encodeURIComponent(slug)}/evaluations/clients/search?documentType=${docType}&documentNumber=${encodeURIComponent(
           trimmed,
-        )}`,
+        )}&clientType=${applicantType}`,
       );
       setSearchDone(true);
       if (result) {
         setIsExistingClient(true);
         setName(result.name);
+        if (applicantType === "COMPANY" && result.economicActivity) {
+          setEconomicActivity(result.economicActivity);
+        }
       } else {
         setIsExistingClient(false);
       }
@@ -86,12 +133,27 @@ export function EvaluationWizard({
   }
 
   function handleNextStep1() {
+    if (applicantType === "COMPANY" && !isCompanySupported) {
+      setError(
+        companyReason ||
+          "Tu institución no cuenta con productos crediticios activos para empresas.",
+      );
+      return;
+    }
     if (!documentNumber.trim()) {
-      setError("Introduce el documento de identidad.");
+      setError(
+        applicantType === "COMPANY"
+          ? "Introduce el NIT de la empresa."
+          : "Introduce el documento de identidad.",
+      );
       return;
     }
     if (!name.trim()) {
-      setError("Introduce el nombre completo del solicitante.");
+      setError(
+        applicantType === "COMPANY"
+          ? "Introduce la razón social de la empresa."
+          : "Introduce el nombre completo del solicitante.",
+      );
       return;
     }
     setError("");
@@ -109,16 +171,25 @@ export function EvaluationWizard({
 
   async function handleStartEvaluation() {
     if (!consentGiven) {
-      setError("Debes registrar el consentimiento informado del solicitante para iniciar la evaluación.");
+      setError(
+        applicantType === "COMPANY"
+          ? "Debes registrar la autorización formal de la empresa para iniciar la evaluación."
+          : "Debes registrar el consentimiento informado del solicitante para iniciar la evaluación.",
+      );
       return;
     }
     setBusy(true);
     setError("");
     try {
       const payload: CreateEvaluationPayload = {
-        documentType: "CI",
+        clientType: applicantType,
+        documentType: applicantType === "COMPANY" ? "NIT" : "CI",
         documentNumber: documentNumber.trim(),
         name: name.trim(),
+        economicActivity:
+          applicantType === "COMPANY" && economicActivity.trim()
+            ? economicActivity.trim()
+            : undefined,
         purpose,
         requestedAmount: Number(requestedAmount),
         consentGiven: true,
@@ -142,8 +213,10 @@ export function EvaluationWizard({
 
   function resetForm() {
     setStep(1);
+    setApplicantType("PERSON");
     setDocumentNumber("");
     setName("");
+    setEconomicActivity("");
     setIsExistingClient(false);
     setSearchDone(false);
     setRequestedAmount(10000);
@@ -187,7 +260,8 @@ export function EvaluationWizard({
           <span className="eval-success-badge">CASO CREADO EN BORRADOR</span>
           <h2>Evaluación preparada exitosamente</h2>
           <p>
-            El caso para <strong>{createdEvaluation.clientName || name}</strong> (CI:{" "}
+            El caso para <strong>{createdEvaluation.clientName || name}</strong> (
+            {applicantType === "COMPANY" ? "NIT: " : "CI: "}
             {createdEvaluation.documentNumber || documentNumber}) por un monto de{" "}
             <strong>Bs {Number(createdEvaluation.requestedAmount ?? requestedAmount).toLocaleString()}</strong> ha
             sido registrado con su snapshot inmutable y consentimiento legal.
@@ -213,7 +287,7 @@ export function EvaluationWizard({
       <div className="eval-header">
         <p className="eval-eyebrow">EVALUACIÓN CREDITICIA</p>
         <h1>Nueva evaluación para {tenantName}</h1>
-        <p>Prepara la solicitud identificando la persona y su necesidad crediticia.</p>
+        <p>Prepara la solicitud identificando el solicitante y su necesidad crediticia.</p>
       </div>
 
       <nav className="eval-stepper" aria-label="Pasos de la evaluación">
@@ -245,70 +319,164 @@ export function EvaluationWizard({
           <div>
             <h2>Paso 1: Identificación del solicitante</h2>
             <p className="eval-card-subtitle">
-              Ingresa el documento de identidad para verificar si el solicitante ya cuenta con expediente en{" "}
-              {tenantName}.
+              Selecciona el tipo de solicitante e ingresa su documento para verificar si cuenta con
+              expediente en {tenantName}.
             </p>
 
-            <div className="eval-form-group">
-              <label htmlFor="eval-doc">Documento de identidad (CI)</label>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  id="eval-doc"
-                  className="eval-input"
-                  type="text"
-                  placeholder="Ej. 4892019"
-                  value={documentNumber}
-                  onChange={(e) => {
-                    setDocumentNumber(e.target.value);
-                    setSearchDone(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleSearch();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="eval-btn-secondary"
-                  onClick={handleSearch}
-                  disabled={searching || !documentNumber.trim()}
-                >
-                  <Search size={16} /> {searching ? "Buscando..." : "Buscar"}
-                </button>
-              </div>
-              <p className="eval-help-text">Presiona Buscar o Enter para verificar el expediente.</p>
+            {/* Selector Persona / Empresa (CA-14.01, CA-14.12) */}
+            <div className="eval-type-selector" role="radiogroup" aria-label="Tipo de solicitante">
+              <button
+                type="button"
+                className={`eval-type-card ${applicantType === "PERSON" ? "active" : ""}`}
+                onClick={() => handleSelectApplicantType("PERSON")}
+              >
+                <div className="eval-type-title">
+                  <User size={18} />
+                  <strong>Persona</strong>
+                </div>
+                <span className="eval-type-desc">Persona natural con Cédula de Identidad (CI)</span>
+              </button>
+
+              <button
+                type="button"
+                className={`eval-type-card ${applicantType === "COMPANY" ? "active" : ""} ${
+                  !isCompanySupported ? "disabled" : ""
+                }`}
+                onClick={() => handleSelectApplicantType("COMPANY")}
+              >
+                <div className="eval-type-title">
+                  <Building2 size={18} />
+                  <strong>Empresa</strong>
+                  {!isCompanySupported && <span className="eval-tag-warning">No disponible</span>}
+                </div>
+                <span className="eval-type-desc">Persona jurídica o empresa comercial con NIT</span>
+              </button>
             </div>
 
-            {searchDone && isExistingClient && (
-              <div className="eval-client-badge">
-                <UserCheck size={22} />
+            {/* Alerta de restricción empresarial si no está soportado (PA-14.04) */}
+            {applicantType === "COMPANY" && !isCompanySupported && (
+              <div className="eval-restriction-alert" role="alert">
+                <AlertCircle size={20} />
                 <div>
-                  <h3>Expediente existente encontrado</h3>
+                  <h4>Evaluación empresarial no disponible</h4>
                   <p>
-                    El cliente <strong>{name}</strong> ya cuenta con historial en esta institución. Los
-                    datos del expediente se reutilizarán en este caso.
+                    {companyReason ||
+                      "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos."}
                   </p>
                 </div>
               </div>
             )}
 
-            {searchDone && !isExistingClient && (
-              <div className="eval-form-group" style={{ marginTop: 20 }}>
-                <label htmlFor="eval-name">Nombre completo del solicitante</label>
-                <input
-                  id="eval-name"
-                  className="eval-input"
-                  type="text"
-                  placeholder="Ej. Carlos Quispe Mamani"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <p className="eval-help-text">
-                  Nuevo solicitante en {tenantName}. Capturamos los datos mínimos para este caso.
-                </p>
-              </div>
+            {/* Formulario de documento e identificación (solo si está habilitado) */}
+            {(applicantType === "PERSON" || isCompanySupported) && (
+              <>
+                <div className="eval-form-group">
+                  <label htmlFor="eval-doc">
+                    {applicantType === "COMPANY"
+                      ? "Número de Identificación Tributaria (NIT)"
+                      : "Documento de identidad (CI)"}
+                  </label>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input
+                      id="eval-doc"
+                      className="eval-input"
+                      type="text"
+                      placeholder={applicantType === "COMPANY" ? "Ej. 1020304050" : "Ej. 4892019"}
+                      value={documentNumber}
+                      onChange={(e) => {
+                        setDocumentNumber(e.target.value);
+                        setSearchDone(false);
+                        // CA-14.08: Changing document number resets consent
+                        setConsentGiven(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleSearch();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="eval-btn-secondary"
+                      onClick={handleSearch}
+                      disabled={searching || !documentNumber.trim()}
+                    >
+                      <Search size={16} /> {searching ? "Buscando..." : "Buscar"}
+                    </button>
+                  </div>
+                  <p className="eval-help-text">Presiona Buscar o Enter para verificar el expediente.</p>
+                </div>
+
+                {searchDone && isExistingClient && (
+                  <div className="eval-client-badge">
+                    <UserCheck size={22} />
+                    <div>
+                      <h3>
+                        {applicantType === "COMPANY"
+                          ? "Expediente empresarial existente encontrado"
+                          : "Expediente existente encontrado"}
+                      </h3>
+                      <p>
+                        {applicantType === "COMPANY" ? (
+                          <>
+                            La empresa <strong>{name}</strong> (NIT: {documentNumber}) ya cuenta con
+                            historial en esta institución. Los datos se reutilizarán en este caso.
+                          </>
+                        ) : (
+                          <>
+                            El cliente <strong>{name}</strong> ya cuenta con historial en esta
+                            institución. Los datos del expediente se reutilizarán en este caso.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {searchDone && !isExistingClient && (
+                  <>
+                    <div className="eval-form-group" style={{ marginTop: 20 }}>
+                      <label htmlFor="eval-name">
+                        {applicantType === "COMPANY"
+                          ? "Razón social de la empresa"
+                          : "Nombre completo del solicitante"}
+                      </label>
+                      <input
+                        id="eval-name"
+                        className="eval-input"
+                        type="text"
+                        placeholder={
+                          applicantType === "COMPANY"
+                            ? "Ej. Soluciones Industriales S.A."
+                            : "Ej. Carlos Quispe Mamani"
+                        }
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                      <p className="eval-help-text">
+                        {applicantType === "COMPANY"
+                          ? `Nueva empresa en ${tenantName}. Capturamos los datos mínimos para este caso.`
+                          : `Nuevo solicitante en ${tenantName}. Capturamos los datos mínimos para este caso.`}
+                      </p>
+                    </div>
+
+                    {applicantType === "COMPANY" && (
+                      <div className="eval-form-group">
+                        <label htmlFor="eval-economic-activity">Actividad económica (opcional)</label>
+                        <input
+                          id="eval-economic-activity"
+                          className="eval-input"
+                          type="text"
+                          placeholder="Ej. Fabricación, Servicios de Software, Comercio..."
+                          value={economicActivity}
+                          onChange={(e) => setEconomicActivity(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
 
             <div className="eval-actions">
@@ -319,7 +487,11 @@ export function EvaluationWizard({
                 type="button"
                 className="eval-btn-primary"
                 onClick={handleNextStep1}
-                disabled={!documentNumber.trim() || !name.trim()}
+                disabled={
+                  (applicantType === "COMPANY" && !isCompanySupported) ||
+                  !documentNumber.trim() ||
+                  !name.trim()
+                }
               >
                 Continuar a Solicitud <ArrowRight size={16} />
               </button>
@@ -399,13 +571,23 @@ export function EvaluationWizard({
                   </button>
                 </div>
                 <div className="eval-review-row">
-                  <span>Nombre:</span>
+                  <span>Tipo:</span>
+                  <strong>{applicantType === "COMPANY" ? "Empresa" : "Persona"}</strong>
+                </div>
+                <div className="eval-review-row">
+                  <span>{applicantType === "COMPANY" ? "Razón social:" : "Nombre:"}</span>
                   <strong>{name}</strong>
                 </div>
                 <div className="eval-review-row">
-                  <span>Documento (CI):</span>
+                  <span>{applicantType === "COMPANY" ? "NIT:" : "Documento (CI):"}</span>
                   <strong>{documentNumber}</strong>
                 </div>
+                {applicantType === "COMPANY" && economicActivity && (
+                  <div className="eval-review-row">
+                    <span>Actividad económica:</span>
+                    <strong>{economicActivity}</strong>
+                  </div>
+                )}
                 <div className="eval-review-row">
                   <span>Expediente:</span>
                   <strong>{isExistingClient ? "Existente" : "Nuevo"}</strong>
@@ -438,11 +620,15 @@ export function EvaluationWizard({
                   onChange={(e) => setConsentGiven(e.target.checked)}
                 />
                 <div className="eval-consent-text">
-                  <h4>Autorización del solicitante (Consentimiento legal)</h4>
+                  <h4>
+                    {applicantType === "COMPANY"
+                      ? "Autorización institucional de la empresa (Consentimiento legal)"
+                      : "Autorización del solicitante (Consentimiento legal)"}
+                  </h4>
                   <p>
-                    Confirmo que el solicitante ha otorgado su autorización formal para la consulta de su
-                    información financiera simulada y la generación de recomendaciones crediticias dentro de{" "}
-                    {tenantName}.
+                    {applicantType === "COMPANY"
+                      ? `Confirmo que la empresa solicitante ha otorgado su autorización formal para la consulta de su información financiera institucional y la generación de recomendaciones crediticias dentro de ${tenantName}.`
+                      : `Confirmo que el solicitante ha otorgado su autorización formal para la consulta de su información financiera simulada y la generación de recomendaciones crediticias dentro de ${tenantName}.`}
                   </p>
                 </div>
               </label>

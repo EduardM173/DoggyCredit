@@ -21,9 +21,10 @@ export class ClientsService {
     tenantId: string,
     documentType: DocumentType,
     documentNumber: string,
+    type?: ClientType,
   ): Promise<Client | null> {
     const normalizedDoc = documentNumber.trim();
-    return this.db.client.client.findUnique({
+    const client = await this.db.client.client.findUnique({
       where: {
         tenantId_documentType_documentNumber: {
           tenantId,
@@ -32,6 +33,9 @@ export class ClientsService {
         },
       },
     });
+    if (!client) return null;
+    if (type && client.type !== type) return null;
+    return client;
   }
 
   async findOrCreate(
@@ -41,7 +45,12 @@ export class ClientsService {
     const normalizedDoc = input.documentNumber.trim();
     const normalizedName = input.name.trim().replace(/\s+/g, " ");
 
-    const existing = await this.findByDocument(tenantId, input.documentType, normalizedDoc);
+    const existing = await this.findByDocument(
+      tenantId,
+      input.documentType,
+      normalizedDoc,
+      input.type,
+    );
     if (existing) {
       return { client: existing, created: false };
     }

@@ -120,10 +120,24 @@ export type ClientSearchResult = {
   economicActivity: string | null;
 } | null;
 
+export type EvaluationReadiness = {
+  ready: boolean;
+  completed: number;
+  percentage: number;
+  steps: { institution: boolean; source: boolean; products: boolean };
+  tenantName: string;
+  supportedApplicantTypes?: {
+    PERSON: { supported: boolean; reason?: string };
+    COMPANY: { supported: boolean; reason?: string };
+  };
+};
+
 export type CreateEvaluationPayload = {
+  clientType?: "PERSON" | "COMPANY";
   documentType: "CI" | "NIT" | "PASSPORT" | "OTHER";
   documentNumber: string;
   name: string;
+  economicActivity?: string;
   purpose: "WORKING_CAPITAL" | "GREEN_PROJECT" | "BUSINESS_INVESTMENT" | "EQUIPMENT" | "OTHER";
   requestedAmount: number;
   consentGiven: boolean;

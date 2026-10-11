@@ -16,7 +16,7 @@ import {
   type TenantRequest,
 } from "../identity-tenants/public.js";
 import { EvaluationsService } from "./evaluations.service.js";
-import { CreateEvaluationDto, DocumentTypeDto } from "./dto/create-evaluation.dto.js";
+import { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
 
 @ApiTags("Evaluaciones crediticias")
 @Controller("institution/tenants/:tenantSlug/evaluations")
@@ -33,16 +33,18 @@ export class EvaluationsController {
 
   @Get("clients/search")
   @ApiCookieAuth()
-  @ApiOperation({ summary: "Buscar expediente de cliente dentro del tenant por documento" })
+  @ApiOperation({ summary: "Buscar expediente de cliente dentro del tenant por tipo y documento" })
   searchClient(
     @Req() request: TenantRequest,
     @Query("documentType") documentType: DocumentTypeDto = DocumentTypeDto.CI,
     @Query("documentNumber") documentNumber = "",
+    @Query("clientType") clientType: ClientTypeDto = ClientTypeDto.PERSON,
   ) {
     return this.evaluations.searchClient(
       request.tenantContext,
       documentType,
       documentNumber,
+      clientType,
     );
   }
 

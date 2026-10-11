@@ -1,7 +1,7 @@
 import { jest } from "@jest/globals";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { EvaluationsService } from "./evaluations.service.js";
-import { DocumentTypeDto, CreditPurposeDto } from "./dto/create-evaluation.dto.js";
+import { DocumentTypeDto, CreditPurposeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
 import type { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import type { ClientsService } from "../clients/public.js";
 import type { TenantPreparationService, TenantContext } from "../identity-tenants/public.js";
@@ -505,6 +505,250 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       expect(mockDb.client.evaluationSourceResult.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           update: expect.objectContaining({ attemptCount: 2 }),
+        }),
+      );
+    });
+  });
+
+  describe("HU-14 — Preparar evaluaciones crediticias de empresas desde el flujo existente", () => {
+    it("PA-14.01: searches client with clientType COMPANY and reuses existing dossier within tenant", async () => {
+      mockClients.findByDocument.mockResolvedValueOnce({
+        id: "client-comp-1",
+        name: "Tecnología Los Andes S.R.L.",
+        documentType: "NIT",
+        documentNumber: "1020304050",
+        type: "COMPANY",
+        economicActivity: "Servicios de Software",
+      });
+
+      const res = await service.searchClient(
+        makeContext({ tenantId: "tenant-a" }),
+        DocumentTypeDto.NIT,
+        "1020304050",
+        ClientTypeDto.COMPANY,
+      );
+
+      expect(mockClients.findByDocument).toHaveBeenCalledWith(
+        "tenant-a",
+        DocumentTypeDto.NIT,
+        "1020304050",
+        ClientTypeDto.COMPANY,
+      );
+      expect(res).toEqual({
+        id: "client-comp-1",
+        name: "Tecnología Los Andes S.R.L.",
+        documentType: "NIT",
+        documentNumber: "1020304050",
+        type: "COMPANY",
+        economicActivity: "Servicios de Software",
+      });
+    });
+
+    it("PA-14.05: cross-tenant search preserves tenant isolation and does not return other tenant dossier", async () => {
+      mockClients.findByDocument.mockResolvedValueOnce(null);
+
+      const res = await service.searchClient(
+        makeContext({ tenantId: "tenant-b" }),
+        DocumentTypeDto.NIT,
+        "1020304050",
+        ClientTypeDto.COMPANY,
+      );
+
+      expect(mockClients.findByDocument).toHaveBeenCalledWith(
+        "tenant-b",
+        DocumentTypeDto.NIT,
+        "1020304050",
+        ClientTypeDto.COMPANY,
+      );
+      expect(res).toBeNull();
+    });
+
+    it("PA-14.04: rejects draft creation when tenant does not have active company products", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        completed: 3,
+        percentage: 100,
+        steps: { institution: true, source: true, products: true },
+        tenant: { name: "Banco A" },
+        source: { enabled: true },
+        products: [{ selected: true, applicantScope: "PERSON" }],
+      });
+
+      await expect(
+        service.createDraft(makeContext(), {
+          clientType: ClientTypeDto.COMPANY,
+          documentType: DocumentTypeDto.NIT,
+          documentNumber: "1020304050",
+          name: "Empresa Sin Cobertura S.R.L.",
+          economicActivity: "Comercio",
+          purpose: CreditPurposeDto.WORKING_CAPITAL,
+          requestedAmount: 50000,
+          consentGiven: true,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("PA-14.02 & PA-14.03: creates company evaluation draft with tailored consent and economic activity", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        completed: 3,
+        percentage: 100,
+        steps: { institution: true, source: true, products: true },
+        tenant: { name: "Banco A" },
+        source: { enabled: true },
+        products: [{ selected: true, applicantScope: "COMPANY" }],
+      });
+      mockDb.client.evaluation.findUnique.mockResolvedValueOnce(null);
+
+      mockClients.findOrCreate.mockResolvedValueOnce({
+        client: {
+          id: "client-comp-2",
+          type: "COMPANY",
+          documentType: "NIT",
+          documentNumber: "1020304050",
+          name: "Soluciones Industriales S.A.",
+          economicActivity: "Fabricación",
+        },
+        created: true,
+      });
+
+      mockDb.client.evaluation.create.mockResolvedValueOnce({
+        id: "eval-comp-1",
+        tenantId: "tenant-a",
+        clientId: "client-comp-2",
+        status: "DRAFT",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 75000,
+        applicantSnapshot: {
+          id: "client-comp-2",
+          type: "COMPANY",
+          name: "Soluciones Industriales S.A.",
+          documentNumber: "1020304050",
+          economicActivity: "Fabricación",
+          consent: {
+            statement:
+              "La empresa solicitante autoriza formalmente la consulta, verificación de antecedentes financieros y procesamiento de evaluación crediticia institucional.",
+          },
+        },
+        client: {
+          id: "client-comp-2",
+          type: "COMPANY",
+          name: "Soluciones Industriales S.A.",
+          documentNumber: "1020304050",
+          economicActivity: "Fabricación",
+        },
+        profile: null,
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      const res = await service.createDraft(makeContext(), {
+        clientType: ClientTypeDto.COMPANY,
+        documentType: DocumentTypeDto.NIT,
+        documentNumber: "1020304050",
+        name: "Soluciones Industriales S.A.",
+        economicActivity: "Fabricación",
+        purpose: CreditPurposeDto.WORKING_CAPITAL,
+        requestedAmount: 75000,
+        consentGiven: true,
+      });
+
+      expect(res.id).toBe("eval-comp-1");
+      expect(mockClients.findOrCreate).toHaveBeenCalledWith("tenant-a", {
+        type: "COMPANY",
+        documentType: "NIT",
+        documentNumber: "1020304050",
+        name: "Soluciones Industriales S.A.",
+        economicActivity: "Fabricación",
+      });
+      expect(mockDb.client.evaluation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            applicantSnapshot: expect.objectContaining({
+              type: "COMPANY",
+              economicActivity: "Fabricación",
+              consent: expect.objectContaining({
+                statement: expect.stringContaining("La empresa solicitante autoriza"),
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("evaluates company with applicantScope COMPANY in recommendation service", async () => {
+      mockPreparation.read.mockResolvedValueOnce({
+        ready: true,
+        completed: 3,
+        percentage: 100,
+        steps: { institution: true, source: true, products: true },
+        tenant: { name: "Banco A" },
+        source: { enabled: true },
+        products: [{ selected: true, applicantScope: "COMPANY" }],
+      });
+
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-comp-2",
+        tenantId: "tenant-a",
+        status: "DRAFT",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 60000,
+        consentGivenAt: new Date(),
+        applicantSnapshot: { type: "COMPANY" },
+        client: {
+          id: "client-comp-2",
+          type: "COMPANY",
+          documentNumber: "1020304050",
+        },
+        sourceResults: [],
+        recommendations: [],
+      });
+
+      mockDb.client.evaluation.update
+        .mockResolvedValueOnce({ id: "eval-comp-2", status: "IN_PROGRESS" })
+        .mockResolvedValueOnce({
+          id: "eval-comp-2",
+          status: "COMPLETED",
+          client: { id: "client-comp-2", type: "COMPANY" },
+          profile: { id: "prof-comp" },
+          sourceResults: [{ id: "sr-comp", status: "SUCCESS" }],
+        });
+
+      mockBank.query.mockResolvedValueOnce({
+        status: "SUCCESS",
+        data: {
+          documentNumber: "1020304050",
+          accounts: [],
+          loans: [],
+          reportedAt: "2026-10-10",
+          currency: "BOB",
+        },
+        externalReference: "BM-1020304050",
+        providerId: "p-bank",
+      });
+
+      mockDb.client.evaluationSourceResult.findFirst.mockResolvedValueOnce(null);
+      mockDb.client.evaluationSourceResult.upsert.mockResolvedValueOnce({
+        id: "sr-comp",
+        status: "SUCCESS",
+      });
+
+      mockProfileCalculator.calculate.mockReturnValueOnce({
+        averageMonthlyIncome: 30000,
+        completeness: 1,
+        profileVersion: "1.0.0",
+      });
+      mockProfileCalculator.saveProfile.mockResolvedValueOnce({ id: "prof-comp" });
+
+      await service.processEvaluation(makeContext(), "eval-comp-2");
+
+      expect(mockRecommender.evaluate).toHaveBeenCalledWith(
+        "tenant-a",
+        "eval-comp-2",
+        expect.objectContaining({
+          applicantScope: "COMPANY",
+          purpose: "WORKING_CAPITAL",
+          requestedAmount: 60000,
         }),
       );
     });

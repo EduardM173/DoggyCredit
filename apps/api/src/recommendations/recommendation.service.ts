@@ -60,7 +60,9 @@ export class RecommendationService extends EvaluationRecommender {
         code: "RULE_APPLICANT_SCOPE",
         message: scopePassed
           ? "Tipo de solicitante compatible con el producto."
-          : "El producto está destinado exclusivamente a empresas o personas jurídicas.",
+          : context.applicantScope === "COMPANY"
+            ? "El producto está destinado exclusivamente a personas naturales."
+            : "El producto está destinado exclusivamente a empresas o personas jurídicas.",
         passed: scopePassed,
       });
 
