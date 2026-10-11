@@ -53,17 +53,20 @@ export class RecommendationService extends EvaluationRecommender {
     for (const product of products) {
       const reasons: RecommendationReasonDto[] = [];
 
-      // 1. Applicant Scope Rule
+      // 1. Applicant Scope Rule (CA-17.03, PA-17.01, PA-17.02)
       const scopePassed =
         product.applicantScope === "BOTH" || product.applicantScope === context.applicantScope;
       reasons.push({
         code: "RULE_APPLICANT_SCOPE",
         message: scopePassed
-          ? "Tipo de solicitante compatible con el producto."
+          ? context.applicantScope === "COMPANY"
+            ? "Producto habilitado para empresas y personas jurídicas."
+            : "Producto habilitado para personas naturales."
           : context.applicantScope === "COMPANY"
             ? "El producto está destinado exclusivamente a personas naturales."
             : "El producto está destinado exclusivamente a empresas o personas jurídicas.",
         passed: scopePassed,
+        status: scopePassed ? "PASSED" : "FAILED",
       });
 
       // 2. Credit Purpose Rule
@@ -74,6 +77,7 @@ export class RecommendationService extends EvaluationRecommender {
           ? "Finalidad del crédito admitida para este producto."
           : "La finalidad solicitada no se encuentra contemplada en este producto.",
         passed: purposePassed,
+        status: purposePassed ? "PASSED" : "FAILED",
       });
 
       // 3. Amount Range Rule
@@ -91,84 +95,127 @@ export class RecommendationService extends EvaluationRecommender {
         code: "RULE_AMOUNT_RANGE",
         message: amountMsg,
         passed: amountPassed,
+        status: amountPassed ? "PASSED" : "FAILED",
       });
 
-      // 4. Debt to Income (DTI) Rule
+      // 4. Debt to Income (DTI) Rule (CA-17.05, CA-17.13, PA-17.03, PA-17.04)
       const dtiThreshold =
         product.maxDebtToIncome !== null ? Number(product.maxDebtToIncome) : DEFAULT_MAX_DTI;
-      let dtiPassed = false;
-      let dtiMsg = "No se dispone de información suficiente de ingresos para validar la relación deuda/ingreso.";
       if (context.profile.debtToIncome !== null) {
         const dti = context.profile.debtToIncome;
-        dtiPassed = dti <= dtiThreshold;
-        dtiMsg = dtiPassed
-          ? `Relación deuda/ingreso (${(dti * 100).toFixed(1)}%) dentro del límite admisible (máximo ${(dtiThreshold * 100).toFixed(0)}%).`
-          : `Relación deuda/ingreso (${(dti * 100).toFixed(1)}%) excede el límite máximo admisible (${(dtiThreshold * 100).toFixed(0)}%).`;
-      }
-      reasons.push({
-        code: "RULE_MAX_DTI",
-        message: dtiMsg,
-        passed: dtiPassed,
-      });
-
-      // 5. Recent Arrears Rule
-      let arrearsPassed: boolean;
-      let arrearsMsg: string;
-      if (!product.allowsRecentArrears) {
-        if (context.profile.hasRecentArrears === false) {
-          arrearsPassed = true;
-          arrearsMsg = "Sin historial de atrasos o mora reciente.";
-        } else {
-          arrearsPassed = false;
-          arrearsMsg =
-            "El solicitante presenta antecedentes de mora reciente no permitidos para este producto.";
-        }
+        const dtiPassed = dti <= dtiThreshold;
+        reasons.push({
+          code: "RULE_MAX_DTI",
+          message: dtiPassed
+            ? `Relación deuda/ingreso (${(dti * 100).toFixed(1)}%) dentro del límite admisible (máximo ${(dtiThreshold * 100).toFixed(0)}%).`
+            : `Relación deuda/ingreso (${(dti * 100).toFixed(1)}%) excede el límite máximo admisible (${(dtiThreshold * 100).toFixed(0)}%).`,
+          passed: dtiPassed,
+          status: dtiPassed ? "PASSED" : "FAILED",
+        });
       } else {
-        arrearsPassed = true;
-        arrearsMsg = "El producto admite solicitantes con regularizaciones o mora previa.";
+        // Missing DTI indicator: neither verified nor failed. Do not invent failure!
+        reasons.push({
+          code: "RULE_MAX_DTI_NOT_EVALUABLE",
+          message:
+            "No se pudo evaluar la relación deuda/ingreso porque la fuente bancaria no aportó información de ingresos. Esta condición no se asume cumplida ni incumplida.",
+          passed: false,
+          status: "NOT_EVALUABLE",
+        });
       }
-      reasons.push({
-        code: "RULE_ARREARS",
-        message: arrearsMsg,
-        passed: arrearsPassed,
-      });
 
-      // 6. Disposable Income Rule
-      let dispPassed: boolean;
-      let dispMsg: string;
+      // 5. Recent Arrears Rule (CA-17.05, CA-17.13, PA-17.03, PA-17.04)
+      if (product.allowsRecentArrears) {
+        reasons.push({
+          code: "RULE_ARREARS",
+          message: "El producto admite solicitantes con regularizaciones o mora previa.",
+          passed: true,
+          status: "PASSED",
+        });
+      } else if (context.profile.hasRecentArrears !== null) {
+        const arrearsPassed = context.profile.hasRecentArrears === false;
+        reasons.push({
+          code: "RULE_ARREARS",
+          message: arrearsPassed
+            ? "Sin historial de atrasos o mora reciente."
+            : "El solicitante presenta antecedentes de mora reciente no permitidos para este producto.",
+          passed: arrearsPassed,
+          status: arrearsPassed ? "PASSED" : "FAILED",
+        });
+      } else {
+        // Missing arrears indicator
+        reasons.push({
+          code: "RULE_ARREARS_NOT_EVALUABLE",
+          message:
+            "No se pudo verificar el historial de mora debido a falta de información en las fuentes disponibles. La condición no se asume cumplida ni incumplida.",
+          passed: false,
+          status: "NOT_EVALUABLE",
+        });
+      }
+
+      // 6. Disposable Income Rule (CA-17.05, CA-17.13, PA-17.03, PA-17.04)
       if (product.minMonthlyDisposableIncome !== null) {
         const minDisp = Number(product.minMonthlyDisposableIncome);
-        if (
-          context.profile.disposableIncome !== null &&
-          context.profile.disposableIncome >= minDisp
-        ) {
-          dispPassed = true;
-          dispMsg = `Ingreso mensual disponible suficiente (Bs. ${context.profile.disposableIncome.toLocaleString("es-BO")}, mínimo requerido: Bs. ${minDisp.toLocaleString("es-BO")}).`;
+        if (context.profile.disposableIncome !== null) {
+          const dispPassed = context.profile.disposableIncome >= minDisp;
+          reasons.push({
+            code: "RULE_MIN_DISPOSABLE_INCOME",
+            message: dispPassed
+              ? `Ingreso mensual disponible suficiente (Bs. ${context.profile.disposableIncome.toLocaleString("es-BO")}, mínimo requerido: Bs. ${minDisp.toLocaleString("es-BO")}).`
+              : `Ingreso mensual disponible insuficiente frente al requerimiento mínimo de Bs. ${minDisp.toLocaleString("es-BO")}. (Disponible: Bs. ${context.profile.disposableIncome.toLocaleString("es-BO")}).`,
+            passed: dispPassed,
+            status: dispPassed ? "PASSED" : "FAILED",
+          });
         } else {
-          dispPassed = false;
-          dispMsg = `Ingreso mensual disponible insuficiente frente al requerimiento mínimo de Bs. ${minDisp.toLocaleString("es-BO")}.`;
+          reasons.push({
+            code: "RULE_MIN_DISPOSABLE_INCOME_NOT_EVALUABLE",
+            message:
+              "No se pudo comprobar la capacidad neta disponible por falta de datos de ingresos/egresos en las fuentes consultadas.",
+            passed: false,
+            status: "NOT_EVALUABLE",
+          });
         }
       } else {
-        if (
-          context.profile.disposableIncome !== null &&
-          context.profile.disposableIncome > 0
-        ) {
-          dispPassed = true;
-          dispMsg = `Ingreso mensual disponible positivo (Bs. ${context.profile.disposableIncome.toLocaleString("es-BO")}) para respaldar el crédito.`;
+        if (context.profile.disposableIncome !== null) {
+          const dispPassed = context.profile.disposableIncome > 0;
+          reasons.push({
+            code: "RULE_MIN_DISPOSABLE_INCOME",
+            message: dispPassed
+              ? `Ingreso mensual disponible positivo (Bs. ${context.profile.disposableIncome.toLocaleString("es-BO")}) para respaldar el crédito.`
+              : "Capacidad neta o ingreso disponible mensual insuficiente.",
+            passed: dispPassed,
+            status: dispPassed ? "PASSED" : "FAILED",
+          });
         } else {
-          dispPassed = false;
-          dispMsg = "Capacidad neta o ingreso disponible mensual insuficiente.";
+          reasons.push({
+            code: "RULE_MIN_DISPOSABLE_INCOME_NOT_EVALUABLE",
+            message:
+              "No se pudo comprobar la capacidad neta disponible por falta de datos de ingresos/egresos en las fuentes consultadas.",
+            passed: false,
+            status: "NOT_EVALUABLE",
+          });
         }
       }
-      reasons.push({
-        code: "RULE_MIN_DISPOSABLE_INCOME",
-        message: dispMsg,
-        passed: dispPassed,
-      });
 
-      const outcome = reasons.every((r) => r.passed) ? "RECOMMENDED" : "NOT_COMPATIBLE";
+      // Outcome & Compatibility Status determination (CA-17.05, PA-17.03, PA-17.04)
+      const hasVerifiedFailure = reasons.some((r) => r.status === "FAILED");
+      const hasUnevaluable = reasons.some((r) => r.status === "NOT_EVALUABLE");
 
-      // Persist EvaluationRecommendation
+      let compatibilityStatus: "COMPATIBLE" | "INCOMPATIBLE" | "NOT_EVALUABLE";
+      let outcome: "RECOMMENDED" | "NOT_COMPATIBLE" | "NOT_EVALUABLE";
+
+      if (hasVerifiedFailure) {
+        compatibilityStatus = "INCOMPATIBLE";
+        outcome = "NOT_COMPATIBLE";
+      } else if (hasUnevaluable) {
+        compatibilityStatus = "NOT_EVALUABLE";
+        outcome = "NOT_EVALUABLE";
+      } else {
+        compatibilityStatus = "COMPATIBLE";
+        outcome = "RECOMMENDED";
+      }
+
+      // Persist EvaluationRecommendation (DB enum: RECOMMENDED | NOT_COMPATIBLE)
+      const dbOutcome = outcome === "RECOMMENDED" ? "RECOMMENDED" : "NOT_COMPATIBLE";
       const existingRec = await this.db.client.evaluationRecommendation.findFirst({
         where: { tenantId, evaluationId, productId: product.id },
       });
@@ -177,7 +224,7 @@ export class RecommendationService extends EvaluationRecommender {
       const savedRec = await this.db.client.evaluationRecommendation.upsert({
         where: { id: recId },
         update: {
-          outcome,
+          outcome: dbOutcome,
           ruleVersion: RULE_VERSION,
           evaluatedAt: new Date(),
         },
@@ -186,7 +233,7 @@ export class RecommendationService extends EvaluationRecommender {
           tenantId,
           evaluationId,
           productId: product.id,
-          outcome,
+          outcome: dbOutcome,
           ruleVersion: RULE_VERSION,
         },
       });
@@ -212,6 +259,7 @@ export class RecommendationService extends EvaluationRecommender {
         productName: product.name,
         category: product.category,
         outcome,
+        compatibilityStatus,
         ruleVersion: RULE_VERSION,
         minAmount,
         maxAmount,
@@ -220,14 +268,24 @@ export class RecommendationService extends EvaluationRecommender {
       });
     }
 
-    // CA-12.08: Priority / tie-breaking sorting
+    // CA-17.06: Priority / tie-breaking sorting:
+    // 1. RECOMMENDED (COMPATIBLE)
+    // 2. NOT_EVALUABLE
+    // 3. NOT_COMPATIBLE (INCOMPATIBLE)
     evaluatedResults.sort((a, b) => {
-      if (a.outcome !== b.outcome) {
-        return a.outcome === "RECOMMENDED" ? -1 : 1;
-      }
+      const outcomeRank = (item: ProductRecommendationDto) => {
+        if (item.outcome === "RECOMMENDED" || item.compatibilityStatus === "COMPATIBLE") return 1;
+        if (item.outcome === "NOT_EVALUABLE" || item.compatibilityStatus === "NOT_EVALUABLE") return 2;
+        return 3;
+      };
+      const rankA = outcomeRank(a);
+      const rankB = outcomeRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+
       const orderA = CATEGORY_ORDER[a.category] ?? 99;
       const orderB = CATEGORY_ORDER[b.category] ?? 99;
       if (orderA !== orderB) return orderA - orderB;
+
       return a.productName.localeCompare(b.productName);
     });
 

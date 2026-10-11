@@ -649,5 +649,301 @@ describe("HU-11 EvaluationDetail", () => {
       });
     });
   });
+
+  describe("HU-17 Recomendar productos institucionales a partir del perfil multifuente", () => {
+    it("PA-17.01 & CA-17.02 & CA-17.04: recommends institutional company product with explainable reasons", async () => {
+      const mockCompanyEval = {
+        ...mockDraftEvaluation,
+        clientName: "Inversiones Santa Cruz SRL",
+        documentType: "NIT",
+        documentNumber: "1020304050",
+        requestedAmount: 120000,
+        purpose: "BUSINESS_INVESTMENT",
+        status: "COMPLETED",
+        completedAt: "2026-10-11T12:00:00.000Z",
+        ruleVersion: "1.0.0",
+        profile: {
+          id: "prof-comp",
+          averageMonthlyIncome: 50000,
+          averageMonthlyExpenses: 20000,
+          disposableIncome: 30000,
+          totalDebt: 75000,
+          activeCredits: 2,
+          debtToIncome: 0.15,
+          hasRecentArrears: false,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-11T12:00:00.000Z",
+        },
+        recommendations: [
+          {
+            id: "rec-comp-1",
+            productId: "prod-sme",
+            productName: "Línea Corporativa PYME",
+            category: "SME_CREDIT",
+            outcome: "RECOMMENDED",
+            compatibilityStatus: "COMPATIBLE",
+            ruleVersion: "1.0.0",
+            minAmount: 50000,
+            maxAmount: 500000,
+            evaluatedAt: "2026-10-11T12:00:00.000Z",
+            reasons: [
+              {
+                code: "RULE_APPLICANT_SCOPE",
+                message: "Tipo de solicitante (Empresa) admitido para este producto.",
+                passed: true,
+                status: "PASSED",
+              },
+              {
+                code: "RULE_AMOUNT_RANGE",
+                message: "Monto solicitado dentro del rango permitido (Bs. 50.000 - Bs. 500.000).",
+                passed: true,
+                status: "PASSED",
+              },
+              {
+                code: "RULE_MAX_DTI",
+                message: "Relación deuda/ingreso (15.00%) dentro del límite admisible (máximo 45.00%).",
+                passed: true,
+                status: "PASSED",
+              },
+            ],
+          },
+        ],
+        sourceResults: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockCompanyEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Inversiones Santa Cruz SRL")).toBeInTheDocument();
+        expect(screen.getByText("Línea Corporativa PYME")).toBeInTheDocument();
+        expect(screen.getByText("Compatible")).toBeInTheDocument();
+        expect(screen.getByText("Tipo de solicitante (Empresa) admitido para este producto.")).toBeInTheDocument();
+        expect(screen.getByText("Monto solicitado dentro del rango permitido (Bs. 50.000 - Bs. 500.000).")).toBeInTheDocument();
+        expect(screen.getByText(/Aviso de recomendación:/i)).toBeInTheDocument();
+      });
+    });
+
+    it("PA-17.02 & CA-17.03: displays non-compatibility when product is restricted to persons", async () => {
+      const mockRestrictedEval = {
+        ...mockDraftEvaluation,
+        clientName: "Empresa Beta SRL",
+        documentType: "NIT",
+        documentNumber: "9876543210",
+        status: "COMPLETED",
+        completedAt: "2026-10-11T12:00:00.000Z",
+        ruleVersion: "1.0.0",
+        profile: {
+          id: "prof-comp",
+          averageMonthlyIncome: 30000,
+          averageMonthlyExpenses: 10000,
+          disposableIncome: 20000,
+          totalDebt: 5000,
+          activeCredits: 1,
+          debtToIncome: 0.1,
+          hasRecentArrears: false,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-11T12:00:00.000Z",
+        },
+        recommendations: [
+          {
+            id: "rec-pers-only",
+            productId: "prod-pers",
+            productName: "Microcrédito Personal Exclusivo",
+            category: "MICRO_CREDIT",
+            outcome: "NOT_COMPATIBLE",
+            compatibilityStatus: "INCOMPATIBLE",
+            ruleVersion: "1.0.0",
+            minAmount: 1000,
+            maxAmount: 20000,
+            evaluatedAt: "2026-10-11T12:00:00.000Z",
+            reasons: [
+              {
+                code: "RULE_APPLICANT_SCOPE",
+                message: "Producto exclusivo para personas naturales. No aplica a empresas.",
+                passed: false,
+                status: "FAILED",
+              },
+            ],
+          },
+        ],
+        sourceResults: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockRestrictedEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Ningún producto compatible para este perfil")).toBeInTheDocument();
+      });
+
+      const toggleBtn = screen.getByText("Ver otros productos evaluados no compatibles (1)");
+      fireEvent.click(toggleBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText("Microcrédito Personal Exclusivo")).toBeInTheDocument();
+        expect(screen.getByText("Producto exclusivo para personas naturales. No aplica a empresas.")).toBeInTheDocument();
+      });
+    });
+
+    it("PA-17.03 & PA-17.04 & CA-17.05 & CA-17.13: displays unverified conditions as NOT_EVALUABLE with limitation explanation", async () => {
+      const mockPartialDataEval = {
+        ...mockDraftEvaluation,
+        clientName: "Empresa Gamma SRL",
+        documentType: "NIT",
+        documentNumber: "5555555555",
+        status: "COMPLETED",
+        completedAt: "2026-10-11T12:00:00.000Z",
+        ruleVersion: "1.0.0",
+        profile: {
+          id: "prof-partial",
+          averageMonthlyIncome: null,
+          averageMonthlyExpenses: 5000,
+          disposableIncome: null,
+          totalDebt: 10000,
+          activeCredits: 1,
+          debtToIncome: null,
+          hasRecentArrears: false,
+          completeness: 0.6,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-11T12:00:00.000Z",
+        },
+        recommendations: [
+          {
+            id: "rec-uneval-1",
+            productId: "prod-flex",
+            productName: "Empresarial Flexible",
+            category: "SME_CREDIT",
+            outcome: "NOT_EVALUABLE",
+            compatibilityStatus: "NOT_EVALUABLE",
+            ruleVersion: "1.0.0",
+            minAmount: 10000,
+            maxAmount: 100000,
+            evaluatedAt: "2026-10-11T12:00:00.000Z",
+            reasons: [
+              {
+                code: "RULE_APPLICANT_SCOPE",
+                message: "Tipo de solicitante (Empresa) admitido para este producto.",
+                passed: true,
+                status: "PASSED",
+              },
+              {
+                code: "RULE_MAX_DTI_NOT_EVALUABLE",
+                message: "Requiere DTI máximo de 40.00%, pero el indicador de relación deuda/ingreso no estuvo disponible en las fuentes consultadas.",
+                passed: false,
+                status: "NOT_EVALUABLE",
+              },
+            ],
+          },
+        ],
+        sourceResults: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockPartialDataEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Empresarial Flexible")).toBeInTheDocument();
+        expect(screen.getByText("Condición no comprobada / Información insuficiente")).toBeInTheDocument();
+        expect(
+          screen.getByText(
+            "Requiere DTI máximo de 40.00%, pero el indicador de relación deuda/ingreso no estuvo disponible en las fuentes consultadas.",
+          ),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText(/Estos productos no se descartan como incompatibles porque la información disponible en las fuentes consultadas fue insuficiente/i),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("PA-17.05 & CA-17.07: completes evaluation cleanly without formal rejection when no product matches", async () => {
+      const mockNoMatchEval = {
+        ...mockDraftEvaluation,
+        clientName: "Comercializadora Delta SRL",
+        status: "COMPLETED",
+        completedAt: "2026-10-11T12:00:00.000Z",
+        ruleVersion: "1.0.0",
+        profile: {
+          id: "prof-highdebt",
+          averageMonthlyIncome: 10000,
+          averageMonthlyExpenses: 9000,
+          disposableIncome: 1000,
+          totalDebt: 80000,
+          activeCredits: 3,
+          debtToIncome: 0.8,
+          hasRecentArrears: true,
+          completeness: 1,
+          profileVersion: "1.0.0",
+          calculatedAt: "2026-10-11T12:00:00.000Z",
+        },
+        recommendations: [
+          {
+            id: "rec-incomp",
+            productId: "prod-1",
+            productName: "Microcrédito",
+            category: "MICRO_CREDIT",
+            outcome: "NOT_COMPATIBLE",
+            compatibilityStatus: "INCOMPATIBLE",
+            ruleVersion: "1.0.0",
+            minAmount: 1000,
+            maxAmount: 20000,
+            evaluatedAt: "2026-10-11T12:00:00.000Z",
+            reasons: [
+              {
+                code: "RULE_RECENT_ARREARS",
+                message: "El producto requiere historial sin atrasos vigentes.",
+                passed: false,
+                status: "FAILED",
+              },
+            ],
+          },
+        ],
+        sourceResults: [],
+      };
+
+      fetchMock.mockReturnValueOnce(jsonResponse(mockNoMatchEval));
+
+      render(
+        <MemoryRouter initialEntries={["/banco-demo/evaluaciones/eval-100"]}>
+          <Routes>
+            <Route path="/:tenantSlug/evaluaciones/:id" element={<EvaluationDetail slug="banco-demo" />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("COMPLETADA")).toBeInTheDocument();
+        expect(screen.getByText("Ningún producto compatible para este perfil")).toBeInTheDocument();
+        expect(
+          screen.getByText(/sin registrar un rechazo formal de crédito/i),
+        ).toBeInTheDocument();
+        expect(screen.queryByText("RECHAZADA")).not.toBeInTheDocument();
+        expect(screen.queryByText("FALLIDA")).not.toBeInTheDocument();
+      });
+    });
+  });
 });
 

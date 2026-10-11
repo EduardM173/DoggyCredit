@@ -389,10 +389,11 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               </span>
             </div>
 
-            {/* Recommendations Section (HU-12) */}
+            {/* Recommendations Section (HU-12 / HU-17) */}
             {(() => {
               const recommendations = evaluation.recommendations || [];
               const recommended = recommendations.filter((r) => r.outcome === "RECOMMENDED");
+              const notEvaluable = recommendations.filter((r) => r.outcome === "NOT_EVALUABLE");
               const incompatible = recommendations.filter((r) => r.outcome === "NOT_COMPATIBLE");
 
               return (
@@ -409,6 +410,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                     Comparación automática del perfil financiero con el catálogo de productos activos de tu institución.
                   </p>
 
+                  {/* 1. Compatible products */}
                   {recommended.length > 0 ? (
                     <div className="eval-rec-grid">
                       {recommended.map((rec, index) => (
@@ -464,11 +466,79 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                       </h3>
                       <p style={{ margin: 0, fontSize: 14, color: "#51627d", maxWidth: 520, marginInline: "auto" }}>
                         El perfil financiero del solicitante no cumple con los criterios de admisibilidad ni parámetros
-                        de los productos crediticios activos actualmente en la institución.
+                        de los productos crediticios activos actualmente en la institución. La evaluación concluye como completada
+                        sin productos compatibles, sin registrar un rechazo formal de crédito (CA-17.07, PA-17.05).
                       </p>
                     </div>
                   )}
 
+                  {/* 2. Products not evaluable due to insufficient information (CA-17.05, CA-17.13, PA-17.04) */}
+                  {notEvaluable.length > 0 && (
+                    <div style={{ marginTop: 24 }}>
+                      <div style={{ marginBottom: 12 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#b54708", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 6 }}>
+                          <AlertTriangle size={16} /> Productos con condiciones no comprobadas por información insuficiente ({notEvaluable.length})
+                        </h3>
+                        <p style={{ fontSize: 13, color: "#712f06", margin: 0 }}>
+                          Estos productos no se descartan como incompatibles porque la información disponible en las fuentes consultadas fue insuficiente para verificar todas sus condiciones (CA-17.05, CA-17.13).
+                        </p>
+                      </div>
+
+                      <div className="eval-rec-grid">
+                        {notEvaluable.map((rec) => (
+                          <div key={rec.id} className="eval-rec-card eval-rec-card-notevaluable">
+                            <div className="eval-rec-header">
+                              <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                                  <h3 className="eval-rec-title" style={{ color: "#712f06" }}>{rec.productName}</h3>
+                                  <span className="eval-rec-badge-secondary">
+                                    {CATEGORY_NAMES[rec.category] || rec.category}
+                                  </span>
+                                </div>
+                                <div className="eval-rec-meta">
+                                  Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                                </div>
+                              </div>
+                              <span className="eval-rec-badge-notevaluable">
+                                <AlertTriangle size={14} /> Condición no comprobada / Información insuficiente
+                              </span>
+                            </div>
+
+                            <div style={{ borderTop: "1px solid #fedf89", paddingTop: 12 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#b54708", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                Evaluación de condiciones
+                              </span>
+                              <ul className="eval-rec-reasons-list">
+                                {rec.reasons.map((reason) => (
+                                  <li
+                                    key={reason.code}
+                                    className={`eval-rec-reason-item ${
+                                      reason.status === "NOT_EVALUABLE"
+                                        ? "eval-rec-reason-notevaluable"
+                                        : reason.passed
+                                          ? "eval-rec-reason-passed"
+                                          : "eval-rec-reason-failed"
+                                    }`}
+                                  >
+                                    {reason.status === "NOT_EVALUABLE" ? (
+                                      <AlertTriangle size={16} color="#b54708" style={{ flexShrink: 0, marginTop: 1 }} />
+                                    ) : reason.passed ? (
+                                      <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                    ) : (
+                                      <XCircle size={16} color="#b42318" style={{ flexShrink: 0, marginTop: 1 }} />
+                                    )}
+                                    <span>{reason.message}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3. Incompatible products */}
                   {incompatible.length > 0 && (
                     <div style={{ marginTop: 20 }}>
                       <button
@@ -489,7 +559,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                       >
                         {showIncompatible ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         {showIncompatible
-                          ? "Ocultar otros productos evaluados"
+                          ? "Ocultar otros productos evaluados no compatibles"
                           : `Ver otros productos evaluados no compatibles (${incompatible.length})`}
                       </button>
 
@@ -544,9 +614,9 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   <div className="eval-disclaimer-box">
                     <ShieldCheck size={20} color="#1267e8" style={{ flexShrink: 0, marginTop: 1 }} />
                     <span>
-                      <strong>Aviso de recomendación:</strong> Este resultado constituye una recomendación técnica de
+                      <strong>Aviso de recomendación:</strong> Este resultado constituye una recomendación técnica preliminar de
                       compatibilidad crediticia basada en reglas institucionales. No representa una aprobación formal
-                      ni compromiso de desembolso por parte de la institución (CA-12.12).
+                      ni compromiso de desembolso por parte de la institución (CA-17.09).
                     </span>
                   </div>
                 </div>

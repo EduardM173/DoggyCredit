@@ -1106,5 +1106,106 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       expect(mockRecommender.evaluate).toHaveBeenCalled();
     });
   });
+
+  describe("HU-17 — Recomendaciones explicables y conservación histórica (PA-17.06, CA-17.10)", () => {
+    it("PA-17.06: preserves historical recommendations, ruleVersion and reasons frozen without re-evaluating", async () => {
+      mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
+        id: "eval-hist-1",
+        tenantId: "tenant-a",
+        clientId: "client-1",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: "25000",
+        status: "COMPLETED",
+        ruleVersion: "1.0.0",
+        consentGivenAt: new Date("2026-10-01T10:00:00Z"),
+        createdAt: new Date("2026-10-01T10:00:00Z"),
+        updatedAt: new Date("2026-10-01T10:05:00Z"),
+        applicantSnapshot: { type: "COMPANY", name: "Empresa Andina SRL", documentNumber: "10203040" },
+        client: { name: "Empresa Andina SRL", documentType: "NIT", documentNumber: "10203040" },
+        profile: {
+          id: "prof-hist-1",
+          averageMonthlyIncome: "50000",
+          averageMonthlyExpenses: "20000",
+          disposableIncome: "30000",
+          totalDebt: "15000",
+          activeCredits: 1,
+          debtToIncome: "0.25",
+          hasRecentArrears: false,
+          completeness: "1.0",
+          profileVersion: "1.0.0",
+          calculatedAt: new Date("2026-10-01T10:05:00Z"),
+        },
+        sourceResults: [
+          {
+            id: "sr-1",
+            providerId: "p-bank",
+            provider: { code: "BANK_MOCK", name: "Banco Unión Mock" },
+            status: "SUCCESS",
+            attemptCount: 1,
+            requestedAt: new Date(),
+            respondedAt: new Date(),
+          },
+        ],
+        recommendations: [
+          {
+            id: "rec-hist-1",
+            productId: "prod-empresa-1",
+            outcome: "RECOMMENDED",
+            ruleVersion: "1.0.0",
+            evaluatedAt: new Date("2026-10-01T10:05:00Z"),
+            product: {
+              name: "Pyme Productivo",
+              category: "SME_CREDIT",
+              minAmount: "10000",
+              maxAmount: "100000",
+            },
+            reasons: [
+              { code: "RULE_APPLICANT_SCOPE", message: "Producto habilitado para empresas.", passed: true },
+              { code: "RULE_PURPOSE", message: "Finalidad admitida.", passed: true },
+            ],
+          },
+          {
+            id: "rec-hist-2",
+            productId: "prod-empresa-2",
+            outcome: "NOT_COMPATIBLE",
+            ruleVersion: "1.0.0",
+            evaluatedAt: new Date("2026-10-01T10:05:00Z"),
+            product: {
+              name: "Crédito Verde Empresa",
+              category: "GREEN_CREDIT",
+              minAmount: "50000",
+              maxAmount: "200000",
+            },
+            reasons: [
+              {
+                code: "RULE_MAX_DTI_NOT_EVALUABLE",
+                message: "No se pudo evaluar la relación deuda/ingreso. Condición no comprobada.",
+                passed: false,
+              },
+            ],
+          },
+        ],
+      });
+
+      const res = await service.getById(makeContext(), "eval-hist-1");
+
+      expect(res.id).toBe("eval-hist-1");
+      expect(res.ruleVersion).toBe("1.0.0");
+      expect(res.recommendations).toHaveLength(2);
+
+      // Rec 1: RECOMMENDED -> COMPATIBLE
+      expect(res.recommendations[0].outcome).toBe("RECOMMENDED");
+      expect(res.recommendations[0].compatibilityStatus).toBe("COMPATIBLE");
+      expect(res.recommendations[0].productName).toBe("Pyme Productivo");
+
+      // Rec 2: UNEVALUABLE reasons map to NOT_EVALUABLE (PA-17.04, CA-17.05)
+      expect(res.recommendations[1].outcome).toBe("NOT_EVALUABLE");
+      expect(res.recommendations[1].compatibilityStatus).toBe("NOT_EVALUABLE");
+      expect(res.recommendations[1].reasons[0].status).toBe("NOT_EVALUABLE");
+
+      // Verify recommender was NOT re-executed
+      expect(mockRecommender.evaluate).not.toHaveBeenCalled();
+    });
+  });
 });
 

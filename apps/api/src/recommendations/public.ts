@@ -14,10 +14,13 @@ export abstract class PreparationProducts {
   abstract select(tenantId: string, ids: string[]): Promise<boolean>;
 }
 
+export type RuleEvaluationStatus = "PASSED" | "FAILED" | "NOT_EVALUABLE";
+
 export type RecommendationReasonDto = {
   code: string;
   message: string;
   passed: boolean;
+  status?: RuleEvaluationStatus;
 };
 
 export type ProductRecommendationDto = {
@@ -25,7 +28,8 @@ export type ProductRecommendationDto = {
   productId: string;
   productName: string;
   category: string;
-  outcome: "RECOMMENDED" | "NOT_COMPATIBLE";
+  outcome: "RECOMMENDED" | "NOT_COMPATIBLE" | "NOT_EVALUABLE";
+  compatibilityStatus: "COMPATIBLE" | "INCOMPATIBLE" | "NOT_EVALUABLE";
   ruleVersion: string;
   minAmount: number;
   maxAmount: number;

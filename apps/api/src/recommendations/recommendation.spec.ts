@@ -207,22 +207,93 @@ describe("RecommendationService (HU-12)", () => {
     expect(results[2].outcome).toBe("NOT_COMPATIBLE");
   });
 
-  it("handles null DTI without technical exception (CA-12.15)", async () => {
-    mockDb.client.financialProduct.findMany.mockResolvedValueOnce([sampleProducts[0]]);
+  describe("HU-17 Acceptance Scenarios (PA-17)", () => {
+    it("PA-17.01: recommends company product with usable company profile and explainable reasons", async () => {
+      mockDb.client.financialProduct.findMany.mockResolvedValueOnce([sampleProducts[2]]); // Pyme Crece (COMPANY)
 
-    const results = await service.evaluate("tenant-bank-x", "eval-1", {
-      applicantScope: "PERSON",
-      purpose: "WORKING_CAPITAL",
-      requestedAmount: 15000,
-      profile: {
-        ...baseProfile,
-        debtToIncome: null,
-      },
+      const results = await service.evaluate("tenant-bank-x", "eval-company-1", {
+        applicantScope: "COMPANY",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 50000,
+        profile: {
+          ...baseProfile,
+          averageMonthlyIncome: 80000,
+          disposableIncome: 35000,
+          debtToIncome: 0.20,
+        },
+      });
+
+      expect(results).toHaveLength(1);
+      const rec = results[0];
+      expect(rec.productId).toBe("prod-sme");
+      expect(rec.outcome).toBe("RECOMMENDED");
+      expect(rec.compatibilityStatus).toBe("COMPATIBLE");
+      expect(rec.reasons.every((r) => r.passed)).toBe(true);
+
+      const scopeReason = rec.reasons.find((r) => r.code === "RULE_APPLICANT_SCOPE")!;
+      expect(scopeReason.message).toContain("Producto habilitado para empresas");
     });
 
-    expect(results[0].outcome).toBe("NOT_COMPATIBLE");
-    const dtiReason = results[0].reasons.find((r) => r.code === "RULE_MAX_DTI")!;
-    expect(dtiReason.passed).toBe(false);
-    expect(dtiReason.message).toContain("No se dispone de información suficiente de ingresos");
+    it("PA-17.02: marks product incompatible when company applicant is compared against person-only product", async () => {
+      mockDb.client.financialProduct.findMany.mockResolvedValueOnce([sampleProducts[0]]); // Microcrédito (PERSON)
+
+      const results = await service.evaluate("tenant-bank-x", "eval-company-2", {
+        applicantScope: "COMPANY",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 20000,
+        profile: baseProfile,
+      });
+
+      expect(results).toHaveLength(1);
+      const rec = results[0];
+      expect(rec.outcome).toBe("NOT_COMPATIBLE");
+      expect(rec.compatibilityStatus).toBe("INCOMPATIBLE");
+
+      const scopeReason = rec.reasons.find((r) => r.code === "RULE_APPLICANT_SCOPE")!;
+      expect(scopeReason.passed).toBe(false);
+      expect(scopeReason.status).toBe("FAILED");
+      expect(scopeReason.message).toContain("destinado exclusivamente a personas naturales");
+    });
+
+    it("PA-17.03 & PA-17.04: handles missing rule indicator without assuming pass or fail, categorizing as NOT_EVALUABLE", async () => {
+      mockDb.client.financialProduct.findMany.mockResolvedValueOnce([sampleProducts[0]]);
+
+      const results = await service.evaluate("tenant-bank-x", "eval-partial-1", {
+        applicantScope: "PERSON",
+        purpose: "WORKING_CAPITAL",
+        requestedAmount: 15000,
+        profile: {
+          ...baseProfile,
+          debtToIncome: null, // missing income / DTI indicator
+        },
+      });
+
+      expect(results).toHaveLength(1);
+      const rec = results[0];
+      // PA-17.04: Not presented as incompatible
+      expect(rec.outcome).toBe("NOT_EVALUABLE");
+      expect(rec.compatibilityStatus).toBe("NOT_EVALUABLE");
+
+      const dtiReason = rec.reasons.find((r) => r.code === "RULE_MAX_DTI_NOT_EVALUABLE")!;
+      expect(dtiReason).toBeDefined();
+      expect(dtiReason.passed).toBe(false);
+      expect(dtiReason.status).toBe("NOT_EVALUABLE");
+      expect(dtiReason.message).toContain("Esta condición no se asume cumplida ni incumplida");
+    });
+
+    it("PA-17.05: returns completed evaluation without compatible products when no active product matches", async () => {
+      mockDb.client.financialProduct.findMany.mockResolvedValueOnce(sampleProducts);
+
+      const results = await service.evaluate("tenant-bank-x", "eval-nocompat-1", {
+        applicantScope: "PERSON",
+        purpose: "OTHER", // No product supports OTHER
+        requestedAmount: 500000, // Exceeds all max amounts
+        profile: baseProfile,
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results.every((r) => r.outcome === "NOT_COMPATIBLE")).toBe(true);
+      expect(results.every((r) => r.compatibilityStatus === "INCOMPATIBLE")).toBe(true);
+    });
   });
 });

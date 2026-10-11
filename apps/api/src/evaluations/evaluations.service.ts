@@ -751,22 +751,53 @@ export class EvaluationsService {
         requestedAt: sr.requestedAt,
         respondedAt: sr.respondedAt,
       })),
-      recommendations: (ev.recommendations ?? []).map((r) => ({
-        id: r.id,
-        productId: r.productId,
-        productName: r.product?.name ?? "Producto",
-        category: r.product?.category ?? "MICRO_CREDIT",
-        outcome: r.outcome,
-        ruleVersion: r.ruleVersion,
-        minAmount: r.product?.minAmount !== undefined ? Number(r.product.minAmount) : 0,
-        maxAmount: r.product?.maxAmount !== undefined ? Number(r.product.maxAmount) : 0,
-        evaluatedAt: r.evaluatedAt,
-        reasons: (r.reasons ?? []).map((reas) => ({
-          code: reas.code,
-          message: reas.message,
-          passed: reas.passed,
-        })),
-      })),
+      recommendations: (ev.recommendations ?? []).map((r) => {
+        const hasVerifiedFailure = (r.reasons ?? []).some(
+          (reas) =>
+            !reas.passed &&
+            !reas.code.includes("NOT_EVALUABLE") &&
+            !reas.code.includes("UNVERIFIED"),
+        );
+        const hasUnevaluable = (r.reasons ?? []).some(
+          (reas) =>
+            reas.code.includes("NOT_EVALUABLE") ||
+            reas.code.includes("UNVERIFIED"),
+        );
+
+        let outcome = r.outcome;
+        let compatibilityStatus: "COMPATIBLE" | "INCOMPATIBLE" | "NOT_EVALUABLE" =
+          r.outcome === "RECOMMENDED" ? "COMPATIBLE" : "INCOMPATIBLE";
+
+        if (r.outcome !== "RECOMMENDED") {
+          if (!hasVerifiedFailure && hasUnevaluable) {
+            outcome = "NOT_EVALUABLE";
+            compatibilityStatus = "NOT_EVALUABLE";
+          }
+        }
+
+        return {
+          id: r.id,
+          productId: r.productId,
+          productName: r.product?.name ?? "Producto",
+          category: r.product?.category ?? "MICRO_CREDIT",
+          outcome,
+          compatibilityStatus,
+          ruleVersion: r.ruleVersion,
+          minAmount: r.product?.minAmount !== undefined ? Number(r.product.minAmount) : 0,
+          maxAmount: r.product?.maxAmount !== undefined ? Number(r.product.maxAmount) : 0,
+          evaluatedAt: r.evaluatedAt,
+          reasons: (r.reasons ?? []).map((reas) => ({
+            code: reas.code,
+            message: reas.message,
+            passed: reas.passed,
+            status: (reas.code.includes("NOT_EVALUABLE") || reas.code.includes("UNVERIFIED")
+              ? "NOT_EVALUABLE"
+              : reas.passed
+                ? "PASSED"
+                : "FAILED") as "PASSED" | "FAILED" | "NOT_EVALUABLE",
+          })),
+        };
+      }),
     };
   }
 }

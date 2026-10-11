@@ -575,6 +575,12 @@
   background: #fbfcfd;
 }
 
+.eval-rec-card-notevaluable {
+  border: 2px solid #fec84b;
+  background: #fffdf5;
+  box-shadow: 0 1px 3px rgba(181, 71, 8, 0.05);
+}
+
 .eval-rec-header {
   display: flex;
   justify-content: space-between;
@@ -626,6 +632,19 @@
   gap: 4px;
 }
 
+.eval-rec-badge-notevaluable {
+  background: #fef0c7;
+  color: #b54708;
+  border: 1px solid #fedf89;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .eval-rec-badge-incompatible {
   background: #fee4e2;
   color: #b42318;
@@ -661,6 +680,10 @@
 
 .eval-rec-reason-failed {
   color: #b42318;
+}
+
+.eval-rec-reason-notevaluable {
+  color: #b54708;
 }
 
 .eval-disclaimer-box {
