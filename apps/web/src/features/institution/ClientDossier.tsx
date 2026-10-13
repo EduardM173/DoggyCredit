@@ -226,13 +226,13 @@ export function ClientDossier({
           <div className="eval-profile-grid dossier-fields">
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Razón social / Nombre</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>{client.name}</span>
+              <span className="eval-indicator-value">{client.name}</span>
               <span className="eval-indicator-sub">Identificación legal principal</span>
             </div>
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Documento de identidad</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+              <span className="eval-indicator-value">
                 {client.documentType}: {client.documentNumber}
               </span>
               <span className="eval-indicator-sub">Número oficial registrado</span>
@@ -240,7 +240,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Tipo de solicitante</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+              <span className="eval-indicator-value">
                 {isCompany ? "Empresa / Persona Jurídica" : "Persona Natural"}
               </span>
               <span className="eval-indicator-sub">Alcance de sujeto crediticio</span>
@@ -248,7 +248,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Actividad económica</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15 }}>
+              <span className="eval-indicator-value">
                 {client.economicActivity || "No registrada"}
               </span>
               <span className="eval-indicator-sub">Rubro comercial declarado</span>
@@ -256,7 +256,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Correo electrónico</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15, wordBreak: "break-all" }}>
+              <span className="eval-indicator-value">
                 {client.email || "No registrado"}
               </span>
               <span className="eval-indicator-sub">Contacto digital</span>
@@ -264,7 +264,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Teléfono de contacto</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15 }}>
+              <span className="eval-indicator-value">
                 {client.phone || "No registrado"}
               </span>
               <span className="eval-indicator-sub">Contacto telefónico</span>
@@ -272,7 +272,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Dirección declarada</span>
-              <span className="eval-indicator-value" style={{ fontSize: 14 }}>
+              <span className="eval-indicator-value">
                 {client.address || "No registrada"}
               </span>
               <span className="eval-indicator-sub">Domicilio registrado</span>
