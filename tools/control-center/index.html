@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Control de servicios | DoggyCredit</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">D</span
+        ><span>DoggyCredit <small>Control local</small></span>
+      </div>
+      <span class="local-tag">Solo este equipo</span>
+    </header>
+    <main>
+      <div class="heading-row">
+        <div>
+          <p class="eyebrow">PANEL DE OPERACIONES</p>
+          <h1>Estado del sistema</h1>
+          <p class="subtitle">Servicios necesarios para la demostración</p>
+        </div>
+        <div class="actions">
+          <button id="start-all" class="button primary" type="button">Iniciar todo</button
+          ><button id="stop-all" class="button outline" type="button">Detener todo</button
+          ><button id="notifications" class="button text" type="button" hidden>Activar alertas</button>
+        </div>
+      </div>
+
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="summary" aria-label="Resumen del sistema">
+        <div class="summary-state">
+          <span class="summary-dot" id="summary-dot"></span>
+          <div>
+            <p class="summary-label">Estado general</p>
+            <strong id="summary-title">Comprobando servicios...</strong>
+          </div>
+        </div>
+        <div class="summary-meta">
+          <span id="summary-count">0 de 3 activos</span><span id="last-check">Última comprobación: —</span>
+        </div>
+      </section>
+
+      <section class="service-list" aria-label="Servicios">
+        <article class="service" data-service="database">
+          <div class="service-main">
+            <span class="service-icon database-icon" aria-hidden="true">DB</span>
+            <div>
+              <div class="service-name">
+                <h2>PostgreSQL</h2>
+                <span class="badge checking" data-state>Comprobando</span>
+              </div>
+              <p>Base de datos</p>
+              <span class="endpoint">localhost:5432</span>
+            </div>
+          </div>
+          <div class="service-side">
+            <span class="service-detail" data-detail>Esperando respuesta...</span>
+            <div class="service-actions">
+              <button class="button small primary" data-action="start" type="button">Iniciar</button
+              ><button class="button small outline" data-action="stop" type="button">Detener</button>
+            </div>
+          </div>
+        </article>
+        <article class="service" data-service="api">
+          <div class="service-main">
+            <span class="service-icon api-icon" aria-hidden="true">API</span>
+            <div>
+              <div class="service-name">
+                <h2>API</h2>
+                <span class="badge checking" data-state>Comprobando</span>
+              </div>
+              <p>Servidor y lógica de negocio</p>
+              <a
+                class="endpoint"
+                href="http://localhost:3000/api/health"
+                target="_blank"
+                rel="noopener noreferrer"
+                >localhost:3000/api/health</a
+              >
+            </div>
+          </div>
+          <div class="service-side">
+            <span class="service-detail" data-detail>Esperando respuesta...</span>
+            <div class="service-actions">
+              <button class="button small primary" data-action="start" type="button">Iniciar</button
+              ><button class="button small outline" data-action="stop" type="button">Detener</button
+              ><button class="button small text" data-action="logs" type="button">Registro</button>
+            </div>
+          </div>
+        </article>
+        <article class="service" data-service="web">
+          <div class="service-main">
+            <span class="service-icon web-icon" aria-hidden="true">WEB</span>
+            <div>
+              <div class="service-name">
+                <h2>Aplicación web</h2>
+                <span class="badge checking" data-state>Comprobando</span>
+              </div>
+              <p>Interfaz para usuarios y operadores</p>
+              <a class="endpoint" href="http://localhost:5173/" target="_blank" rel="noopener noreferrer"
+                >localhost:5173</a
+              >
+            </div>
+          </div>
+          <div class="service-side">
+            <span class="service-detail" data-detail>Esperando respuesta...</span>
+            <div class="service-actions">
+              <button class="button small primary" data-action="start" type="button">Iniciar</button
+              ><button class="button small outline" data-action="stop" type="button">Detener</button
+              ><button class="button small text" data-action="logs" type="button">Registro</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <div class="footer-row">
+        <span>DoggyCredit · entorno local</span><span>Panel: <strong>127.0.0.1:4400</strong></span>
+      </div>
+    </main>
+    <dialog id="log-dialog">
+      <div class="dialog-head">
+        <h2 id="log-title">Registro</h2>
+        <button id="close-log" class="button small outline" type="button">Cerrar</button>
+      </div>
+      <pre id="log-content"></pre>
+    </dialog>
+  </body>
+</html>

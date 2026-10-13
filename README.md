@@ -147,6 +147,8 @@ No uses `prisma db push` como reemplazo de las migraciones.
 
 ## Ejecución
 
+Para la presentación en Windows, abre [Abrir-Panel.cmd](tools/control-center/Abrir-Panel.cmd). El panel independiente muestra PostgreSQL, API y web, permite iniciarlos o detenerlos y muestra el registro de los procesos lanzados desde él. Consulta [Control local de servicios](docs/control-center.md).
+
 Inicia frontend y backend juntos:
 
 ```bash

@@ -7,4 +7,5 @@ dist
 coverage
 *.tsbuildinfo
 *.log
+tools/control-center/.runtime/
 apps/api/src/generated/prisma
