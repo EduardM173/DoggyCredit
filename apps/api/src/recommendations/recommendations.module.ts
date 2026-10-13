@@ -1,6 +1,7 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { PrismaModule } from "../infrastructure/prisma/prisma.module.js";
 import { AuditModule } from "../audit/audit.module.js";
+import { IdentityTenantsModule } from "../identity-tenants/identity-tenants.module.js";
 import { PreparationProducts, EvaluationRecommender } from "./public.js";
 import { PreparationProductsService } from "./preparation-products.service.js";
 import { RecommendationService } from "./recommendation.service.js";
@@ -8,7 +9,7 @@ import { ProductsCatalogService } from "./products-catalog.service.js";
 import { ProductsCatalogController } from "./products-catalog.controller.js";
 
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, forwardRef(() => IdentityTenantsModule)],
   controllers: [ProductsCatalogController],
   providers: [
     { provide: PreparationProducts, useClass: PreparationProductsService },

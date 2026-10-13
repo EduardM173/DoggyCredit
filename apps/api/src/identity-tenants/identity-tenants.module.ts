@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { PrismaModule } from "../infrastructure/prisma/prisma.module.js";
 import { EmailModule } from "../infrastructure/email/email.module.js";
 import { EmailVerificationService } from "./email-verification/email-verification.service.js";
@@ -49,7 +49,7 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     AuditModule,
     PlanCatalogModule,
     FinancialIntegrationsModule,
-    RecommendationsModule,
+    forwardRef(() => RecommendationsModule),
   ],
   controllers: [
     InstitutionAuthController,
@@ -95,6 +95,7 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     OperatorGuard,
     InvitationDeliveryService,
     TenantContextGuard,
+    InstitutionAuthService,
     InstitutionSessionGuard,
     InstitutionOriginGuard,
     TenantPreparationService,
