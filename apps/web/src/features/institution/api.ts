@@ -163,14 +163,25 @@ export type CreateEvaluationPayload = {
   idempotencyKey?: string;
 };
 
-export async function fetchEvaluation(tenantSlug: string, evaluationId: string): Promise<EvaluationDetailItem> {
-  return institutionApi<EvaluationDetailItem>(`/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}`);
+export async function fetchEvaluation(
+  tenantSlug: string,
+  evaluationId: string,
+): Promise<EvaluationDetailItem> {
+  return institutionApi<EvaluationDetailItem>(
+    `/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}`,
+  );
 }
 
-export async function processEvaluation(tenantSlug: string, evaluationId: string): Promise<EvaluationDetailItem> {
-  return institutionApi<EvaluationDetailItem>(`/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}/process`, {
-    body: {},
-  });
+export async function processEvaluation(
+  tenantSlug: string,
+  evaluationId: string,
+): Promise<EvaluationDetailItem> {
+  return institutionApi<EvaluationDetailItem>(
+    `/tenants/${encodeURIComponent(tenantSlug)}/evaluations/${encodeURIComponent(evaluationId)}/process`,
+    {
+      body: {},
+    },
+  );
 }
 
 export type PaginatedEvaluations = {
@@ -251,10 +262,7 @@ export type ClientDossierDto = {
   } | null;
 };
 
-export async function fetchClientDossier(
-  tenantSlug: string,
-  clientId: string,
-): Promise<ClientDossierDto> {
+export async function fetchClientDossier(tenantSlug: string, clientId: string): Promise<ClientDossierDto> {
   return institutionApi<ClientDossierDto>(
     `/tenants/${encodeURIComponent(tenantSlug)}/clients/${encodeURIComponent(clientId)}`,
   );
@@ -263,11 +271,7 @@ export async function fetchClientDossier(
 export type ProductCategory = "MICRO_CREDIT" | "GREEN_CREDIT" | "SME_CREDIT" | "OTHER";
 export type ApplicantScope = "PERSON" | "COMPANY" | "BOTH";
 export type CreditPurpose =
-  | "WORKING_CAPITAL"
-  | "GREEN_PROJECT"
-  | "BUSINESS_INVESTMENT"
-  | "EQUIPMENT"
-  | "OTHER";
+  "WORKING_CAPITAL" | "GREEN_PROJECT" | "BUSINESS_INVESTMENT" | "EQUIPMENT" | "OTHER";
 
 export interface ProductCatalogItem {
   id: string;
@@ -344,7 +348,9 @@ export async function institutionApi<T>(
     method,
     credentials: "include",
     cache: "no-store",
-    signal: options.signal,
+    signal: options.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(15000)])
+      : AbortSignal.timeout(15000),
     ...(options.body !== undefined
       ? {
           headers: { "Content-Type": "application/json", "X-DoggyCredit-Institution": "1" },
@@ -359,8 +365,7 @@ export async function institutionApi<T>(
       errorJson && typeof errorJson === "object"
         ? (errorJson.message as string) || (errorJson.error as string)
         : null;
-    const serverCode =
-      errorJson && typeof errorJson === "object" ? (errorJson.code as string) : undefined;
+    const serverCode = errorJson && typeof errorJson === "object" ? (errorJson.code as string) : undefined;
 
     const message =
       serverMessage ||

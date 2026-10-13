@@ -11,6 +11,7 @@ import {
   ListChecks,
   LogOut,
   Package,
+  Settings2,
   Users,
 } from "lucide-react";
 import { Brand } from "../../components/Brand";
@@ -26,6 +27,7 @@ import "./institution.css";
 
 type Step =
   | "home"
+  | "settings"
   | "institution"
   | "source"
   | "products"
@@ -163,7 +165,14 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
     );
 
   const admin = home.membership.role === "INSTITUTION_ADMIN";
-  if (!admin && ["institution", "source", "products", "team"].includes(step))
+  if (admin && ["evaluations", "new-evaluation", "evaluation-detail", "client-dossier"].includes(step))
+    return (
+      <main className="institution-gate">
+        <p>No tienes permiso para preparar evaluaciones.</p>
+        <Link to={base}>Volver al inicio</Link>
+      </main>
+    );
+  if (!admin && ["settings", "institution", "source", "products", "team"].includes(step))
     return (
       <main className="institution-gate">
         <p role="alert">No tienes permiso para administrar la institución.</p>
@@ -192,42 +201,37 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             Inicio
           </Link>
           {admin ? (
-            <span className="institution-nav-heading">CONFIGURACIÓN</span>
-          ) : (
-            <span className="institution-nav-heading">EVALUACIONES</span>
-          )}
-          {admin ? (
             <>
-              <Link
-                className={step === "institution" ? "institution-nav-active" : ""}
-                to={`${base}/institucion`}
-              >
-                <Building2 size={20} />
-                Institución
-              </Link>
-              <Link
-                className={step === "source" ? "institution-nav-active" : ""}
-                to={`${base}/fuentes-financieras`}
-              >
-                <Database size={20} />
-                Fuentes financieras
-              </Link>
-              <Link className={step === "products" ? "institution-nav-active" : ""} to={`${base}/productos`}>
-                <Package size={20} />
-                Productos
-              </Link>
               <Link className={step === "team" ? "institution-nav-active" : ""} to={`${base}/equipo`}>
                 <Users size={20} />
                 Equipo
               </Link>
+              <Link
+                className={
+                  ["settings", "institution", "source", "products"].includes(step)
+                    ? "institution-nav-active"
+                    : ""
+                }
+                to={`${base}/configuracion`}
+              >
+                <Settings2 size={20} />
+                Configuración
+              </Link>
             </>
           ) : (
-            <Link
-              className={step === "evaluations" ? "institution-nav-active" : ""}
-              to={`${base}/evaluaciones`}
-            >
-              <ListChecks size={20} /> Evaluaciones
-            </Link>
+            <>
+              <span className="institution-nav-heading">EVALUACIONES</span>
+              <Link
+                className={
+                  ["evaluations", "new-evaluation", "evaluation-detail", "client-dossier"].includes(step)
+                    ? "institution-nav-active"
+                    : ""
+                }
+                to={`${base}/evaluaciones`}
+              >
+                <ListChecks size={20} /> Evaluaciones
+              </Link>
+            </>
           )}
         </nav>
         <button onClick={logout} disabled={busy}>
@@ -266,6 +270,62 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             ready={home.ready}
             evaluations={false}
           />
+        ) : step === "home" && home.ready ? (
+          <main className="institution-dashboard">
+            <p className="institution-eyebrow">INICIO</p>
+            <h1>{home.tenant.name} está listo para evaluar solicitudes</h1>
+            <p className="institution-lead">La preparación inicial está completa.</p>
+            <section className="institution-ready">
+              <Check size={28} aria-hidden="true" />
+              <div>
+                <h2>Tu institución está lista</h2>
+                <p>Invita a un analista para comenzar a trabajar en {home.tenant.name}.</p>
+                <Link className="institution-primary" to={`${base}/equipo`}>
+                  <Users size={20} />
+                  Invitar analista
+                </Link>
+              </div>
+            </section>
+          </main>
+        ) : step === "settings" ? (
+          <main className="institution-dashboard">
+            <div className="institution-breadcrumb">
+              <Link to={base}>Inicio</Link>
+              <ArrowRight size={16} /> Configuración
+            </div>
+            <p className="institution-eyebrow">CONFIGURACIÓN</p>
+            <h1>Configuración de {home.tenant.name}</h1>
+            <p className="institution-lead">Consulta y actualiza los datos de tu institución.</p>
+            <section className="institution-settings-list" aria-label="Configuración institucional">
+              <Link to={`${base}/institucion`}>
+                <Building2 size={25} />
+                <span>
+                  <strong>Institución</strong>
+                  <small>Nombre, NIT y tipo de institución</small>
+                </span>
+                <em>{home.steps?.institution ? "Confirmada" : "Por completar"}</em>
+                <ArrowRight size={20} />
+              </Link>
+              <Link to={`${base}/fuentes-financieras`}>
+                <Database size={25} />
+                <span>
+                  <strong>Fuentes financieras</strong>
+                  <small>Fuente disponible para evaluaciones</small>
+                </span>
+                <em>{home.steps?.source ? "Habilitada" : "Por completar"}</em>
+                <ArrowRight size={20} />
+              </Link>
+              <Link to={`${base}/productos`}>
+                <Package size={25} />
+                <span>
+                  <strong>Productos</strong>
+                  <small>Productos disponibles para recomendaciones</small>
+                </span>
+                <em>{home.steps?.products ? "Confirmados" : "Por completar"}</em>
+                <ArrowRight size={20} />
+              </Link>
+            </section>
+          </main>
         ) : step === "home" ? (
           <main className="institution-dashboard">
             <p className="institution-eyebrow">INICIO</p>
@@ -359,6 +419,12 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             <div className="institution-breadcrumb">
               <Link to={base}>Inicio</Link>
               <ArrowRight size={16} />
+              {home.ready && (
+                <>
+                  <Link to={`${base}/configuracion`}>Configuración</Link>
+                  <ArrowRight size={16} />
+                </>
+              )}
               {step === "institution"
                 ? "Institución"
                 : step === "source"
@@ -415,7 +481,8 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   <>
                     <h2>Fuentes financieras disponibles</h2>
                     <p>
-                      DoggyCredit consulta las fuentes habilitadas para construir el perfil integral de los solicitantes.
+                      DoggyCredit consulta las fuentes habilitadas para construir el perfil integral de los
+                      solicitantes.
                     </p>
                     <div className="institution-sources-list">
                       {(home.sources && home.sources.length > 0
@@ -442,7 +509,8 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                                 "Aporta historial crediticio consolidado, deuda global en el sistema financiero y comportamiento de mora histórico.",
                               purpose:
                                 "Evaluación complementaria de riesgo crediticio, antecedentes en el sistema y morosidad.",
-                              coverage: "Cobertura orientada a solicitantes particulares y personas naturales.",
+                              coverage:
+                                "Cobertura orientada a solicitantes particulares y personas naturales.",
                               available: true,
                               enabled: false,
                               healthStatus: "ACTIVE",
@@ -464,9 +532,7 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                                         : "institution-badge badge-neutral"
                                     }
                                   >
-                                    {src.enabled
-                                      ? "Habilitada para la institución"
-                                      : "No habilitada"}
+                                    {src.enabled ? "Habilitada para la institución" : "No habilitada"}
                                   </span>
                                   <span
                                     className={
@@ -499,7 +565,8 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                                 <div className="institution-source-actions">
                                   {!src.available ? (
                                     <div className="institution-source-unavailable-msg" role="status">
-                                      Esta fuente no se encuentra disponible actualmente en la plataforma o para tu plan.
+                                      Esta fuente no se encuentra disponible actualmente en la plataforma o
+                                      para tu plan.
                                     </div>
                                   ) : isBureau ? (
                                     <button
@@ -546,11 +613,16 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                     <h3>Condiciones de integración y cobertura</h3>
                     <p className="institution-note">
                       <Info size={20} />
-                      <strong>Sin configuraciones técnicas:</strong> No necesitas introducir URLs, claves de API, secretos ni configurar timeouts. Toda la comunicación está encapsulada internamente por DoggyCredit.
+                      <strong>Sin configuraciones técnicas:</strong> No necesitas introducir URLs, claves de
+                      API, secretos ni configurar timeouts. Toda la comunicación está encapsulada internamente
+                      por DoggyCredit.
                     </p>
                     <p className="institution-note">
                       <Info size={20} />
-                      <strong>Disponibilidad de antecedentes:</strong> La habilitación autoriza la consulta institucional, pero no garantiza que existan antecedentes para cada solicitante. Cuando una fuente no posea información, el sistema continuará reportando ausencia de datos (Sin datos) sin interrumpir la evaluación.
+                      <strong>Disponibilidad de antecedentes:</strong> La habilitación autoriza la consulta
+                      institucional, pero no garantiza que existan antecedentes para cada solicitante. Cuando
+                      una fuente no posea información, el sistema continuará reportando ausencia de datos (Sin
+                      datos) sin interrumpir la evaluación.
                     </p>
                   </>
                 )}
@@ -562,9 +634,7 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                     initialProducts={home.products}
                     selectedProductIds={selected}
                     onSelectProduct={(id) =>
-                      setSelected((ids) =>
-                        ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-                      )
+                      setSelected((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
                     }
                     onProductsChanged={() => setReload((v) => v + 1)}
                   />
@@ -600,11 +670,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             <footer className="institution-actionbar">
               <Link
                 to={
-                  step === "institution"
-                    ? base
-                    : step === "source"
+                  home.ready
+                    ? `${base}/configuracion`
+                    : step === "institution"
                       ? base
-                      : `${base}/fuentes-financieras`
+                      : step === "source"
+                        ? `${base}/institucion`
+                        : `${base}/fuentes-financieras`
                 }
               >
                 <ArrowLeft size={20} />
@@ -615,9 +687,19 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   <button
                     className="institution-primary"
                     disabled={busy || !name.trim()}
-                    onClick={() => submit("institution", { name, type }, `${base}/fuentes-financieras`)}
+                    onClick={() =>
+                      submit(
+                        "institution",
+                        { name, type },
+                        home.ready ? `${base}/configuracion` : `${base}/fuentes-financieras`,
+                      )
+                    }
                   >
-                    {busy ? "Guardando..." : "Confirmar información y continuar"}
+                    {busy
+                      ? "Guardando..."
+                      : home.ready
+                        ? "Guardar cambios"
+                        : "Confirmar información y continuar"}
                     <ArrowRight size={20} />
                   </button>
                 ) : step === "source" ? (
@@ -625,26 +707,38 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                     <Link className="institution-secondary-link" to={`${base}/productos`}>
                       Ir a productos
                     </Link>
-                    <button
-                      className="institution-primary"
-                      disabled={busy || !home.source?.available}
-                      onClick={() => submit("source", {}, `${base}/productos`)}
-                    >
-                      {busy
-                        ? "Habilitando..."
-                        : home.source?.enabled
-                          ? "Continuar a productos"
-                          : "Habilitar fuente y continuar"}
-                      <ArrowRight size={20} />
-                    </button>
+                    {!home.ready && (
+                      <button
+                        className="institution-primary"
+                        disabled={busy || !home.source?.available}
+                        onClick={() => submit("source", {}, `${base}/productos`)}
+                      >
+                        {busy
+                          ? "Habilitando..."
+                          : home.source?.enabled
+                            ? "Continuar a productos"
+                            : "Habilitar fuente y continuar"}
+                        <ArrowRight size={20} />
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <button
                     className="institution-primary"
                     disabled={busy || !selectedUsable}
-                    onClick={() => submit("products", { productIds: selected }, base)}
+                    onClick={() =>
+                      submit(
+                        "products",
+                        { productIds: selected },
+                        home.ready ? `${base}/configuracion` : base,
+                      )
+                    }
                   >
-                    {busy ? "Guardando..." : "Confirmar productos y finalizar preparación"}
+                    {busy
+                      ? "Guardando..."
+                      : home.ready
+                        ? "Guardar selección"
+                        : "Confirmar productos y finalizar preparación"}
                     <ArrowRight size={20} />
                   </button>
                 ))}

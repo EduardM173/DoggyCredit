@@ -8,10 +8,18 @@ import { AuditModule } from "./audit/audit.module.js";
 import { ContractingApprovalController } from "./contracting-approval.controller.js";
 import { ContractingApprovalService } from "./contracting-approval.service.js";
 import { ContractingEmailDeliveryService } from "./plans-metering/public.js";
+import { RecommendationsModule } from "./recommendations/recommendations.module.js";
 
 // Composition only: register the Identity-owned workflow with both public capabilities.
 @Module({
-  imports: [IdentityTenantsModule, PlansMeteringModule, PrismaModule, EmailModule, AuditModule],
+  imports: [
+    IdentityTenantsModule,
+    PlansMeteringModule,
+    PrismaModule,
+    EmailModule,
+    AuditModule,
+    RecommendationsModule,
+  ],
   controllers: [ContractingApprovalController],
   providers: [
     ProvisionInstitutionService,
