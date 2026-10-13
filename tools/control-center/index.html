@@ -40,7 +40,7 @@
           </div>
         </div>
         <div class="summary-meta">
-          <span id="summary-count">0 de 3 activos</span><span id="last-check">Última comprobación: —</span>
+          <span id="summary-count">0 de 4 listos</span><span id="last-check">Última comprobación: —</span>
         </div>
       </section>
 
@@ -114,6 +114,38 @@
               ><button class="button small text" data-action="logs" type="button">Registro</button>
             </div>
           </div>
+        </article>
+        <article class="service qr-service" data-service="qr">
+          <div class="service-main">
+            <span class="service-icon qr-icon" aria-hidden="true">QR</span>
+            <div>
+              <div class="service-name">
+                <h2>DoggyPay QR</h2>
+                <span class="badge checking" data-state>Comprobando</span>
+              </div>
+              <p>Acceso al pago simulado desde el teléfono</p>
+              <span class="endpoint" id="qr-url">Comprobando URL...</span>
+            </div>
+          </div>
+          <div class="service-side">
+            <span class="service-detail" data-detail>Esperando respuesta...</span>
+            <div class="service-actions">
+              <button class="button small primary" data-action="prepare" type="button">Preparar QR</button>
+              <a id="qr-link" class="button small outline" target="_blank" rel="noopener noreferrer" hidden
+                >Prueba de red</a
+              >
+            </div>
+          </div>
+          <details class="qr-test" id="qr-test-panel" hidden>
+            <summary>QR de prueba para el teléfono</summary>
+            <div class="qr-test-body">
+              <img id="qr-test-image" alt="QR de prueba de acceso a DoggyCredit desde el teléfono" />
+              <p>
+                Al escanearlo debe abrirse DoggyCredit en el teléfono conectado a la misma red. Esta prueba no
+                realiza un pago.
+              </p>
+            </div>
+          </details>
         </article>
       </section>
 

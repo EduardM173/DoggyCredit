@@ -1,8 +1,9 @@
-const services = ["database", "api", "web"];
-const labels = { database: "PostgreSQL", api: "API", web: "Aplicación web" };
+const services = ["database", "api", "web", "qr"];
+const labels = { database: "PostgreSQL", api: "API", web: "Aplicación web", qr: "DoggyPay QR" };
 let token;
 let pending = false;
 let previous = null;
+let qrImageIp = null;
 
 const notice = document.getElementById("notice");
 const dialog = document.getElementById("log-dialog");
@@ -15,18 +16,20 @@ function inform(message, isError = false) {
 
 function update(data) {
   const count = services.filter((name) => data[name].online).length;
-  const healthy = count === 3;
+  const healthy = count === 4;
   document.getElementById("summary-title").textContent = healthy
     ? "Todo listo para la demostración"
     : count === 0
       ? "Sistema detenido"
       : "Requiere atención";
-  document.getElementById("summary-count").textContent = `${count} de 3 activos`;
+  document.getElementById("summary-count").textContent = `${count} de 4 listos`;
   document.getElementById("last-check").textContent =
     `Última comprobación: ${new Date(data.checkedAt).toLocaleTimeString("es-BO")}`;
   document.getElementById("summary-dot").className = `summary-dot ${healthy ? "good" : "bad"}`;
-  document.getElementById("start-all").disabled = pending || healthy;
-  document.getElementById("stop-all").disabled = pending || count === 0;
+  document.getElementById("start-all").disabled =
+    pending || ["database", "api", "web"].every((name) => data[name].online);
+  document.getElementById("stop-all").disabled =
+    pending || ["database", "api", "web"].every((name) => !data[name].online);
 
   for (const name of services) {
     const service = data[name];
@@ -35,7 +38,34 @@ function update(data) {
     const detail = row.querySelector("[data-detail]");
     const state = service.online ? "up" : service.starting ? "starting" : "down";
     badge.className = `badge ${state}`;
-    badge.textContent = service.online ? "Activo" : service.starting ? "Iniciando" : "Detenido";
+    badge.textContent =
+      name === "qr"
+        ? service.online
+          ? "Listo para probar"
+          : "Revisar"
+        : service.online
+          ? "Activo"
+          : service.starting
+            ? "Iniciando"
+            : "Detenido";
+    if (name === "qr") {
+      detail.textContent = service.message;
+      row.querySelector('[data-action="prepare"]').disabled = pending || !service.lanIp || service.online;
+      document.getElementById("qr-url").textContent = service.configuredUrl || "Sin URL configurada";
+      const link = document.getElementById("qr-link");
+      link.hidden = !service.testUrl;
+      if (service.testUrl) link.href = service.testUrl;
+      document.getElementById("qr-test-panel").hidden = !service.testUrl;
+      if (service.lanIp && qrImageIp !== service.lanIp) {
+        qrImageIp = service.lanIp;
+        fetch("/api/qr-test")
+          .then((response) => response.json())
+          .then((result) => {
+            if (result.image) document.getElementById("qr-test-image").src = result.image;
+          });
+      }
+      continue;
+    }
     detail.textContent =
       service.message && !service.online
         ? service.message
@@ -57,7 +87,7 @@ function update(data) {
   const fallenNames = previous ? services.filter((name) => previous[name] && !data[name].online) : [];
   if (fallenNames.length) {
     const fallen = fallenNames.map((name) => labels[name]).join(", ");
-    inform(`Se perdió la conexión con ${fallen}. Revisa el registro o inicia el servicio.`, true);
+    inform(`Se perdió la conexión con ${fallen}. Revisa su estado en el panel.`, true);
     if (Notification.permission === "granted")
       new Notification("DoggyCredit: servicio caído", { body: fallen });
   }
@@ -90,7 +120,9 @@ async function action(target, operation) {
     if (!response.ok) throw new Error(result.error || "No se pudo completar la operación.");
     update(result.state);
     inform(
-      `${target === "all" ? "Los servicios" : labels[target]}: orden de ${operation === "start" ? "inicio" : "detención"} enviada.`,
+      target === "qr"
+        ? "Actualizando la URL y el acceso local del QR. Espera a que API y web vuelvan a estar listas."
+        : `${target === "all" ? "Los servicios" : labels[target]}: orden de ${operation === "start" ? "inicio" : "detención"} enviada.`,
     );
   } catch (error) {
     inform(error.message, true);

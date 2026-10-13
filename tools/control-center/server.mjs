@@ -2,29 +2,34 @@ import { createServer } from "node:http";
 import { connect } from "node:net";
 import { spawn, execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { networkInterfaces } from "node:os";
 import { readFileSync, mkdirSync, openSync, closeSync, fstatSync, readSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import dotenv from "dotenv";
+import QRCode from "qrcode";
 
 const run = promisify(execFile);
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = resolve(directory, "../..");
 const runtime = join(directory, ".runtime");
 const host = "127.0.0.1";
-const port = 4400;
+const port = Number(process.env.DOGGYCREDIT_PANEL_PORT || 4400);
 const origin = `http://${host}:${port}`;
 const token = randomBytes(32).toString("hex");
 const processes = new Map();
 const intentionallyStopped = new Set();
 const restarts = new Map();
 const messages = new Map();
+const preparedUrls = new Map();
 const definitions = {
   api: { command: "npm run dev:api", url: "http://localhost:3000/api/health", port: 3000 },
   web: { command: "npm run dev:web", url: "http://localhost:5173/", port: 5173 },
 };
 let postgresService = process.env.DOGGYCREDIT_POSTGRES_SERVICE || "";
 let busy = false;
+let lanIp = null;
 
 mkdirSync(runtime, { recursive: true });
 
@@ -40,6 +45,42 @@ async function discoverPostgres() {
   } catch {
     postgresService = "";
   }
+}
+
+function privateIp(value) {
+  const parts = value.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+    return false;
+  return (
+    parts[0] === 10 ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168)
+  );
+}
+
+function currentLanIp() {
+  const candidates = Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses || [])
+      .filter((address) => address.family === "IPv4" && !address.internal && privateIp(address.address))
+      .map((address) => ({ name, address: address.address })),
+  );
+  const score = ({ name }) =>
+    (/wi-?fi|wireless|wlan/i.test(name) ? 20 : /ethernet/i.test(name) ? 10 : 0) -
+    (/vmware|virtual|vethernet|vpn|hyper-v|tunnel/i.test(name) ? 50 : 0);
+  candidates.sort((a, b) => score(b) - score(a));
+  lanIp = candidates[0]?.address || null;
+  return lanIp;
+}
+
+function localConfiguration() {
+  const readEnv = (path) => {
+    try {
+      return dotenv.parse(readFileSync(path));
+    } catch {
+      return {};
+    }
+  };
+  return { ...readEnv(join(root, ".env")), web: readEnv(join(root, "apps/web/.env")) };
 }
 
 function tcpCheck(checkPort) {
@@ -78,11 +119,36 @@ async function httpCheck(url) {
 }
 
 async function health() {
-  const [database, api, web] = await Promise.all([
+  const [database, api, web, ip] = await Promise.all([
     tcpCheck(5432),
     httpCheck(definitions.api.url),
     httpCheck(definitions.web.url),
+    currentLanIp(),
   ]);
+  const config = localConfiguration();
+  const qrBase = preparedUrls.get("api") || config.MOCK_PAYMENT_PUBLIC_URL || config.PUBLIC_APP_URL || "";
+  const webApiUrl = preparedUrls.has("web") ? "/api" : config.web.VITE_API_URL || "/api";
+  const expected = ip ? `http://${ip}:5173` : null;
+  const [lanWeb, lanApi] =
+    expected && web.online
+      ? await Promise.all([httpCheck(`${expected}/doggypay-demo`), httpCheck(`${expected}/api/health`)])
+      : [{ online: false }, { online: false }];
+  let matchesNetwork = false;
+  try {
+    matchesNetwork = new URL(qrBase).origin === expected;
+  } catch {
+    /* The configured URL is absent or invalid. */
+  }
+  const reasons = [];
+  if (config.PAYMENT_PROVIDER !== "mock") reasons.push("El proveedor de pago demo no está activo.");
+  if (!ip) reasons.push("No se detectó una dirección privada de Wi-Fi o red local.");
+  if (ip && !matchesNetwork)
+    reasons.push("La URL del QR no coincide con la dirección actual de este equipo.");
+  if (webApiUrl !== "/api")
+    reasons.push("La web debe usar /api para que el teléfono consulte la API por el proxy.");
+  if (web.online && !lanWeb.online) reasons.push("La web no responde desde la dirección de red local.");
+  if (lanWeb.online && !lanApi.online) reasons.push("El proxy /api no responde desde la red local.");
+  if (!api.online || !web.online) reasons.push("La API y la web deben estar activas.");
   const state = {
     checkedAt: new Date().toISOString(),
     busy,
@@ -107,6 +173,14 @@ async function health() {
       url: definitions.web.url,
       message: messages.get("web") || null,
     },
+    qr: {
+      online: reasons.length === 0,
+      lanIp: ip,
+      testUrl: expected ? `${expected}/` : null,
+      configuredUrl: qrBase || null,
+      reasons,
+      message: reasons[0] || "La web y el proxy responden desde la dirección LAN de este equipo.",
+    },
   };
   return state;
 }
@@ -117,10 +191,22 @@ function startApp(name, automatic = false) {
   intentionallyStopped.delete(name);
   messages.delete(name);
   const file = openSync(join(runtime, `${name}.log`), "a");
+  const lanUrl = lanIp ? `http://${lanIp}:5173` : null;
+  const environment = { ...process.env };
+  if (name === "api" && lanUrl) {
+    environment.MOCK_PAYMENT_PUBLIC_URL = lanUrl;
+    preparedUrls.set("api", lanUrl);
+  }
+  if (name === "web" && lanUrl) {
+    environment.DEV_HOST = "0.0.0.0";
+    environment.VITE_API_URL = "/api";
+    preparedUrls.set("web", lanUrl);
+  }
   const child = spawn("cmd.exe", ["/d", "/s", "/c", definition.command], {
     cwd: root,
     windowsHide: true,
     stdio: ["ignore", file, file],
+    env: environment,
   });
   closeSync(file);
   processes.set(name, child);
@@ -162,6 +248,7 @@ async function stopApp(name) {
     }
   }
   processes.delete(name);
+  preparedUrls.delete(name);
   messages.set(name, "Detenido desde el panel.");
 }
 
@@ -187,15 +274,27 @@ async function databaseAction(action) {
 
 async function act(target, action) {
   if (busy) throw new Error("Hay otra operación en curso.");
-  if (!/^(database|api|web|all)$/.test(target) || !/^(start|stop|restart)$/.test(action)) {
+  if (!/^(database|api|web|qr|all)$/.test(target) || !/^(start|stop|restart|prepare)$/.test(action)) {
     throw new Error("Acción no válida.");
   }
+  if (target === "qr" && action !== "prepare") throw new Error("Acción no válida para DoggyPay QR.");
+  if (target !== "qr" && action === "prepare") throw new Error("Acción no válida para este servicio.");
   if (target === "database" && action === "restart")
     throw new Error("Reinicia PostgreSQL desde Servicios de Windows.");
   busy = true;
   try {
     const current = await health();
-    if (target === "all") {
+    if (target === "qr") {
+      if (!current.qr.lanIp) throw new Error("Conecta el equipo a una red privada antes de preparar el QR.");
+      if (localConfiguration().PAYMENT_PROVIDER !== "mock")
+        throw new Error("Configura PAYMENT_PROVIDER=mock en el .env local antes de preparar DoggyPay.");
+      const external = ["api", "web"].filter((name) => current[name].online && !processes.has(name));
+      if (external.length)
+        throw new Error(`Cierra ${external.join(" y ")} en su terminal y vuelve a iniciar desde el panel.`);
+      for (const name of ["web", "api"]) if (processes.has(name)) await stopApp(name);
+      startApp("api");
+      startApp("web");
+    } else if (target === "all") {
       if (action === "restart") throw new Error("Reinicia los servicios por separado.");
       if (action === "start") {
         if (!current.database.online) {
@@ -306,6 +405,13 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/api/session") return respond(response, 200, { token });
   if (request.method === "GET" && url.pathname === "/api/status")
     return respond(response, 200, await health());
+  if (request.method === "GET" && url.pathname === "/api/qr-test") {
+    const ip = await currentLanIp();
+    if (!ip) return respond(response, 404, { error: "Sin red local." });
+    return respond(response, 200, {
+      image: await QRCode.toDataURL(`http://${ip}:5173/`, { width: 192, margin: 2 }),
+    });
+  }
   if (request.method === "GET" && /^\/api\/logs\/(api|web)$/.test(url.pathname)) {
     return respond(response, 200, { text: logTail(url.pathname.split("/").at(-1)) });
   }

@@ -251,6 +251,40 @@ a:focus-visible {
   background: #fff0e0;
   color: #b86518;
 }
+.qr-icon {
+  background: #eaeafa;
+  color: #5149a6;
+}
+.qr-service {
+  flex-wrap: wrap;
+}
+.qr-test {
+  flex-basis: 100%;
+  margin-left: 64px;
+  color: #31546b;
+  font-size: 12px;
+}
+.qr-test summary {
+  cursor: pointer;
+  color: #0867bc;
+  font-weight: 700;
+}
+.qr-test-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 12px;
+  max-width: 540px;
+}
+.qr-test img {
+  width: 152px;
+  height: 152px;
+  flex: none;
+  background: white;
+}
+.qr-test p {
+  line-height: 1.5;
+}
 .service-name {
   display: flex;
   align-items: center;
@@ -388,6 +422,9 @@ pre {
   }
   .footer-row {
     flex-direction: column;
+  }
+  .qr-test {
+    margin-left: 0;
   }
   h1 {
     font-size: 28px;
