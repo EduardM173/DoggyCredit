@@ -169,7 +169,7 @@ El backend de desarrollo compila con TypeScript y ejecuta el resultado con `node
 
 ## HU-10: Preparar Evaluaciones
 
-El analista prepara una evaluación en tres pasos, reutiliza o crea el expediente de su institución y confirma el consentimiento. El caso queda DRAFT con snapshot, auditoría e idempotencia, sin consultar fuentes financieras todavía. Demo opt-in: `SEED_DEMO_EVALUATIONS=true` y `npm run prisma:seed`. Credenciales, documentos ficticios y garantías en [docs/hu-10.md](docs/hu-10.md).
+El analista prepara una evaluación en tres pasos, reutiliza o crea el expediente de su institución y confirma el consentimiento. El caso queda DRAFT con snapshot, auditoría e idempotencia, sin consultar fuentes financieras todavía. Sprint 3 continúa ese mismo flujo con empresas, múltiples fuentes e historial. Demo opt-in: `SEED_DEMO_EVALUATIONS=true` y `npm run prisma:seed`; consulta [docs/hu-10.md](docs/hu-10.md).
 
 ## Calidad
 

@@ -5,7 +5,10 @@ import { HealthController } from "./health.controller.js";
 import { IdentityTenantsModule } from "./identity-tenants/identity-tenants.module.js";
 import { PlansMeteringModule } from "./plans-metering/plans-metering.module.js";
 import { OnboardingModule } from "./onboarding.module.js";
-import { EvaluationsModule } from "./evaluations/evaluations.module.js";
+import { ClientsModule } from "./clients/public.js";
+import { EvaluationsModule } from "./evaluations/public.js";
+import { FinancialIntegrationsModule } from "./financial-integrations/financial-integrations.module.js";
+import { FinancialProfileModule } from "./financial-profile/financial-profile.module.js";
 
 @Module({
   imports: [
@@ -18,7 +21,10 @@ import { EvaluationsModule } from "./evaluations/evaluations.module.js";
     IdentityTenantsModule,
     PlansMeteringModule,
     OnboardingModule,
+    ClientsModule,
     EvaluationsModule,
+    FinancialIntegrationsModule,
+    FinancialProfileModule,
   ],
   controllers: [HealthController],
 })

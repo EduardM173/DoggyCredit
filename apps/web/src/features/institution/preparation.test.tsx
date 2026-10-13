@@ -100,10 +100,7 @@ describe("HU-08 preparation interface", () => {
       "href",
       "/banco-x/fuentes-financieras",
     );
-    expect(screen.getByRole("link", { name: /^Productos/ })).toHaveAttribute(
-      "href",
-      "/banco-x/productos",
-    );
+    expect(screen.getByRole("link", { name: /^Productos/ })).toHaveAttribute("href", "/banco-x/productos");
     fireEvent.click(screen.getByRole("link", { name: /^Productos/ }));
     expect(await screen.findByRole("button", { name: "Guardar selección" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: "Volver" }));

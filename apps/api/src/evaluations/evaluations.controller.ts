@@ -1,43 +1,91 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, UseGuards } from "@nestjs/common";
-import { ApiCookieAuth, ApiOperation, ApiTags, ApiResponse } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
+import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   InstitutionOriginGuard,
   InstitutionSessionGuard,
   TenantContextGuard,
   type TenantRequest,
 } from "../identity-tenants/public.js";
-import { DocumentDto, PrepareEvaluationDto } from "./evaluation.dto.js";
 import { EvaluationsService } from "./evaluations.service.js";
-@ApiTags("Evaluaciones")
-@ApiCookieAuth()
+import { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
+
+@ApiTags("Evaluaciones crediticias")
 @Controller("institution/tenants/:tenantSlug/evaluations")
 @UseGuards(InstitutionSessionGuard, TenantContextGuard)
 export class EvaluationsController {
   constructor(private readonly evaluations: EvaluationsService) {}
-  @Get("preparation")
-  @ApiOperation({ summary: "Comprobar autorización y preparación antes de solicitar datos" })
-  entry(@Req() req: TenantRequest) {
-    return this.evaluations.entry(req.tenantContext);
+
+  @Get("readiness")
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Verificar si la institución cumple condiciones mínimas para evaluar" })
+  checkReadiness(@Req() request: TenantRequest) {
+    return this.evaluations.checkReadiness(request.tenantContext);
   }
-  @Post("lookup")
-  @HttpCode(200)
-  @UseGuards(InstitutionOriginGuard)
-  @ApiOperation({ summary: "Buscar un expediente exclusivamente en la institución autorizada" })
-  lookup(@Req() req: TenantRequest, @Body() body: DocumentDto) {
-    return this.evaluations.lookup(req.tenantContext, body);
+
+  @Get("clients/search")
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Buscar expediente de cliente dentro del tenant por tipo y documento" })
+  searchClient(
+    @Req() request: TenantRequest,
+    @Query("documentType") documentType: DocumentTypeDto = DocumentTypeDto.CI,
+    @Query("documentNumber") documentNumber = "",
+    @Query("clientType") clientType: ClientTypeDto = ClientTypeDto.PERSON,
+  ) {
+    return this.evaluations.searchClient(
+      request.tenantContext,
+      documentType,
+      documentNumber,
+      clientType,
+    );
   }
+
   @Post()
-  @HttpCode(201)
   @UseGuards(InstitutionOriginGuard)
-  @ApiOperation({ summary: "Preparar un caso DRAFT sin consultar fuentes financieras" })
-  @ApiResponse({ status: 400, description: "Datos o consentimiento inválidos" })
-  @ApiResponse({ status: 409, description: "Preparación incompleta o envío conflictivo" })
-  prepare(@Req() req: TenantRequest, @Body() body: PrepareEvaluationDto) {
-    return this.evaluations.prepare(req.tenantContext, body);
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Crear una nueva evaluación en estado DRAFT con snapshot de solicitante" })
+  createDraft(@Req() request: TenantRequest, @Body() body: CreateEvaluationDto) {
+    return this.evaluations.createDraft(request.tenantContext, body);
   }
-  @Get(":id")
-  @ApiOperation({ summary: "Recuperar el caso conservado y su snapshot dentro del tenant" })
-  detail(@Req() req: TenantRequest, @Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
-    return this.evaluations.detail(req.tenantContext, id);
+
+  @Get()
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Listar evaluaciones del tenant con búsqueda, filtros y paginación" })
+  list(
+    @Req() request: TenantRequest,
+    @Query("search") search?: string,
+    @Query("status") status?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.evaluations.list(request.tenantContext, {
+      search,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Get(":evaluationId")
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Obtener detalle de una evaluación por ID dentro del tenant" })
+  getById(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
+    return this.evaluations.getById(request.tenantContext, evaluationId);
+  }
+
+  @Post(":evaluationId/process")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Procesar evaluación: consultar fuentes bancarias y derivar perfil financiero" })
+  process(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
+    return this.evaluations.processEvaluation(request.tenantContext, evaluationId);
   }
 }

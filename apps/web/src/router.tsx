@@ -53,6 +53,8 @@ export const router = createBrowserRouter([
   { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },
   { path: "/:tenantSlug/equipo", element: <InstitutionHomePage step="team" /> },
   { path: "/:tenantSlug/evaluaciones", element: <InstitutionHomePage step="evaluations" /> },
-  { path: "/:tenantSlug/evaluaciones/nueva", element: <InstitutionHomePage step="evaluation" /> },
-  { path: "/:tenantSlug/evaluaciones/:evaluationId", element: <InstitutionHomePage step="evaluation" /> },
+  { path: "/:tenantSlug/evaluaciones/nueva", element: <InstitutionHomePage step="new-evaluation" /> },
+  { path: "/:tenantSlug/evaluaciones/:id", element: <InstitutionHomePage step="evaluation-detail" /> },
+  { path: "/:tenantSlug/clientes/:clientId", element: <InstitutionHomePage step="client-dossier" /> },
+  { path: "/:tenantSlug/expediente/:clientId", element: <InstitutionHomePage step="client-dossier" /> },
 ]);

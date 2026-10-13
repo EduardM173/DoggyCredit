@@ -106,6 +106,29 @@ export class InstitutionTenantController {
     return this.preparation.enableBank(request.tenantContext);
   }
 
+  @Post("source/bureau")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Habilitar o alternar Buró crediticio simulado para el tenant actual" })
+  enableBureauSource(@Req() request: TenantRequest, @Body() body?: { enabled?: boolean }) {
+    return this.preparation.enableBureau(request.tenantContext, body?.enabled ?? true);
+  }
+
+  @Post("sources/:sourceCode")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Habilitar o alternar una fuente financiera por código para el tenant actual" })
+  toggleSource(
+    @Param("sourceCode") sourceCode: string,
+    @Req() request: TenantRequest,
+    @Body() body?: { enabled?: boolean },
+  ) {
+    if (sourceCode === "BUREAU_MOCK" || sourceCode === "bureau") {
+      return this.preparation.enableBureau(request.tenantContext, body?.enabled ?? true);
+    }
+    return this.preparation.enableBank(request.tenantContext);
+  }
+
   @Post("products")
   @UseGuards(InstitutionOriginGuard)
   @ApiCookieAuth()

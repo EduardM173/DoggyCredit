@@ -1,10 +1,13 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../infrastructure/prisma/prisma.module.js";
-import { ApplicantRecords } from "./public.js";
-import { ApplicantRecordsService } from "./applicant-records.service.js";
+import { IdentityTenantsModule } from "../identity-tenants/identity-tenants.module.js";
+import { ClientsService } from "./clients.service.js";
+import { ClientsController } from "./clients.controller.js";
+
 @Module({
-  imports: [PrismaModule],
-  providers: [{ provide: ApplicantRecords, useClass: ApplicantRecordsService }],
-  exports: [ApplicantRecords],
+  imports: [PrismaModule, IdentityTenantsModule],
+  controllers: [ClientsController],
+  providers: [ClientsService],
+  exports: [ClientsService],
 })
 export class ClientsModule {}

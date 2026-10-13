@@ -5,11 +5,6 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
-  abstract recordEvaluationPrepared(event: {
-    tenantId: string;
-    actorUserId: string;
-    evaluationId: string;
-  }): Promise<void>;
   abstract recordTeamInvitation(event: {
     tenantId: string;
     actorUserId: string;
@@ -22,6 +17,8 @@ export abstract class AuditWriter {
     action:
       | "INSTITUTION_INFORMATION_CONFIRMED"
       | "BANK_MOCK_ENABLED"
+      | "BUREAU_MOCK_ENABLED"
+      | "BUREAU_MOCK_DISABLED"
       | "INSTITUTION_PRODUCTS_CONFIRMED"
       | "INSTITUTION_PREPARED";
   }): Promise<void>;
@@ -38,6 +35,24 @@ export abstract class AuditWriter {
     contractingId: string;
     membershipId: string;
     planId: string;
+  }): Promise<void>;
+  abstract recordEvaluationDraft(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+  }): Promise<void>;
+  abstract recordEvaluationProcessed(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    status: string;
+  }): Promise<void>;
+  abstract recordProductCatalogAction(event: {
+    tenantId: string;
+    actorUserId: string;
+    productId: string;
+    action: "PRODUCT_CREATED" | "PRODUCT_UPDATED" | "PRODUCT_ACTIVATED" | "PRODUCT_DEACTIVATED";
+    metadata?: Record<string, unknown>;
   }): Promise<void>;
 }
 

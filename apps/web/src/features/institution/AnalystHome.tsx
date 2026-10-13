@@ -28,11 +28,7 @@ export function AnalystHome({
           <FileText size={34} />
           <div>
             <h2>Nueva evaluación</h2>
-            <p>Identifica al solicitante y prepara su solicitud crediticia.</p>
-            <Link className="institution-primary" to={`/${slug}/evaluaciones/nueva`}>
-              <Plus size={20} />
-              Nueva evaluación
-            </Link>
+            <p>El formulario de evaluación estará disponible en la siguiente etapa del proyecto.</p>
           </div>
         </section>
       </main>
@@ -47,7 +43,10 @@ export function AnalystHome({
           <FileText size={36} />
           <div>
             <h2>Realiza tu primera evaluación</h2>
-            <p>Identifica al solicitante y registra su necesidad crediticia.</p>
+            <p>
+              Identifica al solicitante y registra su necesidad crediticia para generar recomendaciones de
+              productos compatibles.
+            </p>
             {ready ? (
               <Link className="institution-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={20} /> Nueva evaluación
@@ -72,7 +71,7 @@ export function AnalystHome({
         </section>
       </div>
       <p className="analyst-note">
-        <ListChecks size={19} /> Prepara una nueva solicitud desde Evaluaciones.
+        <ListChecks size={19} /> Tus evaluaciones aparecerán aquí cuando el módulo esté habilitado.
       </p>
     </main>
   );
