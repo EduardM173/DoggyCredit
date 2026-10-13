@@ -53,6 +53,14 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    files: ["tools/control-center/server.mjs"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["tools/control-center/app.js"],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ["apps/api/**/*.ts", "prisma/**/*.ts"],
     languageOptions: { globals: globals.node },
   },
