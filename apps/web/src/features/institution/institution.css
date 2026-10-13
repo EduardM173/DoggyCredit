@@ -242,6 +242,10 @@
   background: #f0f8fe;
 }
 .institution-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
   background: #082c53;
   color: white;
   padding: 25px 16px;
@@ -922,6 +926,9 @@
     grid-template-columns: 1fr;
   }
   .institution-sidebar {
+    position: static;
+    height: auto;
+    overflow-y: visible;
     flex-direction: row;
     gap: 14px;
     align-items: center;
