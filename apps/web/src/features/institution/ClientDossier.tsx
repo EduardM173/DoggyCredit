@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { fetchClientDossier, type ClientDossierDto } from "./api";
 import "./evaluations.css";
+import "./ClientDossier.css";
 
 const PURPOSE_LABELS: Record<string, string> = {
   WORKING_CAPITAL: "Capital de trabajo",
@@ -160,8 +161,8 @@ export function ClientDossier({
   const isCompany = client.type === "COMPANY";
 
   return (
-    <main className="eval-container">
-      <div className="institution-breadcrumb" style={{ marginBottom: 16 }}>
+    <main className="eval-container dossier-page">
+      <div className="institution-breadcrumb dossier-breadcrumb">
         <Link to={`/${slug}`}>Inicio</Link>
         <ArrowRight size={16} />
         <Link to={`/${slug}/evaluaciones`}>Evaluaciones</Link>
@@ -169,7 +170,7 @@ export function ClientDossier({
         <span>Expediente</span>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div className="dossier-back">
         <Link
           to={backUrl}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1267e8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
@@ -178,14 +179,14 @@ export function ClientDossier({
         </Link>
       </div>
 
-      <div className="eval-card">
+      <div className="dossier-content">
         {/* Header Summary */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, borderBottom: "1px solid #d9e4f0", paddingBottom: 20 }}>
-          <div>
+        <div className="dossier-header">
+          <div className="dossier-identity">
             <div className="eval-eyebrow">
               {isCompany ? "EXPEDIENTE EMPRESARIAL" : "EXPEDIENTE DE PERSONA NATURAL"}
             </div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color: "#0b1f4d", margin: "4px 0", display: "flex", alignItems: "center", gap: 10 }}>
+            <h1>
               {isCompany ? <Building2 size={26} color="#1267e8" /> : <User size={26} color="#1267e8" />}
               {client.name}
             </h1>
@@ -195,7 +196,7 @@ export function ClientDossier({
             </p>
           </div>
 
-          <div>
+          <div className="dossier-header-action">
             {ready && (
               <Link
                 className="eval-btn-primary"
@@ -217,21 +218,21 @@ export function ClientDossier({
         </div>
 
         {/* Section 1: Current Declared Information (CA-19.01, CA-19.02, CA-19.03) */}
-        <div style={{ marginTop: 24 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0b1f4d", margin: "0 0 14px" }}>
+        <section className="dossier-section">
+          <h2>
             Datos declarados del solicitante (vigentes)
           </h2>
 
-          <div className="eval-profile-grid">
+          <div className="eval-profile-grid dossier-fields">
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Razón social / Nombre</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>{client.name}</span>
+              <span className="eval-indicator-value">{client.name}</span>
               <span className="eval-indicator-sub">Identificación legal principal</span>
             </div>
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Documento de identidad</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+              <span className="eval-indicator-value">
                 {client.documentType}: {client.documentNumber}
               </span>
               <span className="eval-indicator-sub">Número oficial registrado</span>
@@ -239,7 +240,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Tipo de solicitante</span>
-              <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+              <span className="eval-indicator-value">
                 {isCompany ? "Empresa / Persona Jurídica" : "Persona Natural"}
               </span>
               <span className="eval-indicator-sub">Alcance de sujeto crediticio</span>
@@ -247,7 +248,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Actividad económica</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15 }}>
+              <span className="eval-indicator-value">
                 {client.economicActivity || "No registrada"}
               </span>
               <span className="eval-indicator-sub">Rubro comercial declarado</span>
@@ -255,7 +256,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Correo electrónico</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15, wordBreak: "break-all" }}>
+              <span className="eval-indicator-value">
                 {client.email || "No registrado"}
               </span>
               <span className="eval-indicator-sub">Contacto digital</span>
@@ -263,7 +264,7 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Teléfono de contacto</span>
-              <span className="eval-indicator-value" style={{ fontSize: 15 }}>
+              <span className="eval-indicator-value">
                 {client.phone || "No registrado"}
               </span>
               <span className="eval-indicator-sub">Contacto telefónico</span>
@@ -271,26 +272,26 @@ export function ClientDossier({
 
             <div className="eval-indicator-card">
               <span className="eval-indicator-label">Dirección declarada</span>
-              <span className="eval-indicator-value" style={{ fontSize: 14 }}>
+              <span className="eval-indicator-value">
                 {client.address || "No registrada"}
               </span>
               <span className="eval-indicator-sub">Domicilio registrado</span>
             </div>
           </div>
 
-          <div className="eval-provenance-box" style={{ marginTop: 14 }}>
+          <div className="eval-provenance-box dossier-note">
             <Lock size={16} />
             <span>
               <strong>Consulta protegida:</strong> Información declarada actual del expediente. Esta vista es de solo
               lectura para preservar la trazabilidad e inmutabilidad de evaluaciones crediticias pasadas (CA-19.02, CA-19.03).
             </span>
           </div>
-        </div>
+        </section>
 
         {/* Section 2: Linked Credit Evaluations (CA-19.04, CA-19.05, PA-19.01, PA-19.02) */}
-        <div style={{ marginTop: 32, borderTop: "1px solid #d9e4f0", paddingTop: 24 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
+        <section className="dossier-section">
+          <div className="dossier-section-heading">
+            <h2>
               Evaluaciones crediticias vinculadas ({evaluations.length})
             </h2>
             <span style={{ fontSize: 13, color: "#51627d" }}>
@@ -306,7 +307,7 @@ export function ClientDossier({
               </p>
             </div>
           ) : (
-            <div style={{ overflow: "hidden", border: "1px solid #d9e4f0", borderRadius: 10 }}>
+            <div className="dossier-table-wrap" role="region" aria-label="Evaluaciones crediticias vinculadas" tabIndex={0}>
               <table className="eval-list-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
@@ -358,20 +359,20 @@ export function ClientDossier({
             </div>
           )}
 
-          <p style={{ fontSize: 13, color: "#51627d", margin: "10px 0 0" }}>
+          <p className="dossier-history-note">
             Los resultados y condiciones de cada caso corresponden a su snapshot histórico congelado (CA-19.04, PA-19.02).
           </p>
-        </div>
+        </section>
 
         {/* Section 3: External Financial Indicators (CA-19.02, CA-19.07, PA-19.03) */}
-        <div style={{ marginTop: 32, borderTop: "1px solid #d9e4f0", paddingTop: 24 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: "#0b1f4d", margin: "0 0 12px" }}>
+        <section className="dossier-section">
+          <h2>
             Antecedentes e indicadores de fuentes financieras
           </h2>
 
           {latestFinancialProfile ? (
             <>
-              <div className="eval-profile-grid">
+              <div className="eval-profile-grid dossier-fields dossier-financial-fields">
                 <div className="eval-indicator-card">
                   <span className="eval-indicator-label">Ingreso mensual promedio</span>
                   <span className={`eval-indicator-value ${latestFinancialProfile.averageMonthlyIncome === null ? "eval-indicator-unavailable" : ""}`}>
@@ -441,7 +442,7 @@ export function ClientDossier({
                 </div>
               </div>
 
-              <div className="eval-provenance-box" style={{ marginTop: 14 }}>
+              <div className="eval-provenance-box dossier-note">
                 <ShieldCheck size={16} />
                 <span>
                   <strong>Dato financiero protegido:</strong> Indicadores derivados automáticamente de fuentes simuladas (Banco y Buró).
@@ -456,10 +457,10 @@ export function ClientDossier({
               </p>
             </div>
           )}
-        </div>
+        </section>
 
         {/* Footer actions */}
-        <div className="eval-actions" style={{ marginTop: 32 }}>
+        <div className="eval-actions dossier-actions">
           <Link className="eval-btn-secondary" to={backUrl}>
             <ArrowLeft size={16} /> Volver
           </Link>

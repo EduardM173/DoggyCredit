@@ -327,6 +327,11 @@ describe("HU-11 EvaluationDetail", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Recomendación de Productos Crediticios")).toBeInTheDocument();
+      expect(
+        screen.getByText("Recomendación de Productos Crediticios").compareDocumentPosition(
+          screen.getByText("Perfil Financiero Básico"),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(screen.getByText("Microcrédito Emprendedor")).toBeInTheDocument();
       expect(screen.getByText("Compatible")).toBeInTheDocument();
       expect(screen.getByText("Finalidad del crédito admitida para este producto.")).toBeInTheDocument();
@@ -392,6 +397,11 @@ describe("HU-11 EvaluationDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("COMPLETADA")).toBeInTheDocument();
       expect(screen.getByText("Ningún producto compatible para este perfil")).toBeInTheDocument();
+      expect(
+        screen.getByText("Ningún producto compatible para este perfil").compareDocumentPosition(
+          screen.getByText("Perfil Financiero Básico"),
+        ) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
       expect(
         screen.getByText("Ver otros productos evaluados no compatibles (1)"),
       ).toBeInTheDocument();

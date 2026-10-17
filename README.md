@@ -147,6 +147,8 @@ No uses `prisma db push` como reemplazo de las migraciones.
 
 ## Ejecución
 
+Para la presentación en Windows, abre [Abrir-Panel.cmd](tools/control-center/Abrir-Panel.cmd). El panel independiente muestra PostgreSQL, API, web y la preparación de DoggyPay QR; permite iniciar o detener procesos, comprobar la URL accesible desde la red local y ver registros. Consulta [Control local de servicios](docs/control-center.md).
+
 Inicia frontend y backend juntos:
 
 ```bash

@@ -25,6 +25,7 @@ import {
   type ProfileIndicatorProvenanceDto,
 } from "./api";
 import "./evaluations.css";
+import "./EvaluationDetail.css";
 
 const PURPOSE_LABELS: Record<string, string> = {
   WORKING_CAPITAL: "Capital de trabajo",
@@ -109,7 +110,6 @@ export function EvaluationDetail({ slug }: { slug: string }) {
     return <span className={`eval-indicator-provenance ${cls}`}>{label}</span>;
   }
 
-
   if (loading) {
     return (
       <main className="eval-container">
@@ -147,24 +147,30 @@ export function EvaluationDetail({ slug }: { slug: string }) {
   const profile = evaluation.profile;
 
   return (
-    <main className="eval-container">
+    <main className="eval-container results-page">
       <div style={{ marginBottom: 16 }}>
         <Link
           to={backUrl}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1267e8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: "#1267e8",
+            fontSize: 14,
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
         >
           <ArrowLeft size={16} /> Volver a lista de evaluaciones
         </Link>
       </div>
 
-      <div className="eval-card">
+      <div className="results-content">
         {/* Header Summary */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, borderBottom: "1px solid #d9e4f0", paddingBottom: 20 }}>
-          <div>
+        <div className="results-header">
+          <div className="results-identity">
             <div className="eval-eyebrow">Evaluación crediticia</div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#0b1f4d", margin: "4px 0" }}>
-              {evaluation.clientName}
-            </h1>
+            <h1>{evaluation.clientName}</h1>
             <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
               {evaluation.documentType}: <strong>{evaluation.documentNumber}</strong> · Finalidad:{" "}
               <strong>{PURPOSE_LABELS[evaluation.purpose] || evaluation.purpose}</strong>
@@ -175,14 +181,22 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   to={`/${slug}/clientes/${evaluation.clientId}`}
                   state={{ from: `${location.pathname}${location.search}` }}
                   className="eval-btn-secondary"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, height: 32, padding: "0 10px", textDecoration: "none" }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 13,
+                    height: 32,
+                    padding: "0 10px",
+                    textDecoration: "none",
+                  }}
                 >
                   <User size={15} /> Ver expediente del solicitante
                 </Link>
               </div>
             )}
           </div>
-          <div style={{ textAlign: "right" }}>
+          <div className="results-request">
             <span className={`eval-status-badge eval-status-${evaluation.status}`}>
               {evaluation.status === "COMPLETED"
                 ? "COMPLETADA"
@@ -202,13 +216,10 @@ export function EvaluationDetail({ slug }: { slug: string }) {
 
         {/* Multi-source coverage badges (HU-15) */}
         {evaluation.sourceResults && evaluation.sourceResults.length > 0 && (
-          <div className="eval-sources-container" aria-label="Fuentes consultadas">
+          <div className="eval-sources-container results-sources" aria-label="Fuentes consultadas">
             <span className="eval-sources-title">Fuentes consultadas:</span>
             {evaluation.sourceResults.map((sr) => (
-              <span
-                key={sr.id}
-                className={`eval-source-badge eval-source-badge-${sr.status.toLowerCase()}`}
-              >
+              <span key={sr.id} className={`eval-source-badge eval-source-badge-${sr.status.toLowerCase()}`}>
                 {sr.status === "SUCCESS" ? (
                   <CheckCircle2 size={13} />
                 ) : sr.status === "NO_DATA" ? (
@@ -244,7 +255,10 @@ export function EvaluationDetail({ slug }: { slug: string }) {
 
         {/* Error alert if processing failed */}
         {error && (
-          <div className="eval-client-badge" style={{ borderColor: "#fda29b", background: "#fef3f2", marginTop: 16 }}>
+          <div
+            className="eval-client-badge"
+            style={{ borderColor: "#fda29b", background: "#fef3f2", marginTop: 16 }}
+          >
             <AlertCircle size={20} color="#b42318" />
             <p style={{ margin: 0, color: "#7a271a", fontSize: 14 }}>{error}</p>
           </div>
@@ -253,7 +267,15 @@ export function EvaluationDetail({ slug }: { slug: string }) {
         {/* Status DRAFT view */}
         {!processing && evaluation.status === "DRAFT" && (
           <div style={{ padding: "28px 0 12px" }}>
-            <div style={{ background: "#f5f9fb", border: "1px solid #d9e4f0", borderRadius: 12, padding: 20, marginBottom: 20 }}>
+            <div
+              style={{
+                background: "#f5f9fb",
+                border: "1px solid #d9e4f0",
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 20,
+              }}
+            >
               <h3 style={{ fontSize: 16, fontWeight: 600, color: "#0b1f4d", margin: "0 0 8px" }}>
                 Expediente preparado y autorizado
               </h3>
@@ -271,139 +293,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
 
         {/* Status COMPLETED: Financial Profile Dashboard */}
         {!processing && evaluation.status === "COMPLETED" && profile && (
-          <div className="eval-profile-section">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
-                Perfil Financiero {evaluation.sourceResults && evaluation.sourceResults.length > 1 ? "Consolidado" : "Básico"}
-              </h2>
-              <span style={{ fontSize: 13, color: "#51627d", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <Clock size={14} /> Calculado el {new Date(profile.calculatedAt).toLocaleDateString()}
-              </span>
-            </div>
-
-            {/* Buró NO_DATA banner (CA-15.06, CA-15.13) */}
-            {(() => {
-              const bureauSr = evaluation.sourceResults?.find(
-                (sr) => sr.providerCode === "BUREAU_MOCK" || sr.providerName?.toLowerCase().includes("buró"),
-              );
-              if (bureauSr && bureauSr.status === "NO_DATA") {
-                return (
-                  <div className="eval-bureau-nodata-banner" role="status">
-                    <AlertCircle size={18} color="#b54708" style={{ flexShrink: 0 }} />
-                    <span>
-                      <strong>Sin antecedentes en Buró:</strong> El solicitante no registra historial previo en el Buró de Crédito. El perfil financiero se calculó con los datos disponibles de la fuente bancaria (CA-15.06, CA-15.13).
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            <div className="eval-profile-grid">
-              {/* 1. Ingreso promedio */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Ingreso mensual promedio</span>
-                <span className={`eval-indicator-value ${profile.averageMonthlyIncome === null ? "eval-indicator-unavailable" : ""}`}>
-                  {formatMoney(profile.averageMonthlyIncome)}
-                </span>
-                <span className="eval-indicator-sub">Promedio de ingresos reportados</span>
-                {renderProvenance("averageMonthlyIncome")}
-              </div>
-
-              {/* 2. Gastos promedio */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Gastos mensuales promedio</span>
-                <span className={`eval-indicator-value ${profile.averageMonthlyExpenses === null ? "eval-indicator-unavailable" : ""}`}>
-                  {formatMoney(profile.averageMonthlyExpenses)}
-                </span>
-                <span className="eval-indicator-sub">Egresos habituales registrados</span>
-                {renderProvenance("averageMonthlyExpenses")}
-              </div>
-
-              {/* 3. Ingreso disponible */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Capacidad disponible</span>
-                <span className={`eval-indicator-value ${profile.disposableIncome === null ? "eval-indicator-unavailable" : ""}`}>
-                  {formatMoney(profile.disposableIncome)}
-                </span>
-                <span className="eval-indicator-sub">Margen neto (Ingresos - Gastos)</span>
-                {renderProvenance("disposableIncome")}
-              </div>
-
-              {/* 4. Deuda total */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Deuda total acumulada</span>
-                <span className={`eval-indicator-value ${profile.totalDebt === null ? "eval-indicator-unavailable" : ""}`}>
-                  {formatMoney(profile.totalDebt)}
-                </span>
-                <span className="eval-indicator-sub">Saldo vigente de obligaciones</span>
-                {renderProvenance("totalDebt")}
-              </div>
-
-              {/* 5. Creditos activos */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Créditos activos</span>
-                <span className="eval-indicator-value">
-                  {profile.activeCredits !== null ? profile.activeCredits : "No disponible"}
-                </span>
-                <span className="eval-indicator-sub">Obligaciones financieras vigentes</span>
-                {renderProvenance("activeCredits")}
-              </div>
-
-              {/* 6. DTI */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Relación deuda / ingreso (DTI)</span>
-                <span className={`eval-indicator-value ${profile.debtToIncome === null ? "eval-indicator-unavailable" : ""}`}>
-                  {profile.debtToIncome !== null ? `${(profile.debtToIncome * 100).toFixed(2)}%` : "No disponible"}
-                </span>
-                <span className="eval-indicator-sub">Porcentaje de ingresos para pago de deuda</span>
-                {renderProvenance("debtToIncome")}
-              </div>
-
-              {/* 7. Mora reciente */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Historial de mora reciente</span>
-                <span className="eval-indicator-value" style={{ fontSize: 16 }}>
-                  {profile.hasRecentArrears === null ? (
-                    <span className="eval-indicator-unavailable">No disponible</span>
-                  ) : profile.hasRecentArrears ? (
-                    <span style={{ color: "#b42318", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <AlertTriangle size={18} /> Con atrasos vigentes
-                    </span>
-                  ) : (
-                    <span style={{ color: "#067647", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <CheckCircle2 size={18} /> Sin mora registrada
-                    </span>
-                  )}
-                </span>
-                <span className="eval-indicator-sub">Días de atraso en entidades financieras</span>
-                {renderProvenance("hasRecentArrears")}
-              </div>
-
-              {/* 8. Completitud */}
-              <div className="eval-indicator-card">
-                <span className="eval-indicator-label">Completitud del perfil</span>
-                <span className="eval-indicator-value" style={{ color: "#1267e8" }}>
-                  {(profile.completeness * 100).toFixed(0)}%
-                </span>
-                <span className="eval-indicator-sub">Indicadores calculables / evaluables</span>
-              </div>
-            </div>
-
-            {/* Provenance and immutability notice */}
-            <div className="eval-provenance-box">
-              <Lock size={16} />
-              <span>
-                Fuentes consultadas:{" "}
-                {evaluation.sourceResults && evaluation.sourceResults.length > 0
-                  ? evaluation.sourceResults
-                      .map((s) => s.providerName || (s.providerCode === "BANK_MOCK" ? "Banco Unión" : "Buró de Crédito"))
-                      .join(", ")
-                  : "Banco Unión Mock"}
-                {" "}· Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-15.11).
-              </span>
-            </div>
-
+          <div className="eval-profile-section results-profile-section">
             {/* Recommendations Section (HU-12 / HU-17) */}
             {(() => {
               const recommendations = evaluation.recommendations || [];
@@ -412,9 +302,19 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               const incompatible = recommendations.filter((r) => r.outcome === "NOT_COMPATIBLE");
 
               return (
-                <div className="eval-recommendations-section">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
+                <div className="eval-recommendations-section results-recommendations-section">
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <h2
+                      className="results-recommendations-heading"
+                      style={{ fontWeight: 700, color: "#0b1f4d", margin: 0 }}
+                    >
                       Recomendación de Productos Crediticios
                     </h2>
                     <span style={{ fontSize: 13, color: "#51627d" }}>
@@ -422,7 +322,8 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                     </span>
                   </div>
                   <p style={{ fontSize: 14, color: "#51627d", margin: "0 0 16px" }}>
-                    Comparación automática del perfil financiero con el catálogo de productos activos de tu institución.
+                    Comparación automática del perfil financiero con el catálogo de productos activos de tu
+                    institución.
                   </p>
 
                   {/* 1. Compatible products */}
@@ -432,7 +333,15 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                         <div key={rec.id} className="eval-rec-card eval-rec-card-recommended">
                           <div className="eval-rec-header">
                             <div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  marginBottom: 4,
+                                  flexWrap: "wrap",
+                                }}
+                              >
                                 <h3 className="eval-rec-title">{rec.productName}</h3>
                                 <span className="eval-rec-badge-secondary">
                                   {CATEGORY_NAMES[rec.category] || rec.category}
@@ -443,13 +352,12 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                                   </span>
                                 )}
                                 {index > 0 && recommended.length > 1 && (
-                                  <span className="eval-rec-badge-secondary">
-                                    Alternativa compatible
-                                  </span>
+                                  <span className="eval-rec-badge-secondary">Alternativa compatible</span>
                                 )}
                               </div>
                               <div className="eval-rec-meta">
-                                Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                                Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs.{" "}
+                                {rec.maxAmount.toLocaleString("es-BO")}
                               </div>
                             </div>
                             <span className="eval-rec-badge-primary">
@@ -458,13 +366,25 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                           </div>
 
                           <div style={{ borderTop: "1px solid #d9f3e4", paddingTop: 12 }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: "#027a48", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "#027a48",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.04em",
+                              }}
+                            >
                               Criterios evaluados y cumplidos
                             </span>
                             <ul className="eval-rec-reasons-list">
                               {rec.reasons.map((reason) => (
                                 <li key={reason.code} className="eval-rec-reason-item eval-rec-reason-passed">
-                                  <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                  <CheckCircle2
+                                    size={16}
+                                    color="#067647"
+                                    style={{ flexShrink: 0, marginTop: 1 }}
+                                  />
                                   <span>{reason.message}</span>
                                 </li>
                               ))}
@@ -475,14 +395,15 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                     </div>
                   ) : (
                     <div className="eval-no-compat-box">
-                      <AlertCircle size={36} color="#b54708" style={{ margin: "0 auto 12px" }} />
+                      <AlertCircle size={36} color="#b54708" />
                       <h3 style={{ fontSize: 16, fontWeight: 700, color: "#0b1f4d", margin: "0 0 6px" }}>
                         Ningún producto compatible para este perfil
                       </h3>
-                      <p style={{ margin: 0, fontSize: 14, color: "#51627d", maxWidth: 520, marginInline: "auto" }}>
-                        El perfil financiero del solicitante no cumple con los criterios de admisibilidad ni parámetros
-                        de los productos crediticios activos actualmente en la institución. La evaluación concluye como completada
-                        sin productos compatibles, sin registrar un rechazo formal de crédito (CA-17.07, PA-17.05).
+                      <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
+                        El perfil financiero del solicitante no cumple con los criterios de admisibilidad ni
+                        parámetros de los productos crediticios activos actualmente en la institución. La
+                        evaluación concluye como completada sin productos compatibles, sin registrar un
+                        rechazo formal de crédito (CA-17.07, PA-17.05).
                       </p>
                     </div>
                   )}
@@ -491,11 +412,24 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   {notEvaluable.length > 0 && (
                     <div style={{ marginTop: 24 }}>
                       <div style={{ marginBottom: 12 }}>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#b54708", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 6 }}>
-                          <AlertTriangle size={16} /> Productos con condiciones no comprobadas por información insuficiente ({notEvaluable.length})
+                        <h3
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: "#b54708",
+                            margin: "0 0 4px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <AlertTriangle size={16} /> Productos con condiciones no comprobadas por información
+                          insuficiente ({notEvaluable.length})
                         </h3>
                         <p style={{ fontSize: 13, color: "#712f06", margin: 0 }}>
-                          Estos productos no se descartan como incompatibles porque la información disponible en las fuentes consultadas fue insuficiente para verificar todas sus condiciones (CA-17.05, CA-17.13).
+                          Estos productos no se descartan como incompatibles porque la información disponible
+                          en las fuentes consultadas fue insuficiente para verificar todas sus condiciones
+                          (CA-17.05, CA-17.13).
                         </p>
                       </div>
 
@@ -504,14 +438,25 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                           <div key={rec.id} className="eval-rec-card eval-rec-card-notevaluable">
                             <div className="eval-rec-header">
                               <div>
-                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                                  <h3 className="eval-rec-title" style={{ color: "#712f06" }}>{rec.productName}</h3>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    marginBottom: 4,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <h3 className="eval-rec-title" style={{ color: "#712f06" }}>
+                                    {rec.productName}
+                                  </h3>
                                   <span className="eval-rec-badge-secondary">
                                     {CATEGORY_NAMES[rec.category] || rec.category}
                                   </span>
                                 </div>
                                 <div className="eval-rec-meta">
-                                  Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                                  Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs.{" "}
+                                  {rec.maxAmount.toLocaleString("es-BO")}
                                 </div>
                               </div>
                               <span className="eval-rec-badge-notevaluable">
@@ -520,7 +465,15 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                             </div>
 
                             <div style={{ borderTop: "1px solid #fedf89", paddingTop: 12 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: "#b54708", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  color: "#b54708",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
+                                }}
+                              >
                                 Evaluación de condiciones
                               </span>
                               <ul className="eval-rec-reasons-list">
@@ -536,11 +489,23 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                                     }`}
                                   >
                                     {reason.status === "NOT_EVALUABLE" ? (
-                                      <AlertTriangle size={16} color="#b54708" style={{ flexShrink: 0, marginTop: 1 }} />
+                                      <AlertTriangle
+                                        size={16}
+                                        color="#b54708"
+                                        style={{ flexShrink: 0, marginTop: 1 }}
+                                      />
                                     ) : reason.passed ? (
-                                      <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                      <CheckCircle2
+                                        size={16}
+                                        color="#067647"
+                                        style={{ flexShrink: 0, marginTop: 1 }}
+                                      />
                                     ) : (
-                                      <XCircle size={16} color="#b42318" style={{ flexShrink: 0, marginTop: 1 }} />
+                                      <XCircle
+                                        size={16}
+                                        color="#b42318"
+                                        style={{ flexShrink: 0, marginTop: 1 }}
+                                      />
                                     )}
                                     <span>{reason.message}</span>
                                   </li>
@@ -584,14 +549,25 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                             <div key={rec.id} className="eval-rec-card eval-rec-card-incompatible">
                               <div className="eval-rec-header">
                                 <div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                                    <h3 className="eval-rec-title" style={{ color: "#344054" }}>{rec.productName}</h3>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 8,
+                                      marginBottom: 4,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <h3 className="eval-rec-title" style={{ color: "#344054" }}>
+                                      {rec.productName}
+                                    </h3>
                                     <span className="eval-rec-badge-secondary">
                                       {CATEGORY_NAMES[rec.category] || rec.category}
                                     </span>
                                   </div>
                                   <div className="eval-rec-meta">
-                                    Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs. {rec.maxAmount.toLocaleString("es-BO")}
+                                    Rango admisible: Bs. {rec.minAmount.toLocaleString("es-BO")} - Bs.{" "}
+                                    {rec.maxAmount.toLocaleString("es-BO")}
                                   </div>
                                 </div>
                                 <span className="eval-rec-badge-incompatible">
@@ -600,7 +576,15 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                               </div>
 
                               <div style={{ borderTop: "1px solid #eaecf0", paddingTop: 12 }}>
-                                <span style={{ fontSize: 12, fontWeight: 600, color: "#475467", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: "#475467",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.04em",
+                                  }}
+                                >
                                   Motivos de no compatibilidad
                                 </span>
                                 <ul className="eval-rec-reasons-list">
@@ -610,9 +594,17 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                                       className={`eval-rec-reason-item ${reason.passed ? "eval-rec-reason-passed" : "eval-rec-reason-failed"}`}
                                     >
                                       {reason.passed ? (
-                                        <CheckCircle2 size={16} color="#067647" style={{ flexShrink: 0, marginTop: 1 }} />
+                                        <CheckCircle2
+                                          size={16}
+                                          color="#067647"
+                                          style={{ flexShrink: 0, marginTop: 1 }}
+                                        />
                                       ) : (
-                                        <XCircle size={16} color="#b42318" style={{ flexShrink: 0, marginTop: 1 }} />
+                                        <XCircle
+                                          size={16}
+                                          color="#b42318"
+                                          style={{ flexShrink: 0, marginTop: 1 }}
+                                        />
                                       )}
                                       <span>{reason.message}</span>
                                     </li>
@@ -629,16 +621,190 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                   <div className="eval-disclaimer-box">
                     <ShieldCheck size={20} color="#1267e8" style={{ flexShrink: 0, marginTop: 1 }} />
                     <span>
-                      <strong>Aviso de recomendación:</strong> Este resultado constituye una recomendación técnica preliminar de
-                      compatibilidad crediticia basada en reglas institucionales. No representa una aprobación formal
-                      ni compromiso de desembolso por parte de la institución (CA-17.09).
+                      <strong>Aviso de recomendación:</strong> Este resultado constituye una recomendación
+                      técnica preliminar de compatibilidad crediticia basada en reglas institucionales. No
+                      representa una aprobación formal ni compromiso de desembolso por parte de la institución
+                      (CA-17.09).
                     </span>
                   </div>
                 </div>
               );
             })()}
 
-            <div className="eval-actions" style={{ marginTop: 28 }}>
+            <div className="results-financial-panel">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: 0 }}>
+                  Perfil Financiero{" "}
+                  {evaluation.sourceResults && evaluation.sourceResults.length > 1 ? "Consolidado" : "Básico"}
+                </h2>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "#51627d",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <Clock size={14} /> Calculado el {new Date(profile.calculatedAt).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Buró NO_DATA banner (CA-15.06, CA-15.13) */}
+              {(() => {
+                const bureauSr = evaluation.sourceResults?.find(
+                  (sr) =>
+                    sr.providerCode === "BUREAU_MOCK" || sr.providerName?.toLowerCase().includes("buró"),
+                );
+                if (bureauSr && bureauSr.status === "NO_DATA") {
+                  return (
+                    <div className="eval-bureau-nodata-banner" role="status">
+                      <AlertCircle size={18} color="#b54708" style={{ flexShrink: 0 }} />
+                      <span>
+                        <strong>Sin antecedentes en Buró:</strong> El solicitante no registra historial previo
+                        en el Buró de Crédito. El perfil financiero se calculó con los datos disponibles de la
+                        fuente bancaria (CA-15.06, CA-15.13).
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="eval-profile-grid results-indicators">
+                {/* 1. Ingreso promedio */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Ingreso mensual promedio</span>
+                  <span
+                    className={`eval-indicator-value ${profile.averageMonthlyIncome === null ? "eval-indicator-unavailable" : ""}`}
+                  >
+                    {formatMoney(profile.averageMonthlyIncome)}
+                  </span>
+                  <span className="eval-indicator-sub">Promedio de ingresos reportados</span>
+                  {renderProvenance("averageMonthlyIncome")}
+                </div>
+
+                {/* 2. Gastos promedio */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Gastos mensuales promedio</span>
+                  <span
+                    className={`eval-indicator-value ${profile.averageMonthlyExpenses === null ? "eval-indicator-unavailable" : ""}`}
+                  >
+                    {formatMoney(profile.averageMonthlyExpenses)}
+                  </span>
+                  <span className="eval-indicator-sub">Egresos habituales registrados</span>
+                  {renderProvenance("averageMonthlyExpenses")}
+                </div>
+
+                {/* 3. Ingreso disponible */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Capacidad disponible</span>
+                  <span
+                    className={`eval-indicator-value ${profile.disposableIncome === null ? "eval-indicator-unavailable" : ""}`}
+                  >
+                    {formatMoney(profile.disposableIncome)}
+                  </span>
+                  <span className="eval-indicator-sub">Margen neto (Ingresos - Gastos)</span>
+                  {renderProvenance("disposableIncome")}
+                </div>
+
+                {/* 4. Deuda total */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Deuda total acumulada</span>
+                  <span
+                    className={`eval-indicator-value ${profile.totalDebt === null ? "eval-indicator-unavailable" : ""}`}
+                  >
+                    {formatMoney(profile.totalDebt)}
+                  </span>
+                  <span className="eval-indicator-sub">Saldo vigente de obligaciones</span>
+                  {renderProvenance("totalDebt")}
+                </div>
+
+                {/* 5. Creditos activos */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Créditos activos</span>
+                  <span className="eval-indicator-value">
+                    {profile.activeCredits !== null ? profile.activeCredits : "No disponible"}
+                  </span>
+                  <span className="eval-indicator-sub">Obligaciones financieras vigentes</span>
+                  {renderProvenance("activeCredits")}
+                </div>
+
+                {/* 6. DTI */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Relación deuda / ingreso (DTI)</span>
+                  <span
+                    className={`eval-indicator-value ${profile.debtToIncome === null ? "eval-indicator-unavailable" : ""}`}
+                  >
+                    {profile.debtToIncome !== null
+                      ? `${(profile.debtToIncome * 100).toFixed(2)}%`
+                      : "No disponible"}
+                  </span>
+                  <span className="eval-indicator-sub">Porcentaje de ingresos para pago de deuda</span>
+                  {renderProvenance("debtToIncome")}
+                </div>
+
+                {/* 7. Mora reciente */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Historial de mora reciente</span>
+                  <span className="eval-indicator-value" style={{ fontSize: 16 }}>
+                    {profile.hasRecentArrears === null ? (
+                      <span className="eval-indicator-unavailable">No disponible</span>
+                    ) : profile.hasRecentArrears ? (
+                      <span
+                        style={{ color: "#b42318", display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        <AlertTriangle size={18} /> Con atrasos vigentes
+                      </span>
+                    ) : (
+                      <span
+                        style={{ color: "#067647", display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        <CheckCircle2 size={18} /> Sin mora registrada
+                      </span>
+                    )}
+                  </span>
+                  <span className="eval-indicator-sub">Días de atraso en entidades financieras</span>
+                  {renderProvenance("hasRecentArrears")}
+                </div>
+
+                {/* 8. Completitud */}
+                <div className="eval-indicator-card">
+                  <span className="eval-indicator-label">Completitud del perfil</span>
+                  <span className="eval-indicator-value" style={{ color: "#1267e8" }}>
+                    {(profile.completeness * 100).toFixed(0)}%
+                  </span>
+                  <span className="eval-indicator-sub">Indicadores calculables / evaluables</span>
+                </div>
+              </div>
+
+              {/* Provenance and immutability notice */}
+              <div className="eval-provenance-box">
+                <Lock size={16} />
+                <span>
+                  Fuentes consultadas:{" "}
+                  {evaluation.sourceResults && evaluation.sourceResults.length > 0
+                    ? evaluation.sourceResults
+                        .map(
+                          (s) =>
+                            s.providerName ||
+                            (s.providerCode === "BANK_MOCK" ? "Banco Unión" : "Buró de Crédito"),
+                        )
+                        .join(", ")
+                    : "Banco Unión Mock"}{" "}
+                  · Perfil v{profile.profileVersion} · Lectura protegida contra edición manual (CA-15.11).
+                </span>
+              </div>
+            </div>
+
+            <div className="eval-actions results-actions">
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={18} /> Nueva evaluación
               </Link>
@@ -652,7 +818,10 @@ export function EvaluationDetail({ slug }: { slug: string }) {
         {/* Status INCOMPLETE (NO_DATA) */}
         {!processing && evaluation.status === "INCOMPLETE" && (
           <div style={{ marginTop: 24 }}>
-            <div className="eval-client-badge" style={{ borderColor: "#fedf89", background: "#fffaeb", padding: 20 }}>
+            <div
+              className="eval-client-badge"
+              style={{ borderColor: "#fedf89", background: "#fffaeb", padding: 20 }}
+            >
               <AlertCircle size={28} color="#b54708" />
               <div>
                 <h3 style={{ color: "#b54708", margin: "0 0 6px", fontSize: 16 }}>
@@ -665,8 +834,8 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               </div>
             </div>
             <p style={{ fontSize: 14, color: "#51627d", marginTop: 12 }}>
-              La evaluación se cerró con información parcial debido a la ausencia de registros previos en
-              la entidad bancaria consultada.
+              La evaluación se cerró con información parcial debido a la ausencia de registros previos en la
+              entidad bancaria consultada.
             </p>
             <div className="eval-actions" style={{ marginTop: 24 }}>
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
@@ -682,7 +851,10 @@ export function EvaluationDetail({ slug }: { slug: string }) {
         {/* Status FAILED (UNAVAILABLE or ERROR) */}
         {!processing && evaluation.status === "FAILED" && (
           <div style={{ marginTop: 24 }}>
-            <div className="eval-client-badge" style={{ borderColor: "#fda29b", background: "#fef3f2", padding: 20 }}>
+            <div
+              className="eval-client-badge"
+              style={{ borderColor: "#fda29b", background: "#fef3f2", padding: 20 }}
+            >
               <AlertTriangle size={28} color="#b42318" />
               <div>
                 <h3 style={{ color: "#b42318", margin: "0 0 6px", fontSize: 16 }}>

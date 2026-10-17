@@ -32,9 +32,35 @@ describe("HU-10 EvaluationWizard", () => {
     );
 
     expect(screen.getByText("Institución pendiente de preparación")).toBeInTheDocument();
-    expect(
-      screen.getByText(/debe completar su preparación institucional/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/debe completar su preparación institucional/i)).toBeInTheDocument();
+  });
+
+  it("allows entering a new applicant when the search returns no content", async () => {
+    fetchMock.mockImplementation((url: string) =>
+      url.includes("/clients/search")
+        ? Promise.resolve({
+            ok: true,
+            status: 204,
+            json: async () => {
+              throw new Error("No body");
+            },
+          })
+        : jsonResponse({}),
+    );
+
+    render(
+      <MemoryRouter>
+        <EvaluationWizard slug="banco-sol" tenantName="Banco del Sol" ready={true} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Documento de identidad/i), {
+      target: { value: "343243253252" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Buscar/i }));
+
+    expect(await screen.findByLabelText(/Nombre completo del solicitante/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Unexpected end of JSON input/i)).not.toBeInTheDocument();
   });
 
   it("searches existing client and preserves data across steps to create draft evaluation", async () => {
@@ -170,7 +196,11 @@ describe("HU-10 EvaluationWizard", () => {
         if (typeof url === "string" && url.includes("/clients/search")) {
           return jsonResponse(existingCompany);
         }
-        if (options?.method === "POST" && typeof url === "string" && (url.includes("/evaluations") || url.includes("/evaluaciones"))) {
+        if (
+          options?.method === "POST" &&
+          typeof url === "string" &&
+          (url.includes("/evaluations") || url.includes("/evaluaciones"))
+        ) {
           capturedPayload = JSON.parse(options.body as string);
           return jsonResponse(createdCompanyEval);
         }
@@ -210,9 +240,7 @@ describe("HU-10 EvaluationWizard", () => {
       expect(screen.getByText("Tecnología Los Andes S.R.L.")).toBeInTheDocument();
       expect(screen.getByText("1020304050")).toBeInTheDocument();
       expect(screen.getByText("Servicios de Software")).toBeInTheDocument();
-      expect(
-        screen.getByText(/Autorización institucional de la empresa/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Autorización institucional de la empresa/)).toBeInTheDocument();
 
       // Accept consent & submit
       const consentCheckbox = screen.getByRole("checkbox");
@@ -248,7 +276,11 @@ describe("HU-10 EvaluationWizard", () => {
         if (typeof url === "string" && url.includes("/clients/search")) {
           return jsonResponse(null); // Not found
         }
-        if (options?.method === "POST" && typeof url === "string" && (url.includes("/evaluations") || url.includes("/evaluaciones"))) {
+        if (
+          options?.method === "POST" &&
+          typeof url === "string" &&
+          (url.includes("/evaluations") || url.includes("/evaluaciones"))
+        ) {
           capturedPayload = JSON.parse(options.body as string) as Record<string, unknown>;
           return jsonResponse({
             id: "eval-comp-new",
@@ -320,7 +352,8 @@ describe("HU-10 EvaluationWizard", () => {
                 PERSON: { supported: true },
                 COMPANY: {
                   supported: false,
-                  reason: "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos.",
+                  reason:
+                    "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos.",
                 },
               },
             }}

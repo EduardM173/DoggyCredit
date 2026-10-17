@@ -1,14 +1,6 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  Req,
-  UseGuards,
-} from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import {
   InstitutionOriginGuard,
   InstitutionSessionGuard,
@@ -34,18 +26,21 @@ export class EvaluationsController {
   @Get("clients/search")
   @ApiCookieAuth()
   @ApiOperation({ summary: "Buscar expediente de cliente dentro del tenant por tipo y documento" })
-  searchClient(
+  async searchClient(
     @Req() request: TenantRequest,
     @Query("documentType") documentType: DocumentTypeDto = DocumentTypeDto.CI,
     @Query("documentNumber") documentNumber = "",
     @Query("clientType") clientType: ClientTypeDto = ClientTypeDto.PERSON,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.evaluations.searchClient(
+    const client = await this.evaluations.searchClient(
       request.tenantContext,
       documentType,
       documentNumber,
       clientType,
     );
+    if (!client) response.status(204);
+    return client;
   }
 
   @Post()
