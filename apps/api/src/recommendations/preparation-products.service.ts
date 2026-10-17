@@ -1,11 +1,34 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { PreparationProducts, type SelectableProduct } from "./public.js";
+import { demoProducts } from "./demo-products.js";
 
 @Injectable()
 export class PreparationProductsService extends PreparationProducts {
   constructor(private readonly db: DatabaseUnitOfWork) {
     super();
+  }
+
+  async ensureDemoProducts(tenantId: string): Promise<void> {
+    for (const product of demoProducts) {
+      const existing = await this.db.client.financialProduct.findUnique({
+        where: { tenantId_name: { tenantId, name: product.name } },
+        select: { id: true },
+      });
+      if (existing) continue;
+      await this.db.client.financialProduct.create({
+        data: {
+          tenantId,
+          name: product.name,
+          category: product.category,
+          applicantScope: product.applicantScope,
+          minAmount: product.minAmount,
+          maxAmount: product.maxAmount,
+          active: false,
+          purposes: { create: product.purposes.map((purpose) => ({ purpose })) },
+        },
+      });
+    }
   }
 
   async list(tenantId: string): Promise<SelectableProduct[]> {

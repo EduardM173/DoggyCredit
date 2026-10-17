@@ -44,11 +44,11 @@ export function AnalystHome({
           <div>
             <h2>Realiza tu primera evaluación</h2>
             <p>
-              Identifica al solicitante y registra su necesidad crediticia cuando esté disponible el módulo de
-              evaluaciones.
+              Identifica al solicitante y registra su necesidad crediticia para generar recomendaciones de
+              productos compatibles.
             </p>
             {ready ? (
-              <Link className="institution-primary" to={`/${slug}/evaluaciones`}>
+              <Link className="institution-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={20} /> Nueva evaluación
               </Link>
             ) : (

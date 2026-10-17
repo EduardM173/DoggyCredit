@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { Prisma } from "../generated/prisma/client.js";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { AuditWriter, type RequestDecisionEvent, type CommerceAuditEvent } from "./public.js";
 
@@ -26,6 +27,8 @@ export class AuditService extends AuditWriter {
     action:
       | "INSTITUTION_INFORMATION_CONFIRMED"
       | "BANK_MOCK_ENABLED"
+      | "BUREAU_MOCK_ENABLED"
+      | "BUREAU_MOCK_DISABLED"
       | "INSTITUTION_PRODUCTS_CONFIRMED"
       | "INSTITUTION_PREPARED";
   }): Promise<void> {
@@ -101,6 +104,57 @@ export class AuditService extends AuditWriter {
         entityType: "InstitutionRequest",
         entityId: event.requestId,
         metadata: { fromStatus: "PENDING_REVIEW", toStatus: event.decision },
+      },
+    });
+  }
+  async recordEvaluationDraft(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: "EVALUATION_DRAFT_CREATED",
+        entityType: "Evaluation",
+        entityId: event.evaluationId,
+      },
+    });
+  }
+  async recordEvaluationProcessed(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    status: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: "EVALUATION_PROCESSED",
+        entityType: "Evaluation",
+        entityId: event.evaluationId,
+        metadata: { finalStatus: event.status },
+      },
+    });
+  }
+
+  async recordProductCatalogAction(event: {
+    tenantId: string;
+    actorUserId: string;
+    productId: string;
+    action: "PRODUCT_CREATED" | "PRODUCT_UPDATED" | "PRODUCT_ACTIVATED" | "PRODUCT_DEACTIVATED";
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: event.action,
+        entityType: "FinancialProduct",
+        entityId: event.productId,
+        metadata: (event.metadata as Prisma.InputJsonValue) ?? undefined,
       },
     });
   }

@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PlatformRole, PrismaClient, UserStatus } from "../apps/api/src/generated/prisma/client.js";
 import { hashPassword, verifyPassword } from "../apps/api/src/identity-tenants/auth/password-hashing.js";
+import { demoProducts } from "../apps/api/src/recommendations/demo-products.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -19,10 +20,12 @@ async function main() {
       process.env.SEED_DEMO_OPERATOR,
       process.env.SEED_DEMO_BACKOFFICE_USERS,
       process.env.SEED_DEMO_PRODUCTS,
+      process.env.SEED_DEMO_EVALUATIONS,
     ].includes("true") &&
     !["development", "test"].includes(process.env.NODE_ENV ?? "")
   )
     throw new Error("Demo seed is restricted to development/test.");
+  if (process.env.SEED_DEMO_EVALUATIONS === "true") await seedEvaluationPreparation();
   if (process.env.SEED_DEMO_BACKOFFICE_USERS === "true") {
     // Public local-only credentials; never provision institutional access from this seed.
     for (const account of [
@@ -87,34 +90,8 @@ async function main() {
       },
       select: { id: true },
     });
-    const products = [
-      {
-        name: "Microcrédito Emprendedor",
-        category: "MICRO_CREDIT" as const,
-        applicantScope: "PERSON" as const,
-        minAmount: "5000",
-        maxAmount: "50000",
-        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
-      },
-      {
-        name: "Crédito Verde",
-        category: "GREEN_CREDIT" as const,
-        applicantScope: "PERSON" as const,
-        minAmount: "10000",
-        maxAmount: "80000",
-        purposes: ["GREEN_PROJECT"] as const,
-      },
-      {
-        name: "Pyme Crece",
-        category: "SME_CREDIT" as const,
-        applicantScope: "COMPANY" as const,
-        minAmount: "20000",
-        maxAmount: "150000",
-        purposes: ["WORKING_CAPITAL", "BUSINESS_INVESTMENT"] as const,
-      },
-    ];
     for (const tenant of tenants)
-      for (const product of products) {
+      for (const product of demoProducts) {
         const existing = await prisma.financialProduct.findUnique({
           where: { tenantId_name: { tenantId: tenant.id, name: product.name } },
           select: { id: true },
@@ -154,6 +131,132 @@ async function main() {
     );
   }
   await seedOperator(email, fullName, password);
+}
+
+async function seedEvaluationPreparation() {
+  const provider = await prisma.integrationProvider.upsert({
+    where: { code: "BANK_MOCK" },
+    update: {},
+    create: { code: "BANK_MOCK", name: "Bank Mock", kind: "BANK", status: "ACTIVE" },
+  });
+  const fixtures = [
+    {
+      slug: "banco-del-sol-demo",
+      legalName: "Banco del Sol Demo",
+      taxId: "DEMO-HU10-SOL",
+      ready: true,
+      analystEmail: "carlos.hu10@doggycredit.local",
+    },
+    {
+      slug: "banco-luna-demo",
+      legalName: "Banco Luna Demo",
+      taxId: "DEMO-HU10-LUNA",
+      ready: true,
+      analystEmail: "analista.luna.hu10@doggycredit.local",
+    },
+    {
+      slug: "banco-pendiente-demo",
+      legalName: "Banco Pendiente Demo",
+      taxId: "DEMO-HU10-PENDIENTE",
+      ready: false,
+      analystEmail: "analista.pendiente.hu10@doggycredit.local",
+    },
+  ];
+  for (const fixture of fixtures) {
+    const tenant = await prisma.tenant.upsert({
+      where: { slug: fixture.slug },
+      update: {},
+      create: {
+        slug: fixture.slug,
+        legalName: fixture.legalName,
+        taxId: fixture.taxId,
+        institutionType: "BANK",
+        status: "ACTIVE",
+        informationConfirmedAt: fixture.ready ? new Date("2026-10-01T12:00:00Z") : null,
+        productsConfirmedAt: fixture.ready ? new Date("2026-10-01T12:00:00Z") : null,
+      },
+    });
+    if (tenant.taxId !== fixture.taxId)
+      throw new Error("Demo tenant slug is already used by another institution.");
+    for (const account of [
+      {
+        email: fixture.analystEmail,
+        name: "Carlos Pérez Demo",
+        role: "ANALYST" as const,
+        password: "DoggyAnalista2026!",
+      },
+      ...(fixture.slug === "banco-del-sol-demo"
+        ? [
+            {
+              email: "ana.hu10@doggycredit.local",
+              name: "Ana López Demo",
+              role: "INSTITUTION_ADMIN" as const,
+              password: "DoggyInstitucion2026!",
+            },
+          ]
+        : []),
+    ]) {
+      const existing = await prisma.user.findUnique({ where: { email: account.email } });
+      if (existing?.platformRole) throw new Error("Demo institutional account has a platform role.");
+      const user =
+        existing ??
+        (await prisma.user.create({
+          data: {
+            email: account.email,
+            fullName: account.name,
+            passwordHash: await hashPassword(account.password),
+            status: "ACTIVE",
+            emailVerifiedAt: new Date("2026-10-01T12:00:00Z"),
+          },
+        }));
+      await prisma.tenantMembership.upsert({
+        where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+        update: {},
+        create: { tenantId: tenant.id, userId: user.id, role: account.role, status: "ACTIVE" },
+      });
+    }
+    if (fixture.ready) {
+      await prisma.tenantIntegration.upsert({
+        where: { tenantId_providerId: { tenantId: tenant.id, providerId: provider.id } },
+        update: {},
+        create: { tenantId: tenant.id, providerId: provider.id, enabled: true, status: "ACTIVE" },
+      });
+      for (const product of demoProducts)
+        await prisma.financialProduct.upsert({
+          where: { tenantId_name: { tenantId: tenant.id, name: product.name } },
+          update: {},
+          create: {
+            tenantId: tenant.id,
+            ...product,
+            active: product.applicantScope === "PERSON",
+            purposes: { create: product.purposes.map((purpose) => ({ purpose })) },
+          },
+        });
+    }
+    if (fixture.slug !== "banco-pendiente-demo") {
+      const documentNumber = fixture.slug === "banco-del-sol-demo" ? "7812456" : "8899001";
+      await prisma.client.upsert({
+        where: {
+          tenantId_documentType_documentNumber: { tenantId: tenant.id, documentType: "CI", documentNumber },
+        },
+        update: {},
+        create: {
+          tenantId: tenant.id,
+          type: "PERSON",
+          documentType: "CI",
+          documentNumber,
+          firstName: fixture.slug === "banco-del-sol-demo" ? "María Fernanda" : "Juan",
+          lastName: "Rojas",
+          name: fixture.slug === "banco-del-sol-demo" ? "María Fernanda Rojas" : "Juan Rojas",
+          birthDate: new Date("1998-07-14"),
+          phone: "71234567",
+        },
+      });
+    }
+  }
+  console.log(
+    "HU-10 demo fixtures ready. Existing manual changes were preserved; no evaluations or financial results were seeded.",
+  );
 }
 
 async function seedOperator(email: string, fullName: string, password: string) {

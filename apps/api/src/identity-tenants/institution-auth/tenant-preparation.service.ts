@@ -1,22 +1,35 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../../infrastructure/prisma/database-unit-of-work.js";
-import { BankMockSource } from "../../financial-integrations/public.js";
+import { BankMockSource, BureauMockSource } from "../../financial-integrations/public.js";
 import { PreparationProducts } from "../../recommendations/public.js";
 import { AuditWriter } from "../../audit/public.js";
 import type { InstitutionType } from "../../generated/prisma/client.js";
 import type { TenantContext } from "./tenant-context.guard.js";
+
+export interface SourceItemDto {
+  code: string;
+  name: string;
+  kind: string;
+  description: string;
+  purpose: string;
+  coverage: string;
+  available: boolean;
+  enabled: boolean;
+  healthStatus: "ACTIVE" | "DEGRADED" | "INACTIVE";
+}
 
 @Injectable()
 export class TenantPreparationService {
   constructor(
     private readonly db: DatabaseUnitOfWork,
     private readonly bank: BankMockSource,
+    private readonly bureau: BureauMockSource,
     private readonly products: PreparationProducts,
     private readonly audit: AuditWriter,
   ) {}
 
   async read(ctx: TenantContext) {
-    const [tenant, source, products] = await Promise.all([
+    const [tenant, bankStatus, bureauStatus, products] = await Promise.all([
       this.db.client.tenant.findUniqueOrThrow({
         where: { id: ctx.tenantId },
         select: {
@@ -29,17 +42,42 @@ export class TenantPreparationService {
         },
       }),
       this.bank.status(ctx.tenantId),
+      this.bureau.status(ctx.tenantId),
       this.products.list(ctx.tenantId),
     ]);
     const steps = {
       institution: Boolean(tenant.informationConfirmedAt),
-      source: source.enabled,
+      source: bankStatus.enabled,
       products: Boolean(
-        tenant.productsConfirmedAt &&
+        (tenant.productsConfirmedAt || products.some((product) => product.selected)) &&
         products.some((product) => product.selected && product.applicantScope !== "COMPANY"),
       ),
     };
     const completed = Object.values(steps).filter(Boolean).length;
+    const sources: SourceItemDto[] = [
+      {
+        code: "BANK_MOCK",
+        name: "Fuente bancaria simulada",
+        kind: "BANK",
+        description: "Proporciona información de cuentas, balances, ingresos, egresos y créditos bancarios simulados.",
+        purpose: "Evaluación de capacidad de pago y flujo de ingresos mediante datos bancarios.",
+        coverage: "Personas y microempresas con cuentas bancarias registradas.",
+        available: bankStatus.available,
+        enabled: bankStatus.enabled,
+        healthStatus: bankStatus.healthStatus ?? (bankStatus.available ? "ACTIVE" : "INACTIVE"),
+      },
+      {
+        code: "BUREAU_MOCK",
+        name: "Buró crediticio simulado",
+        kind: "CREDIT_BUREAU",
+        description: "Aporta historial crediticio consolidado, deuda global en el sistema financiero y comportamiento de mora histórico.",
+        purpose: "Evaluación de antecedentes crediticios, riesgo de sobreendeudamiento y morosidad histórica.",
+        coverage: "Cobertura orientada a solicitantes particulares y personas naturales.",
+        available: bureauStatus.available,
+        enabled: bureauStatus.enabled,
+        healthStatus: bureauStatus.healthStatus ?? (bureauStatus.available ? "ACTIVE" : "INACTIVE"),
+      },
+    ];
     return {
       tenant: {
         name: tenant.legalName,
@@ -49,7 +87,8 @@ export class TenantPreparationService {
       },
       user: { name: ctx.userName },
       membership: { role: ctx.role, status: "ACTIVE" as const },
-      source,
+      source: bankStatus,
+      sources,
       products,
       steps,
       completed,
@@ -115,6 +154,23 @@ export class TenantPreparationService {
           tenantId: ctx.tenantId,
           actorUserId: ctx.userId,
           action: "BANK_MOCK_ENABLED",
+        });
+        await this.recordReady(ctx, before.ready);
+      }
+      return this.read(ctx);
+    });
+  }
+
+  async enableBureau(ctx: TenantContext, enabled = true) {
+    this.admin(ctx);
+    return this.db.run(async () => {
+      await this.lockTenant(ctx.tenantId);
+      const before = await this.read(ctx);
+      if (await this.bureau.enable(ctx.tenantId, enabled)) {
+        await this.audit.recordInstitutionPreparation({
+          tenantId: ctx.tenantId,
+          actorUserId: ctx.userId,
+          action: enabled ? "BUREAU_MOCK_ENABLED" : "BUREAU_MOCK_DISABLED",
         });
         await this.recordReady(ctx, before.ready);
       }
