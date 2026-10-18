@@ -84,6 +84,22 @@ describe("HU-07 institutional interface", () => {
       expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/auth/logout"))).toBe(true),
     );
   });
+  it("shows the empty institutional access state and preserves sign out", async () => {
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith("/auth/me") ? response({ user, activeMemberships: [] }) : response({}, 204),
+    );
+    const router = mount("/elegir-institucion");
+    expect(
+      await screen.findByRole("heading", { name: "Sin acceso institucional activo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Por ahora no hay ninguna institución disponible para esta cuenta."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Banco X" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/iniciar-sesion"));
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/auth/logout"))).toBe(true);
+  });
   it("does not render tenant data when the backend denies a forged slug", async () => {
     fetchMock.mockImplementation(() => response({}, 403));
     mount("/banco-y");
