@@ -7,6 +7,7 @@ import { BureauMockSourceService } from "./financial-integrations/public.js";
 import type { DatabaseUnitOfWork } from "./infrastructure/prisma/database-unit-of-work.js";
 import type { TenantContext } from "./identity-tenants/public.js";
 import type { AuditWriter } from "./audit/public.js";
+import type { ResilientSources } from "./financial-integrations/resilience/resilient-sources.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type MockFn = jest.Mock<any>;
@@ -153,6 +154,12 @@ describe("Multi-Tenant Isolation Verification — Sprint 3 Full Lifecycle", () =
       bureauService,
       mockProfileCalc,
       mockRecommender,
+      {
+        queryBank: (_providerId: string | undefined, ...args: unknown[]) =>
+          (mockBankSource.query as (...a: unknown[]) => unknown)(...args),
+        queryBureau: (_providerId: string | undefined, ...args: unknown[]) =>
+          (bureauService.query as unknown as (...a: unknown[]) => unknown).apply(bureauService, args),
+      } as unknown as ResilientSources,
     );
   });
 

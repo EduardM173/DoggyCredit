@@ -12,9 +12,12 @@ import { AuditWriter } from "../audit/public.js";
 import {
   BankMockSource,
   BureauMockSource,
+  sourceCoversSubject,
   type NormalizedFinancialData,
   type NormalizedBureauData,
+  type SourceSubjectType,
 } from "../financial-integrations/public.js";
+import { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
 import {
   FinancialProfileCalculator,
   type ProfileIndicatorProvenance,
@@ -30,6 +33,36 @@ export interface ListEvaluationsQuery {
   limit?: number;
 }
 
+/** Producto y reglas congelados al evaluar (S4-HF-06). */
+interface RecommendationProductSnapshot {
+  name: string;
+  category: string;
+  minAmount: number;
+  maxAmount: number;
+}
+
+function readProductSnapshot(value: unknown): RecommendationProductSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const snap = value as Record<string, unknown>;
+  if (
+    typeof snap.name !== "string" ||
+    typeof snap.category !== "string" ||
+    typeof snap.minAmount !== "number" ||
+    typeof snap.maxAmount !== "number"
+  ) {
+    return null;
+  }
+  return {
+    name: snap.name,
+    category: snap.category,
+    minAmount: snap.minAmount,
+    maxAmount: snap.maxAmount,
+  };
+}
+
+const COMPANY_DOCUMENT_MESSAGE =
+  "Las empresas se identifican con NIT. Cambia el tipo de documento o registra al solicitante como persona.";
+
 @Injectable()
 export class EvaluationsService {
   constructor(
@@ -41,10 +74,19 @@ export class EvaluationsService {
     private readonly bureau: BureauMockSource,
     private readonly profileCalculator: FinancialProfileCalculator,
     private readonly recommender: EvaluationRecommender,
+    private readonly resilient: ResilientSources,
   ) {}
 
 
   async checkReadiness(ctx: TenantContext) {
+    return (await this.assessReadiness(ctx)).readiness;
+  }
+
+  /**
+   * Preparación + cobertura por tipo de sujeto. Devuelve también si el Buró está
+   * operativo para el tenant, de modo que el procesamiento no lo consulte dos veces.
+   */
+  private async assessReadiness(ctx: TenantContext) {
     const status = await this.preparation.read(ctx);
     const products = status.products ?? [];
     const isBankEnabled = Boolean(status.source?.enabled ?? status.steps?.source);
@@ -67,22 +109,34 @@ export class EvaluationsService {
           )
         : Boolean(status.steps?.products);
 
+    // S4-HF-07: la cobertura sale de la declaración de las fuentes, no de suposiciones.
+    const bureauStatus = await this.bureau.status(ctx.tenantId);
+    const isBureauEnabled = Boolean(bureauStatus.enabled && bureauStatus.available);
+    const bankCoversPerson = sourceCoversSubject("BANK_MOCK", "PERSON");
+    const bankCoversCompany = sourceCoversSubject("BANK_MOCK", "COMPANY");
+
     const supportedApplicantTypes = {
       PERSON: {
-        supported: isBankEnabled && hasPersonProduct,
+        supported: isBankEnabled && bankCoversPerson && hasPersonProduct,
         reason: !isBankEnabled
           ? "La institución no tiene fuentes financieras habilitadas."
-          : !hasPersonProduct
-            ? "Tu institución no cuenta con productos crediticios activos para personas."
-            : undefined,
+          : !bankCoversPerson
+            ? "La fuente bancaria habilitada no cubre personas."
+            : !hasPersonProduct
+              ? "Tu institución no cuenta con productos crediticios activos para personas."
+              : undefined,
       },
       COMPANY: {
-        supported: isBankEnabled && hasCompanyProduct,
+        supported: isBankEnabled && bankCoversCompany && hasCompanyProduct,
         reason: !isBankEnabled
-          ? "No hay fuentes financieras habilitadas con cobertura empresarial para tu institución."
-          : !hasCompanyProduct
-            ? "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos."
-            : undefined,
+          ? isBureauEnabled && !sourceCoversSubject("BUREAU_MOCK", "COMPANY")
+            ? "El Buró de Crédito habilitado solo cubre personas. Habilita una fuente bancaria con cobertura empresarial para evaluar empresas."
+            : "No hay fuentes financieras habilitadas con cobertura empresarial para tu institución."
+          : !bankCoversCompany
+            ? "Ninguna fuente habilitada cubre empresas: la fuente bancaria solo cubre personas."
+            : !hasCompanyProduct
+              ? "Tu institución no cuenta con productos crediticios activos para empresas. Configura al menos un producto empresarial en la sección de Productos."
+              : undefined,
       },
     };
 
@@ -91,12 +145,15 @@ export class EvaluationsService {
       typeof statusObj.ready === "boolean" ? statusObj.ready : status.completed === 3;
 
     return {
-      ready: isReady,
-      completed: status.completed,
-      percentage: status.percentage,
-      steps: status.steps,
-      tenantName: status.tenant?.name ?? "",
-      supportedApplicantTypes,
+      isBureauEnabled,
+      readiness: {
+        ready: isReady,
+        completed: status.completed,
+        percentage: status.percentage,
+        steps: status.steps,
+        tenantName: status.tenant?.name ?? "",
+        supportedApplicantTypes,
+      },
     };
   }
 
@@ -133,6 +190,9 @@ export class EvaluationsService {
 
     const clientType = (dto.clientType as unknown as ClientType) || "PERSON";
     if (clientType === "COMPANY") {
+      if ((dto.documentType as unknown as string) !== "NIT") {
+        throw new BadRequestException(COMPANY_DOCUMENT_MESSAGE);
+      }
       const companySupport = readiness.supportedApplicantTypes.COMPANY;
       if (!companySupport.supported) {
         throw new BadRequestException(
@@ -337,7 +397,7 @@ export class EvaluationsService {
       return this.serializeEvaluation(evaluation);
     }
 
-    const readiness = await this.checkReadiness(ctx);
+    const { readiness, isBureauEnabled: isBureauOperational } = await this.assessReadiness(ctx);
     if (!readiness.ready) {
       throw new BadRequestException(
         "La institución no cumple las condiciones mínimas para evaluar.",
@@ -350,6 +410,25 @@ export class EvaluationsService {
       );
     }
 
+    // S4-HF-07: revalidar la elegibilidad vigente antes de cambiar estado o consultar fuentes.
+    const snapshot = evaluation.applicantSnapshot as Record<string, unknown> | null;
+    const subject: SourceSubjectType =
+      ((evaluation.client?.type ?? snapshot?.type) as SourceSubjectType | undefined) === "COMPANY"
+        ? "COMPANY"
+        : "PERSON";
+    const subjectDocumentType = (evaluation.client?.documentType ??
+      snapshot?.documentType) as string | undefined;
+    if (subject === "COMPANY" && subjectDocumentType !== "NIT") {
+      throw new BadRequestException(COMPANY_DOCUMENT_MESSAGE);
+    }
+    const subjectSupport = readiness.supportedApplicantTypes[subject];
+    if (!subjectSupport.supported) {
+      throw new BadRequestException(
+        subjectSupport.reason ||
+          "La institución ya no cumple las condiciones de cobertura para este tipo de solicitante.",
+      );
+    }
+
     // CA-11.01: Transition to IN_PROGRESS
     await this.db.client.evaluation.update({
       where: { id: evaluation.id },
@@ -359,13 +438,12 @@ export class EvaluationsService {
       },
     });
 
-    const snapshot = evaluation.applicantSnapshot as Record<string, unknown> | null;
     const documentNumber =
       evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
 
     // Identify enabled sources for the tenant (CA-15.01, CA-15.02)
-    const bureauStatus = await this.bureau.status(ctx.tenantId);
-    const isBureauEnabled = Boolean(bureauStatus.enabled && bureauStatus.available);
+    // S4-HF-07: el Buró solo se consulta para los sujetos que realmente cubre.
+    const isBureauEnabled = isBureauOperational && sourceCoversSubject("BUREAU_MOCK", subject);
 
     const bankProvider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BANK_MOCK" },
@@ -402,7 +480,12 @@ export class EvaluationsService {
       bankResultId = existingBank.id;
       bankPayload = existingBank.normalizedPayload as unknown as NormalizedFinancialData;
     } else {
-      const bankQueryResult = await this.bank.query(ctx.tenantId, documentNumber);
+      const bankQueryResult = await this.resilient.queryBank(
+        bankProvider?.id,
+        ctx.tenantId,
+        documentNumber,
+        subject,
+      );
       bankStatus = bankQueryResult.status;
       const attemptCount = existingBank ? existingBank.attemptCount + 1 : 1;
       const id = existingBank?.id ?? randomUUID();
@@ -461,7 +544,11 @@ export class EvaluationsService {
         bureauResultId = existingBureau.id;
         bureauPayload = existingBureau.normalizedPayload as unknown as NormalizedBureauData;
       } else {
-        const bureauQueryResult = await this.bureau.query(ctx.tenantId, documentNumber);
+        const bureauQueryResult = await this.resilient.queryBureau(
+          bureauProvider?.id,
+          ctx.tenantId,
+          documentNumber,
+        );
         bureauStatusVal = bureauQueryResult.status;
         const attemptCount = existingBureau ? existingBureau.attemptCount + 1 : 1;
         const id = existingBureau?.id ?? randomUUID();
@@ -609,56 +696,57 @@ export class EvaluationsService {
       sourceResultIds.push(bureauResultId);
     }
 
-    await this.profileCalculator.saveProfile(
-      ctx.tenantId,
-      evaluation.id,
-      sourceResultIds,
-      consolidated.indicators,
-    );
+    const applicantScope: SourceSubjectType = subject;
 
-    const applicantScope: "PERSON" | "COMPANY" =
-      (evaluation.client?.type as "PERSON" | "COMPANY") ||
-      snapshot?.type ||
-      "PERSON";
+    // S4-HF-06: perfil, recomendaciones congeladas, cierre y auditoría se confirman
+    // juntos; las consultas a fuentes ya terminaron fuera de esta transacción.
+    return this.db.run(async () => {
+      await this.profileCalculator.saveProfile(
+        ctx.tenantId,
+        evaluation.id,
+        sourceResultIds,
+        consolidated.indicators,
+      );
 
-    await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
-      applicantScope,
-      purpose: evaluation.purpose,
-      requestedAmount: Number(evaluation.requestedAmount),
-      profile: consolidated.indicators,
-    });
+      await this.recommender.evaluate(ctx.tenantId, evaluation.id, {
+        applicantScope,
+        purpose: evaluation.purpose,
+        requestedAmount: Number(evaluation.requestedAmount),
+        profile: consolidated.indicators,
+      });
 
-    const completed = await this.db.client.evaluation.update({
-      where: { id: evaluation.id },
-      data: {
+      const completed = await this.db.client.evaluation.update({
+        where: { id: evaluation.id },
+        data: {
+          status: "COMPLETED",
+          ruleVersion: "1.0.0",
+          completedAt: new Date(),
+          failureCode: null,
+          failureMessage: null,
+        },
+        include: {
+          client: true,
+          profile: true,
+          sourceResults: {
+            include: { provider: true },
+            orderBy: { requestedAt: "asc" },
+          },
+          recommendations: {
+            include: { product: true, reasons: true },
+            orderBy: { evaluatedAt: "asc" },
+          },
+        },
+      });
+
+      await this.audit.recordEvaluationProcessed({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        evaluationId: evaluation.id,
         status: "COMPLETED",
-        ruleVersion: "1.0.0",
-        completedAt: new Date(),
-        failureCode: null,
-        failureMessage: null,
-      },
-      include: {
-        client: true,
-        profile: true,
-        sourceResults: {
-          include: { provider: true },
-          orderBy: { requestedAt: "asc" },
-        },
-        recommendations: {
-          include: { product: true, reasons: true },
-          orderBy: { evaluatedAt: "asc" },
-        },
-      },
-    });
+      });
 
-    await this.audit.recordEvaluationProcessed({
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.userId,
-      evaluationId: evaluation.id,
-      status: "COMPLETED",
+      return this.serializeEvaluation(completed);
     });
-
-    return this.serializeEvaluation(completed);
   }
 
   private serializeEvaluation(ev: {
@@ -712,6 +800,7 @@ export class EvaluationsService {
         minAmount: unknown;
         maxAmount: unknown;
       } | null;
+      productSnapshot?: unknown;
       outcome: string;
       ruleVersion: string;
       evaluatedAt: Date;
@@ -824,16 +913,23 @@ export class EvaluationsService {
           }
         }
 
+        // S4-HF-06: el snapshot manda; las filas anteriores al hotfix usan el producto vinculado.
+        const frozen = readProductSnapshot(r.productSnapshot);
+
         return {
           id: r.id,
           productId: r.productId,
-          productName: r.product?.name ?? "Producto",
-          category: r.product?.category ?? "MICRO_CREDIT",
+          productName: frozen?.name ?? r.product?.name ?? "Producto",
+          category: frozen?.category ?? r.product?.category ?? "MICRO_CREDIT",
           outcome,
           compatibilityStatus,
           ruleVersion: r.ruleVersion,
-          minAmount: r.product?.minAmount !== undefined ? Number(r.product.minAmount) : 0,
-          maxAmount: r.product?.maxAmount !== undefined ? Number(r.product.maxAmount) : 0,
+          minAmount:
+            frozen?.minAmount ??
+            (r.product?.minAmount !== undefined ? Number(r.product.minAmount) : 0),
+          maxAmount:
+            frozen?.maxAmount ??
+            (r.product?.maxAmount !== undefined ? Number(r.product.maxAmount) : 0),
           evaluatedAt: r.evaluatedAt,
           reasons: (r.reasons ?? []).map((reas) => ({
             code: reas.code,
@@ -850,4 +946,3 @@ export class EvaluationsService {
     };
   }
 }
-
