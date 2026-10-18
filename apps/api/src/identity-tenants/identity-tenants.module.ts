@@ -17,6 +17,7 @@ import {
 } from "./auth/admin-auth.guards.js";
 import { RequestReviewController } from "./request-review/request-review.controller.js";
 import { RequestReviewService } from "./request-review/request-review.service.js";
+import { RequestDecisionDeliveryService } from "./request-review/request-decision-delivery.service.js";
 import { RequestContextReader } from "./request-context.js";
 import { ProvisioningQueue } from "./provisioning/provisioning-queue.js";
 import { InstitutionsController } from "./institutions/institutions.controller.js";
@@ -42,6 +43,7 @@ import { TenantPreparationService } from "./institution-auth/tenant-preparation.
 import { TeamController } from "./institution-auth/team.controller.js";
 import { TeamService } from "./institution-auth/team.service.js";
 import { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
+import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recovery.service.js";
 
 @Module({
   imports: [
@@ -68,6 +70,7 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     TenantPreparationService,
     TeamService,
     InvitationDeliveryService,
+    InitialAdminRecoveryService,
     InstitutionAuthService,
     InstitutionLoginRateGuard,
     InstitutionOriginGuard,
@@ -86,16 +89,19 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     AdminOriginGuard,
     AdminLoginRateGuard,
     RequestReviewService,
+    RequestDecisionDeliveryService,
   ],
   exports: [
     ProvisioningQueue,
     RequestContextReader,
     RequestReviewService,
+    RequestDecisionDeliveryService,
     AdminAuthService,
     AdminAuthGuard,
     AdminOriginGuard,
     OperatorGuard,
     InvitationDeliveryService,
+    InitialAdminRecoveryService,
     TenantContextGuard,
     InstitutionAuthService,
     InstitutionSessionGuard,

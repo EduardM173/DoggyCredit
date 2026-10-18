@@ -255,7 +255,9 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
       assert.equal(saved.reviewedById, operator.id);
       assert.equal(saved.requestedPlanId, null);
       if (action === "reject") assert.equal(saved.rejectionReason, "Datos insuficientes");
-      const events = await prisma.auditLog.findMany({ where: { entityId: row.id } });
+      const events = await prisma.auditLog.findMany({
+        where: { entityId: row.id, action: `INSTITUTION_REQUEST_${status}` },
+      });
       assert.equal(events.length, 1);
       assert.equal(events[0].actorUserId, operator.id);
       assert.equal(events[0].action, `INSTITUTION_REQUEST_${status}`);
@@ -264,7 +266,10 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
       assert.deepEqual(await counts(), before);
       for (const next of ["approve", "reject"])
         await post(`/institution-requests/${row.id}/${next}`).expect(409);
-      assert.equal(await prisma.auditLog.count({ where: { entityId: row.id } }), 1);
+      assert.equal(
+        await prisma.auditLog.count({ where: { entityId: row.id, action: `INSTITUTION_REQUEST_${status}` } }),
+        1,
+      );
     });
   }
   it("rejects EMAIL_PENDING and inconsistent unverified PENDING_REVIEW without audit", async () => {
@@ -282,7 +287,15 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
       post(`/institution-requests/${row.id}/reject`),
     ]);
     assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
-    assert.equal(await prisma.auditLog.count({ where: { entityId: row.id } }), 1);
+    assert.equal(
+      await prisma.auditLog.count({
+        where: {
+          entityId: row.id,
+          action: { in: ["INSTITUTION_REQUEST_APPROVED", "INSTITUTION_REQUEST_REJECTED"] },
+        },
+      }),
+      1,
+    );
   });
   it("automatically emails a one-use contracting link after approval without exposing it in the API", async () => {
     const row = await create();
@@ -315,6 +328,28 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
       .send({ token })
       .expect(401);
   });
+  it("notifies rejection durably and permits authorized recovery without exposing the private reason", async () => {
+    const row = await create();
+    emailFailure = "rejected";
+    await post(`/institution-requests/${row.id}/reject`, { reason: "Interno y privado" }).expect(200);
+    emailFailure = null;
+    assert.equal(
+      (await get(`/institution-requests/${row.id}/decision-email`).expect(200)).body.delivery,
+      "FAILED",
+    );
+    const recovered = await post(`/institution-requests/${row.id}/decision-email/resend`).expect(200);
+    assert.equal(recovered.body.delivery, "SENT");
+    assert.equal(sentEmails.at(-1).to, row.contactEmail);
+    assert.doesNotMatch(sentEmails.at(-1).text, /Interno y privado/);
+    await post(`/institution-requests/${row.id}/decision-email/resend`).expect(429);
+    await request(app.getHttpServer())
+      .post(`/api/admin/institution-requests/${row.id}/decision-email/resend`)
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({})
+      .expect(401);
+    assert.equal(await prisma.requestDecisionNotice.count({ where: { requestId: row.id } }), 1);
+  });
   it("keeps approval durable when email fails and permits a safe resend", async () => {
     const row = await create();
     emailFailure = "rejected";
@@ -337,6 +372,7 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
     assert.equal(sentEmails.length, before + 1);
     assert.equal(sentEmails.at(-1).to, row.contactEmail);
     assert.doesNotMatch(JSON.stringify(retry.body), /token=|\/contratacion/);
+    await post(`/institution-requests/${row.id}/contracting-email/resend`).expect(429);
   });
   it("recovers a temporary mail failure without a second approval or leaked token", async () => {
     const row = await create();

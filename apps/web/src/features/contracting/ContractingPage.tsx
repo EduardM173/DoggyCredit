@@ -25,6 +25,7 @@ import {
   type Context,
   type Checkout,
   type Payment,
+  type ProvisioningProgress,
 } from "./api";
 
 export function ContractingPage() {
@@ -38,6 +39,15 @@ export function ContractingPage() {
   const activeOperation = useRef(false);
   const [attempt, setAttempt] = useState(0);
   const [checkout, setCheckout] = useState<Checkout | null>(null);
+  const checkoutUrl = checkout
+    ? (() => {
+        const url = new URL(checkout.checkoutUrl);
+        if (url.pathname !== "/doggypay-demo") return checkout.checkoutUrl;
+        url.host = window.location.host;
+        url.protocol = window.location.protocol;
+        return url.toString();
+      })()
+    : null;
   const [qr, setQr] = useState("");
   const key = useRef<string | null>(null);
   useEffect(() => {
@@ -71,12 +81,14 @@ export function ContractingPage() {
           contractingStatus: "PENDING_PAYMENT" | "CONFIRMED";
           confirmedAt: string | null;
           payment: Payment;
+          provisioning: ProvisioningProgress | null;
         }>("/contracting/payment/status", { signal: controller.signal });
         if (controller.signal.aborted) return;
         setData((previous) =>
           previous?.contracting
             ? {
                 ...previous,
+                provisioning: current.provisioning,
                 contracting: {
                   ...previous.contracting,
                   status: current.contractingStatus,
@@ -104,9 +116,27 @@ export function ContractingPage() {
     };
   }, [payment?.id, payment?.status]);
   useEffect(() => {
+    if (data?.contracting?.status !== "CONFIRMED" || data.provisioning?.activation?.delivery === "ACTIVATED")
+      return;
+    const controller = new AbortController();
+    const timer = setInterval(() => {
+      commerceApi<Context>("/contracting/context", { signal: controller.signal })
+        .then((current) => {
+          if (!controller.signal.aborted) setData(current);
+        })
+        .catch(() => {
+          /* The manual refresh remains available if polling fails. */
+        });
+    }, 5000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [data?.contracting?.status, data?.provisioning?.activation?.delivery]);
+  useEffect(() => {
     let active = true;
-    if (checkout)
-      QRCode.toDataURL(checkout.checkoutUrl, { width: 280, margin: 4, errorCorrectionLevel: "M" })
+    if (checkoutUrl)
+      QRCode.toDataURL(checkoutUrl, { width: 280, margin: 4, errorCorrectionLevel: "M" })
         .then((value) => {
           if (active) setQr(value);
         })
@@ -116,7 +146,7 @@ export function ContractingPage() {
     return () => {
       active = false;
     };
-  }, [checkout]);
+  }, [checkoutUrl]);
   async function run(operation: () => Promise<void>) {
     if (activeOperation.current) return;
     activeOperation.current = true;
@@ -168,7 +198,7 @@ export function ContractingPage() {
   const title = !contract
     ? "Continúa tu contratación en"
     : confirmed
-      ? "Tu contratación está confirmada en"
+      ? "Tu espacio institucional en"
       : payment
         ? "Estado de tu pago en"
         : "Selecciona tu método de pago en";
@@ -189,7 +219,7 @@ export function ContractingPage() {
           </h1>
           <p>
             {confirmed
-              ? "La contratación está confirmada. El aprovisionamiento del servicio será el siguiente paso."
+              ? "Consulta aquí el estado de preparación y activación de tu institución."
               : "Tu solicitud ha sido aprobada. Confirma el plan definitivo para continuar con la contratación."}
           </p>
           {data && (
@@ -198,7 +228,7 @@ export function ContractingPage() {
                 <Building2 />
                 <div>
                   <h2>{data.institution.institutionName}</h2>
-                  <p>{confirmed ? "Contratación confirmada" : "Solicitud aprobada"}</p>
+                  <p>{confirmed ? "Espacio institucional" : "Solicitud aprobada"}</p>
                 </div>
               </div>
               <dl className="commerce-contact">
@@ -213,14 +243,16 @@ export function ContractingPage() {
               </dl>
             </>
           )}
-          <div className="commerce-note">
-            <ShieldCheck />
-            <p>
-              {!contract
-                ? "El plan de interés registrado fue solo referencial. El plan definitivo se confirma en este paso."
-                : "DoggyCredit no solicita datos de tarjetas ni credenciales bancarias."}
-            </p>
-          </div>
+          {!confirmed && (
+            <div className="commerce-note">
+              <ShieldCheck />
+              <p>
+                {!contract
+                  ? "El plan de interés registrado fue solo referencial. El plan definitivo se confirma en este paso."
+                  : "DoggyCredit no solicita datos de tarjetas ni credenciales bancarias."}
+              </p>
+            </div>
+          )}
           <ol className="commerce-steps">
             {["Plan", "Pago", "Confirmación"].map((label, i) => (
               <li className={step >= i + 1 ? "is-current" : ""} key={label}>
@@ -297,9 +329,7 @@ export function ContractingPage() {
                 <>
                   <h2>
                     {confirmed
-                      ? payment
-                        ? "Pago confirmado"
-                        : "Contratación confirmada"
+                      ? "Resumen de contratación"
                       : payment
                         ? paymentLabels[payment.status]
                         : "Elige tu método de pago"}
@@ -317,7 +347,7 @@ export function ContractingPage() {
                       <dt>Importe</dt>
                       <dd>{money(contract.price, contract.currency)} / mes</dd>
                     </div>
-                    {payment && (
+                      {payment && !confirmed && (
                       <div>
                         <dt>Método</dt>
                         <dd>{methods[payment.method]}</dd>
@@ -367,7 +397,7 @@ export function ContractingPage() {
                         <ArrowRight size={19} />
                       </button>
                     </>
-                  ) : payment ? (
+                  ) : payment && !confirmed ? (
                     <>
                       <div className={`commerce-payment-state state-${payment.status}`}>
                         {confirmed ? <CheckCircle2 size={42} /> : <Clock3 size={42} />}
@@ -403,7 +433,7 @@ export function ContractingPage() {
                                   )}
                                   <a
                                     className="button commerce-secondary"
-                                    href={checkout.checkoutUrl}
+                                    href={checkoutUrl ?? undefined}
                                     target="_blank"
                                     rel="noreferrer"
                                   >
@@ -467,17 +497,47 @@ export function ContractingPage() {
                   ) : null}
                   {confirmed && (
                     <>
-                      <div className="commerce-note">
-                        <CheckCircle2 />
-                        <p>
-                          {payment ? "Pago simulado confirmado." : "Este plan no requiere pago."} La
-                          preparación del espacio institucional se procesa automáticamente. El administrador
-                          inicial recibirá una invitación por correo.
-                        </p>
+                      <div className="commerce-activation" role="status">
+                        {data.provisioning?.activation?.delivery === "ACTIVATED" ? (
+                          <CheckCircle2 size={20} />
+                        ) : (
+                          <Clock3 size={20} />
+                        )}
+                        <div>
+                          <strong>Estado del espacio institucional</strong>
+                          <p>
+                          {data.provisioning?.activation?.delivery === "ACTIVATED"
+                            ? "El administrador inicial activó su cuenta. Ya puede ingresar al portal institucional."
+                            : data.provisioning?.status === "COMPLETED"
+                              ? data.provisioning.activation?.delivery === "SENT"
+                                ? "El espacio está listo. El administrador inicial debe abrir la invitación enviada a su correo y activar su cuenta."
+                                : data.provisioning.activation?.delivery === "EXPIRED" ||
+                                    data.provisioning.activation?.delivery === "FAILED"
+                                  ? "El espacio está listo, pero la invitación no está disponible. Contacta a DoggyCredit para que la reenvíe."
+                                  : "El espacio está listo. Estamos enviando la invitación al administrador inicial."
+                              : data.provisioning?.status.startsWith("FAILED")
+                                ? "La preparación necesita atención. DoggyCredit puede reintentarla sin repetir el pago."
+                                : "Estamos preparando el espacio institucional. Aún no se ha enviado la invitación."}
+                          </p>
+                        </div>
                       </div>
-                      <Link className="button commerce-secondary" to="/">
-                        Entendido
+                      <div className="commerce-confirmed-actions">
+                      {data.provisioning?.activation?.delivery === "ACTIVATED" &&
+                        data.provisioning.tenant && (
+                          <Link className="button commerce-primary" to="/iniciar-sesion">
+                            Ingresar al portal institucional
+                          </Link>
+                        )}
+                      <button
+                        className="button commerce-secondary"
+                        onClick={() => setAttempt((value) => value + 1)}
+                      >
+                        <RefreshCw size={16} /> Actualizar estado
+                      </button>
+                      <Link className="commerce-return-link" to="/">
+                        Volver al inicio
                       </Link>
+                      </div>
                     </>
                   )}
                 </>

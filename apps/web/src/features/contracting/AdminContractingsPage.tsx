@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { adminApi, AdminError } from "../admin/api";
 import { InstitutionName } from "../admin/InstitutionName";
-import { money, methods, paymentLabels, type Payment } from "./api";
+import { money, methods, paymentLabels, type Payment, type ProvisioningProgress } from "./api";
 interface List {
   items: {
     id: string;
@@ -15,6 +15,7 @@ interface List {
     status: string;
     createdAt: string;
     payments: Payment[];
+    provisioning: ProvisioningProgress | null;
   }[];
   page: number;
   pageSize: number;
@@ -29,6 +30,8 @@ export function AdminContractingsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<{ id: string; result: string } | null>(null);
+  const [recoveryId, setRecoveryId] = useState("");
+  const [notice, setNotice] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (choice) dialog.current?.showModal();
@@ -59,11 +62,36 @@ export function AdminContractingsPage() {
       setBusy(false);
     }
   }
+  async function recover(id: string, action: "provisioning/retry" | "initial-invitation/resend") {
+    if (busy) return;
+    setBusy(true);
+    setRecoveryId(id);
+    setError("");
+    setNotice("");
+    try {
+      const progress = await adminApi<ProvisioningProgress>(`/contractings/${id}/${action}`, { body: {} });
+      setNotice(
+        action === "provisioning/retry"
+          ? progress.status === "COMPLETED"
+            ? "La institución quedó preparada."
+            : "El reintento quedó registrado; consulta el estado de recuperación."
+          : progress.activation?.delivery === "SENT"
+            ? "Invitación enviada al administrador inicial."
+            : "El reenvío quedó registrado, pero la entrega aún no se confirmó. Consulta el estado.",
+      );
+      setVersion((value) => value + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo recuperar el alta.");
+    } finally {
+      setBusy(false);
+      setRecoveryId("");
+    }
+  }
   return (
     <>
       <div className="admin-page-heading">
         <h1>Contrataciones</h1>
-        <p>Planes confirmados y seguimiento de pagos.</p>
+        <p>Seguimiento de pagos, preparación y activación institucional.</p>
       </div>
       <section className="admin-list-toolbar" aria-label="Acciones de contrataciones">
         <button
@@ -82,6 +110,11 @@ export function AdminContractingsPage() {
           {error}
         </p>
       )}
+      {notice && (
+        <p className="admin-alert admin-alert-info" role="status">
+          {notice}
+        </p>
+      )}
       {!data && !error ? (
         <p className="admin-empty" role="status">
           Cargando contrataciones...
@@ -98,6 +131,7 @@ export function AdminContractingsPage() {
                     <th>Importe</th>
                     <th>Contratación</th>
                     <th>Intentos de pago</th>
+                    <th>Alta institucional</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,6 +182,63 @@ export function AdminContractingsPage() {
                               </div>
                             ))
                           : "Sin pago registrado"}
+                      </td>
+                      <td>
+                        {row.status !== "CONFIRMED" ? (
+                          "Pendiente de pago"
+                        ) : !row.provisioning ? (
+                          "Preparación pendiente"
+                        ) : (
+                          <div className="admin-activation-status">
+                            <strong className="admin-activation-title">
+                              {row.provisioning.status === "COMPLETED"
+                                ? row.provisioning.activation?.delivery === "ACTIVATED"
+                                  ? "Lista para ingresar"
+                                  : "Activación pendiente"
+                                : row.provisioning.status.startsWith("FAILED")
+                                  ? "Recuperación pendiente"
+                                  : "Preparando institución"}
+                            </strong>
+                            {row.provisioning.tenant && <span>{row.provisioning.tenant.legalName}</span>}
+                            {row.provisioning.errorCode && <span>Diagnóstico: {row.provisioning.errorCode}</span>}
+                            {row.provisioning.activation &&
+                              row.provisioning.activation.delivery !== "ACTIVATED" && (
+                                <span className="admin-invitation-state">
+                                  Administrador inicial · Invitación{" "}
+                                  {
+                                    (
+                                      {
+                                        QUEUED: "en envío",
+                                        SENT: "enviada",
+                                        EXPIRED: "vencida",
+                                        FAILED: "fallida",
+                                      } as Record<string, string>
+                                    )[row.provisioning.activation.delivery]
+                                  }
+                                </span>
+                              )}
+                            {row.provisioning.status.startsWith("FAILED") && (
+                              <button className="button admin-secondary admin-activation-action" disabled={busy} onClick={() => recover(row.id, "provisioning/retry")}>
+                                <RefreshCw size={15} />{" "}
+                                {recoveryId === row.id ? "Reintentando..." : "Reintentar preparación"}
+                              </button>
+                            )}
+                            {row.provisioning.status === "COMPLETED" &&
+                              row.provisioning.activation?.status === "INVITED" &&
+                              ["SENT", "EXPIRED", "FAILED"].includes(
+                                row.provisioning.activation.delivery,
+                              ) && (
+                                <button
+                                  className="button admin-secondary admin-activation-action"
+                                  disabled={busy}
+                                  onClick={() => recover(row.id, "initial-invitation/resend")}
+                                >
+                                  <RefreshCw size={15} />{" "}
+                                  {recoveryId === row.id ? "Reenviando..." : "Reenviar invitación"}
+                                </button>
+                              )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

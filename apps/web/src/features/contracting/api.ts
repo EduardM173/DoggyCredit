@@ -32,6 +32,17 @@ export interface Contracting {
   confirmedAt: string | null;
   payment: Payment | null;
 }
+export interface ProvisioningProgress {
+  status: "PENDING" | "PROCESSING" | "FAILED_RETRYABLE" | "FAILED_PERMANENT" | "COMPLETED";
+  errorCode: string | null;
+  nextAttemptAt: string | null;
+  tenant: { slug: string; legalName: string } | null;
+  activation: {
+    status: "INVITED" | "ACTIVE";
+    delivery: "QUEUED" | "SENT" | "EXPIRED" | "FAILED" | "ACTIVATED";
+    sentAt: string | null;
+  } | null;
+}
 export interface Context {
   institution: {
     id: string;
@@ -43,6 +54,7 @@ export interface Context {
   plans: Plan[];
   paymentProvider: string;
   contracting: Contracting | null;
+  provisioning: ProvisioningProgress | null;
 }
 export interface Checkout {
   checkoutUrl: string;

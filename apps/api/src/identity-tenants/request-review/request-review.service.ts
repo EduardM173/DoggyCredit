@@ -101,6 +101,10 @@ export class RequestReviewService {
           "La solicitud ya fue resuelta o todavía no tiene el correo verificado. Actualiza el detalle.",
         );
       await this.audit.recordRequestDecision({ actorUserId, requestId: id, decision });
+      if (decision === "REJECTED")
+        await this.database.client.requestDecisionNotice.create({
+          data: { requestId: id, nextSendAttemptAt: new Date() },
+        });
       return this.detail(id);
     });
   }

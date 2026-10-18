@@ -174,6 +174,7 @@ model InstitutionRequest {
   provisionedTenant      Tenant?
   contracting            Contracting?
   contractingCredentials ContractingCredential[]
+  decisionNotice         RequestDecisionNotice?
 
   @@index([status, createdAt])
   @@index([taxId])
@@ -339,6 +340,22 @@ model EmailVerificationToken {
   request InstitutionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, expiresAt])
+}
+
+model RequestDecisionNotice {
+  id                String             @id @default(uuid()) @db.Uuid
+  requestId         String             @unique @db.Uuid
+  sentAt            DateTime?          @db.Timestamptz(6)
+  sendAttempts      Int                @default(0)
+  version           Int                @default(1)
+  nextSendAttemptAt DateTime?          @db.Timestamptz(6)
+  sendLockedAt      DateTime?          @db.Timestamptz(6)
+  sendLeaseToken    String?            @db.Uuid
+  lastSendErrorCode String?            @db.VarChar(60)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  request           InstitutionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt, nextSendAttemptAt, sendLockedAt])
 }
 
 model User {

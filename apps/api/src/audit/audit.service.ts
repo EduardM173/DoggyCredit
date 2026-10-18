@@ -107,6 +107,24 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+  async recordRequestNotice(event: {
+    actorUserId?: string;
+    requestId: string;
+    action:
+      | "REQUEST_REJECTION_NOTICE_SENT"
+      | "REQUEST_REJECTION_NOTICE_FAILED"
+      | "REQUEST_REJECTION_NOTICE_REQUEUED";
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        actorUserId: event.actorUserId ?? null,
+        action: event.action,
+        entityType: "InstitutionRequest",
+        entityId: event.requestId,
+        metadata: { actorKind: event.actorUserId ? "OPERATOR" : "SYSTEM" },
+      },
+    });
+  }
   async recordEvaluationDraft(event: {
     tenantId: string;
     actorUserId: string;
