@@ -124,7 +124,7 @@ describe("HU-04 contracting interface", () => {
     await screen.findByRole("heading", { name: "Confirma tu plan" });
     fireEvent.click(screen.getByRole("radio", { name: /Plan Básico/ }));
     fireEvent.click(screen.getByRole("button", { name: "Continuar con la contratación" }));
-    await screen.findByRole("heading", { name: "Contratación confirmada" });
+    await screen.findByRole("heading", { name: "Resumen de contratación" });
     expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/payment"))).toBe(false);
     expect(screen.queryByText("Pago confirmado")).not.toBeInTheDocument();
   });
@@ -141,7 +141,7 @@ describe("HU-04 contracting interface", () => {
       },
     };
     mount();
-    await screen.findByText(/Enviamos la invitación al administrador inicial/);
+    await screen.findByText(/invitación enviada a su correo/);
     expect(screen.queryByRole("link", { name: "Ingresar al portal institucional" })).not.toBeInTheDocument();
     view = {
       ...view,
@@ -155,6 +155,28 @@ describe("HU-04 contracting interface", () => {
       "href",
       "/iniciar-sesion",
     );
+    expect(screen.getAllByRole("link", { name: "Volver al inicio" })[1]).toHaveAttribute("href", "/");
+    expect(screen.queryByText("Pago confirmado")).not.toBeInTheDocument();
+  });
+  it.each([
+    ["QUEUED", /Estamos enviando la invitación/],
+    ["FAILED", /la invitación no está disponible/],
+    ["EXPIRED", /la invitación no está disponible/],
+  ] as const)("shows the real %s invitation state", async (delivery, message) => {
+    view = {
+      ...contract(),
+      contracting: { ...contract().contracting!, status: "CONFIRMED" },
+      provisioning: {
+        status: "COMPLETED",
+        errorCode: null,
+        nextAttemptAt: null,
+        tenant: { slug: "banco-demo", legalName: "Banco Demo" },
+        activation: { status: "INVITED", delivery, sentAt: null },
+      },
+    };
+    mount();
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ingresar al portal institucional" })).not.toBeInTheDocument();
   });
   it("starts QR with an idempotency key, without amounts from browser", async () => {
     view = contract();
@@ -216,7 +238,7 @@ describe("HU-04 contracting interface", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
-    expect(screen.getByRole("heading", { name: "Pago confirmado" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Resumen de contratación" })).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12000);
     });

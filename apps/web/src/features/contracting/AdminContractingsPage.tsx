@@ -189,8 +189,8 @@ export function AdminContractingsPage() {
                         ) : !row.provisioning ? (
                           "Preparación pendiente"
                         ) : (
-                          <div className="admin-payment-attempt">
-                            <strong>
+                          <div className="admin-activation-status">
+                            <strong className="admin-activation-title">
                               {row.provisioning.status === "COMPLETED"
                                 ? row.provisioning.activation?.delivery === "ACTIVATED"
                                   ? "Lista para ingresar"
@@ -199,12 +199,12 @@ export function AdminContractingsPage() {
                                   ? "Recuperación pendiente"
                                   : "Preparando institución"}
                             </strong>
-                            {row.provisioning.tenant && <p>{row.provisioning.tenant.legalName}</p>}
-                            {row.provisioning.errorCode && <p>Diagnóstico: {row.provisioning.errorCode}</p>}
+                            {row.provisioning.tenant && <span>{row.provisioning.tenant.legalName}</span>}
+                            {row.provisioning.errorCode && <span>Diagnóstico: {row.provisioning.errorCode}</span>}
                             {row.provisioning.activation &&
                               row.provisioning.activation.delivery !== "ACTIVATED" && (
-                                <p>
-                                  Invitación:{" "}
+                                <span className="admin-invitation-state">
+                                  Administrador inicial · Invitación{" "}
                                   {
                                     (
                                       {
@@ -215,10 +215,10 @@ export function AdminContractingsPage() {
                                       } as Record<string, string>
                                     )[row.provisioning.activation.delivery]
                                   }
-                                </p>
+                                </span>
                               )}
                             {row.provisioning.status.startsWith("FAILED") && (
-                              <button disabled={busy} onClick={() => recover(row.id, "provisioning/retry")}>
+                              <button className="button admin-secondary admin-activation-action" disabled={busy} onClick={() => recover(row.id, "provisioning/retry")}>
                                 <RefreshCw size={15} />{" "}
                                 {recoveryId === row.id ? "Reintentando..." : "Reintentar preparación"}
                               </button>
@@ -229,6 +229,7 @@ export function AdminContractingsPage() {
                                 row.provisioning.activation.delivery,
                               ) && (
                                 <button
+                                  className="button admin-secondary admin-activation-action"
                                   disabled={busy}
                                   onClick={() => recover(row.id, "initial-invitation/resend")}
                                 >

@@ -79,7 +79,9 @@ describe("HU-28 operator recovery actions", () => {
       activation: { status: "INVITED", delivery: "FAILED", sentAt: null },
     };
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Reenviar invitación" }));
+    const resend = await screen.findByRole("button", { name: "Reenviar invitación" });
+    expect(resend).toHaveClass("admin-secondary");
+    fireEvent.click(resend);
     expect(await screen.findByText(/entrega aún no se confirmó/)).toBeInTheDocument();
     expect(
       fetchMock.mock.calls.some(
@@ -88,4 +90,23 @@ describe("HU-28 operator recovery actions", () => {
       ),
     ).toBe(true);
   });
+  it.each(["QUEUED", "SENT", "ACTIVATED"] as const)(
+    "keeps %s invitation status legible without an unnecessary action",
+    async (delivery) => {
+      progress = {
+        status: "COMPLETED",
+        errorCode: null,
+        nextAttemptAt: null,
+        tenant: { slug: "banco-demo", legalName: "Banco Demo" },
+        activation: { status: delivery === "ACTIVATED" ? "ACTIVE" : "INVITED", delivery, sentAt: null },
+      };
+      mount();
+      expect(await screen.findByText(delivery === "ACTIVATED" ? "Lista para ingresar" : "Activación pendiente")).toBeInTheDocument();
+      if (delivery === "QUEUED" || delivery === "ACTIVATED") {
+        expect(screen.queryByRole("button", { name: "Reenviar invitación" })).not.toBeInTheDocument();
+      } else {
+        expect(screen.getByRole("button", { name: "Reenviar invitación" })).toHaveClass("admin-secondary");
+      }
+    },
+  );
 });

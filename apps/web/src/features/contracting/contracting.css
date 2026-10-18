@@ -339,6 +339,52 @@
   background: #fff0ed;
   color: #a63d3d;
 }
+.commerce-activation {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid #dbe9f4;
+  color: #123d67;
+}
+.commerce-activation > svg {
+  flex: none;
+  color: #0678e8;
+  margin-top: 2px;
+}
+.commerce-activation strong {
+  display: block;
+  font-size: 14px;
+}
+.commerce-activation p {
+  margin: 4px 0 0;
+  color: #526b86;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.commerce-confirmed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 8px;
+}
+.commerce-confirmed-actions .commerce-primary {
+  width: auto;
+}
+.commerce-return-link {
+  color: #165391;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.commerce-return-link:hover {
+  text-decoration: underline;
+}
+.commerce-confirmed-actions :is(button, a):focus-visible {
+  outline: 3px solid #0875e1;
+  outline-offset: 3px;
+}
 .commerce-checkout {
   display: grid;
   justify-items: center;
@@ -427,6 +473,39 @@
 .admin-payment-attempt {
   padding: 8px 0;
   border-bottom: 1px solid #e0eaf3;
+}
+.admin-activation-status {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  min-width: 190px;
+  line-height: 1.4;
+}
+.admin-activation-title {
+  color: #0b315c;
+  font-size: 13px;
+}
+.admin-activation-status > span {
+  color: #526b86;
+  font-size: 12px;
+}
+.admin-activation-status .admin-invitation-state {
+  color: #315d87;
+}
+.admin-shell .admin-activation-action {
+  margin-top: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: normal;
+  text-align: left;
+}
+.admin-activation-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.admin-activation-action:focus-visible {
+  outline: 3px solid #0875e1;
+  outline-offset: 2px;
 }
 .admin-payment-actions {
   display: flex;
