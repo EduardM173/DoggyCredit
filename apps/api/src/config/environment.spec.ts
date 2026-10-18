@@ -9,13 +9,14 @@ describe("environmentValidationSchema", () => {
   });
 
   it("accepts a valid local configuration", () => {
-    const { error } = environmentValidationSchema.validate({
+    const { error, value } = environmentValidationSchema.validate({
       DATABASE_URL: "postgresql://postgres:password@localhost:5432/doggycredit",
       WEB_ORIGIN: "http://localhost:5173",
       API_PORT: 3000,
     });
 
     expect(error).toBeUndefined();
+    expect(value.EMAIL_TRANSPORT).toBe("test_inbox");
   });
   it("requires SMTP configuration and HTTPS in production", () => {
     const { error } = environmentValidationSchema.validate(
@@ -47,5 +48,28 @@ describe("environmentValidationSchema", () => {
     expect(error?.message).toContain("PUBLIC_APP_URL");
     expect(error?.message).toContain("EMAIL_VERIFICATION_TOKEN_TTL_MINUTES");
     expect(error?.message).toContain("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS");
+  });
+  it("never enables the test inbox in production and requires SMTP when selected", () => {
+    const production = environmentValidationSchema.validate({
+      NODE_ENV: "production",
+      EMAIL_TRANSPORT: "test_inbox",
+      DATABASE_URL: "postgresql://postgres:password@localhost:5432/doggycredit",
+      WEB_ORIGIN: "https://example.test",
+      PUBLIC_APP_URL: "https://example.test",
+    });
+    expect(production.error?.message).toContain("EMAIL_TRANSPORT");
+
+    const smtp = environmentValidationSchema.validate(
+      {
+        EMAIL_TRANSPORT: "smtp",
+        DATABASE_URL: "postgresql://postgres:password@localhost:5432/doggycredit",
+        WEB_ORIGIN: "http://localhost:5173",
+      },
+      { abortEarly: false },
+    );
+    expect(smtp.error?.message).toContain("SMTP_HOST");
+    expect(smtp.error?.message).toContain("SMTP_USER");
+    expect(smtp.error?.message).toContain("SMTP_PASSWORD");
+    expect(smtp.error?.message).toContain("SMTP_FROM_EMAIL");
   });
 });

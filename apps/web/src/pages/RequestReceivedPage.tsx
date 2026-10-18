@@ -26,6 +26,8 @@ export function RequestReceivedPage() {
           <p className="receipt-description">
             {receipt.emailDelivery === "SENT"
               ? "Hemos enviado un enlace de verificación a tu correo electrónico. Confirma tu dirección para continuar con el proceso de acceso a DoggyCredit."
+              : receipt.emailDelivery === "TEST_INBOX"
+                ? "El enlace fue generado en la bandeja de pruebas de esta demostración. No se envió a una casilla externa; un operador autorizado puede abrirlo desde Administración."
               : "Tu solicitud fue recibida y está guardada. No pudimos confirmar el envío del correo; puedes solicitar un nuevo enlace aquí."}
           </p>
           <div className="receipt-email">
@@ -34,12 +36,18 @@ export function RequestReceivedPage() {
             </span>
             <div>
               <p className="eyebrow">
-                {receipt.emailDelivery === "SENT" ? "Mensaje enviado a" : "Correo de tu solicitud"}
+                {receipt.emailDelivery === "SENT"
+                  ? "Mensaje enviado a"
+                  : receipt.emailDelivery === "TEST_INBOX"
+                    ? "Destinatario de prueba"
+                    : "Correo de tu solicitud"}
               </p>
               <strong>{receipt.contactEmail}</strong>
               <p>
                 {receipt.emailDelivery === "SENT"
                   ? "Si no encuentras el correo, revisa tu carpeta de spam o correos no deseados."
+                  : receipt.emailDelivery === "TEST_INBOX"
+                    ? "Durante esta demo el mensaje se consulta únicamente en la bandeja de pruebas protegida."
                   : "No necesitas completar el formulario otra vez. Usa la opción de reenvío para continuar."}
               </p>
             </div>

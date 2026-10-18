@@ -7,6 +7,7 @@ import { InstitutionRequestsController } from "./institution-requests/institutio
 import { InstitutionRequestsService } from "./institution-requests/institution-requests.service.js";
 import { AuditModule } from "../audit/audit.module.js";
 import { AdminAuthController } from "./auth/admin-auth.controller.js";
+import { TestInboxController } from "./auth/test-inbox.controller.js";
 import { AdminAuthService } from "./auth/admin-auth.service.js";
 import {
   AdminAuthGuard,
@@ -60,6 +61,7 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
     InstitutionRequestsController,
     EmailVerificationController,
     AdminAuthController,
+    TestInboxController,
     RequestReviewController,
   ],
   providers: [

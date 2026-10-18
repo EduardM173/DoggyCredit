@@ -1,5 +1,5 @@
 export interface VerificationDelivery {
-  emailDelivery: "SENT" | "FAILED" | "UNAVAILABLE";
+  emailDelivery: "SENT" | "TEST_INBOX" | "FAILED" | "UNAVAILABLE";
   retryAfterSeconds: number;
 }
 

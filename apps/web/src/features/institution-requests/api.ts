@@ -25,7 +25,7 @@ export type RequestReceipt = {
   id: string;
   contactEmail: string;
   status: "EMAIL_PENDING";
-  emailDelivery: "SENT" | "FAILED" | "UNAVAILABLE";
+  emailDelivery: "SENT" | "TEST_INBOX" | "FAILED" | "UNAVAILABLE";
   retryAfterSeconds: number;
   resendAvailableAt?: number;
 };
@@ -37,7 +37,7 @@ export function isReceipt(value: unknown): value is RequestReceipt {
     typeof receipt.id === "string" &&
     typeof receipt.contactEmail === "string" &&
     receipt.status === "EMAIL_PENDING" &&
-    ["SENT", "FAILED", "UNAVAILABLE"].includes(receipt.emailDelivery ?? "") &&
+    ["SENT", "TEST_INBOX", "FAILED", "UNAVAILABLE"].includes(receipt.emailDelivery ?? "") &&
     typeof receipt.retryAfterSeconds === "number" &&
     receipt.retryAfterSeconds >= 0
   );

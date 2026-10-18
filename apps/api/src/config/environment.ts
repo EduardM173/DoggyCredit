@@ -14,10 +14,15 @@ export const environmentValidationSchema = Joi.object({
     .messages({ "any.required": "DATABASE_URL is required" }),
   API_PORT: Joi.number().port().default(3000),
   WEB_ORIGIN: Joi.string().uri().required().messages({ "any.required": "WEB_ORIGIN is required" }),
+  EMAIL_TRANSPORT: Joi.string().when("NODE_ENV", {
+    is: "production",
+    then: Joi.string().valid("smtp").default("smtp"),
+    otherwise: Joi.string().valid("smtp", "test_inbox").default("test_inbox"),
+  }),
   SMTP_HOST: Joi.string()
     .hostname()
-    .when("NODE_ENV", {
-      is: "production",
+    .when("EMAIL_TRANSPORT", {
+      is: "smtp",
       then: Joi.required(),
       otherwise: Joi.allow("").optional(),
     }),
@@ -25,20 +30,20 @@ export const environmentValidationSchema = Joi.object({
   SMTP_SECURE: Joi.boolean().default(true),
   SMTP_USER: Joi.string()
     .email({ tlds: { allow: false } })
-    .when("NODE_ENV", {
-      is: "production",
+    .when("EMAIL_TRANSPORT", {
+      is: "smtp",
       then: Joi.required(),
       otherwise: Joi.allow("").optional(),
     }),
-  SMTP_PASSWORD: Joi.string().when("NODE_ENV", {
-    is: "production",
+  SMTP_PASSWORD: Joi.string().when("EMAIL_TRANSPORT", {
+    is: "smtp",
     then: Joi.required(),
     otherwise: Joi.allow("").optional(),
   }),
   SMTP_FROM_EMAIL: Joi.string()
     .email({ tlds: { allow: false } })
-    .when("NODE_ENV", {
-      is: "production",
+    .when("EMAIL_TRANSPORT", {
+      is: "smtp",
       then: Joi.required(),
       otherwise: Joi.allow("").optional(),
     }),

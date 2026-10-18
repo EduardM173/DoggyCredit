@@ -1,0 +1,5 @@
+Copia estas carpetas/archivos sobre la raiz de tu proyecto DoggyCredit (misma ruta relativa), sobrescribiendo.
+Son 8 archivos. Luego ejecuta:
+  npm run test --workspace=@doggycredit/web        (esperado: 120 pruebas)
+  npm run test --workspace=@doggycredit/api        (esperado: 110 pruebas: 106 + 4 nuevas)
+  npm run test:e2e --workspace=@doggycredit/api    (esperado: institution-login con 9 pruebas; solo falla backoffice-seed 3/5, ya existente)
