@@ -5,6 +5,63 @@ import { plans } from "../institution-requests/api";
 import { ContractingAccessAction } from "../contracting/ContractingAccessAction";
 import { adminApi, AdminError, displayDate, statusLabels, type ReviewDetail } from "./api";
 
+function RejectionNotice({ requestId }: { requestId: string }) {
+  const [status, setStatus] = useState<{ delivery: string; sentAt: string | null } | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    const refresh = () =>
+      adminApi<{ delivery: string; sentAt: string | null }>(
+        `/institution-requests/${requestId}/decision-email`,
+        { signal: controller.signal },
+      )
+        .then(setStatus)
+        .catch(() => {
+          if (!controller.signal.aborted) setError("No se pudo consultar el envío.");
+        });
+    void refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [requestId]);
+  async function resend() {
+    setBusy(true);
+    setError("");
+    try {
+      setStatus(await adminApi(`/institution-requests/${requestId}/decision-email/resend`, { body: {} }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo reenviar el aviso.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="admin-table-section" aria-label="Notificación de decisión">
+      <h2>Notificación al representante</h2>
+      <p>
+        {status?.delivery === "SENT"
+          ? `Correo enviado ${displayDate(status.sentAt)}.`
+          : status?.delivery === "FAILED"
+            ? "El correo no se entregó. Puedes reintentarlo."
+            : "El correo de rechazo está en proceso de envío."}
+      </p>
+      {error && (
+        <p className="admin-alert" role="alert">
+          {error}
+        </p>
+      )}
+      {status?.delivery !== "QUEUED" && (
+        <button className="button admin-secondary" disabled={busy} onClick={resend}>
+          {busy ? "Enviando..." : "Reenviar aviso"}
+        </button>
+      )}
+    </section>
+  );
+}
+
 const institutionLabels: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -53,7 +110,7 @@ export function ReviewDetailPage() {
       setNotice(
         decision === "approve"
           ? "Solicitud aprobada. El enlace de contratación se enviará al correo verificado."
-          : "Decisión registrada correctamente.",
+          : "Solicitud rechazada. Se notificará al representante por correo.",
       );
       setDecision(null);
     } catch (e) {
@@ -278,6 +335,7 @@ export function ReviewDetailPage() {
         )}
       </footer>
       {detail.status === "APPROVED" && <ContractingAccessAction key={detail.id} requestId={detail.id} />}
+      {detail.status === "REJECTED" && <RejectionNotice key={detail.id} requestId={detail.id} />}
       <dialog
         ref={dialog}
         className="admin-dialog"

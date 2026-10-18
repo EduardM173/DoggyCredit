@@ -46,8 +46,9 @@ export class ContractingApprovalController {
   async resend(
     @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() body: ApproveRequestDto,
+    @Req() request: AdminRequest,
   ) {
     void body;
-    return this.approval.resend(id);
+    return this.approval.resend(id, request.adminSession.user.id);
   }
 }

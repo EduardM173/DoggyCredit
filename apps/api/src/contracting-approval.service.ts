@@ -16,15 +16,15 @@ export class ContractingApprovalService {
   async approve(id: string, actorUserId: string) {
     const detail = await this.db.run(async () => {
       const result = await this.review.decide(id, actorUserId, "APPROVED");
-      await this.access.queueEmail(id);
+      await this.access.queueEmail(id, actorUserId);
       return result;
     });
     await this.tryDelivery(id);
     return detail;
   }
 
-  async resend(id: string) {
-    await this.access.queueEmail(id);
+  async resend(id: string, actorUserId: string) {
+    await this.access.queueEmail(id, actorUserId, true);
     await this.tryDelivery(id);
     return this.access.emailStatus(id);
   }

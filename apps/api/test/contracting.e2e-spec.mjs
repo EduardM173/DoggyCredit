@@ -454,6 +454,7 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
     assert.equal(repeated.duplicate, true);
     assert.equal(await prisma.paymentProviderEvent.count({ where: { eventId: event.eventId } }), 1);
     await assert.rejects(() => processor.process({ ...event, amount: "1.00" }));
+    await assert.rejects(() => processor.process({ ...event, occurredAt: new Date(0) }));
   });
   for (const change of [
     { amount: "1.00" },
@@ -461,6 +462,7 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
     { providerReference: "mock_unknown" },
     { provider: "unknown" },
     { type: "INVALID" },
+    { occurredAt: new Date(0) },
   ])
     it(`rejects event mismatch ${Object.keys(change)[0]}`, async () => {
       const c = await context();

@@ -8,6 +8,8 @@ import { AuditModule } from "./audit/audit.module.js";
 import { ContractingApprovalController } from "./contracting-approval.controller.js";
 import { ContractingApprovalService } from "./contracting-approval.service.js";
 import { ContractingEmailDeliveryService } from "./plans-metering/public.js";
+import { OnboardingRecoveryService } from "./onboarding-recovery.service.js";
+import { OnboardingRecoveryController } from "./onboarding-recovery.controller.js";
 import { RecommendationsModule } from "./recommendations/recommendations.module.js";
 
 // Composition only: register the Identity-owned workflow with both public capabilities.
@@ -20,12 +22,13 @@ import { RecommendationsModule } from "./recommendations/recommendations.module.
     AuditModule,
     RecommendationsModule,
   ],
-  controllers: [ContractingApprovalController],
+  controllers: [ContractingApprovalController, OnboardingRecoveryController],
   providers: [
     ProvisionInstitutionService,
     TenantProvisioningWorker,
     ContractingEmailDeliveryService,
     ContractingApprovalService,
+    OnboardingRecoveryService,
   ],
   exports: [TenantProvisioningWorker, ContractingEmailDeliveryService],
 })

@@ -29,6 +29,14 @@ export abstract class AuditWriter {
     invitationId: string;
   }): Promise<void>;
   abstract recordRequestDecision(event: RequestDecisionEvent): Promise<void>;
+  abstract recordRequestNotice(event: {
+    actorUserId?: string;
+    requestId: string;
+    action:
+      | "REQUEST_REJECTION_NOTICE_SENT"
+      | "REQUEST_REJECTION_NOTICE_FAILED"
+      | "REQUEST_REJECTION_NOTICE_REQUEUED";
+  }): Promise<void>;
   abstract recordCommerce(event: CommerceAuditEvent): Promise<void>;
   abstract recordProvisioning(event: {
     tenantId: string;
@@ -59,6 +67,10 @@ export abstract class AuditWriter {
 export interface CommerceAuditEvent {
   action:
     | "CONTRACTING_ACCESS_ISSUED"
+    | "CONTRACTING_ACCESS_QUEUED"
+    | "CONTRACTING_ACCESS_REQUEUED"
+    | "PROVISIONING_RETRY_REQUESTED"
+    | "INITIAL_INVITATION_RESENT"
     | "CONTRACTING_PLAN_CONFIRMED"
     | "PAYMENT_CREATED"
     | "PAYMENT_PAID"

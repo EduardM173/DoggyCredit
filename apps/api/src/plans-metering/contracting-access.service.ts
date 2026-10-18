@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, HttpException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { RequestContextReader } from "../identity-tenants/public.js";
@@ -13,13 +13,41 @@ export class ContractingAccessService {
     private readonly config: ConfigService,
     private readonly audit: AuditWriter,
   ) {}
-  async queueEmail(requestId: string) {
+  async queueEmail(requestId: string, actorUserId: string, manual = false) {
     return this.db.run(async () => {
       await this.db.client
         .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`contract-access:${requestId}`},0))`;
       await this.requests.approved(requestId);
       if (await this.db.client.contracting.findUnique({ where: { requestId }, select: { id: true } }))
         throw new ConflictException("La contratación ya comenzó; no se puede emitir otro acceso.");
+      const previous = await this.db.client.contractingCredential.findFirst({
+        where: { requestId, kind: "ACCESS" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { createdAt: true, sendLockedAt: true, sentAt: true },
+      });
+      if (previous?.sendLockedAt) throw new ConflictException("El correo está en proceso de envío.");
+      const remaining = previous ? Math.ceil((previous.createdAt.getTime() + 60_000 - Date.now()) / 1000) : 0;
+      if (remaining > 0 && previous?.sentAt)
+        throw new HttpException({ message: "Espera antes de reenviar.", retryAfterSeconds: remaining }, 429);
+      if (manual) {
+        const lastManual = await this.db.client.auditLog.findFirst({
+          where: {
+            entityType: "InstitutionRequest",
+            entityId: requestId,
+            action: "CONTRACTING_ACCESS_REQUEUED",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { createdAt: true },
+        });
+        const manualRemaining = lastManual
+          ? Math.ceil((lastManual.createdAt.getTime() + 60_000 - Date.now()) / 1000)
+          : 0;
+        if (manualRemaining > 0)
+          throw new HttpException(
+            { message: "Espera antes de reenviar.", retryAfterSeconds: manualRemaining },
+            429,
+          );
+      }
       await this.db.client.contractingCredential.updateMany({
         where: { requestId, revokedAt: null },
         data: { revokedAt: new Date(), nextSendAttemptAt: null },
@@ -34,6 +62,13 @@ export class ContractingAccessService {
           deliveryQueuedAt: now,
           nextSendAttemptAt: now,
         },
+      });
+      await this.audit.recordCommerce({
+        action: manual ? "CONTRACTING_ACCESS_REQUEUED" : "CONTRACTING_ACCESS_QUEUED",
+        entityType: "InstitutionRequest",
+        entityId: requestId,
+        actorUserId,
+        actorKind: "OPERATOR",
       });
       return { delivery: "QUEUED" as const };
     });

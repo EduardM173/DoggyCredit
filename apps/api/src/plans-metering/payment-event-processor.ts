@@ -24,7 +24,8 @@ export class PaymentEventProcessor {
           duplicate.providerReference !== event.providerReference ||
           !duplicate.amount.equals(event.amount) ||
           duplicate.currency !== event.currency ||
-          duplicate.eventType !== event.type
+          duplicate.eventType !== event.type ||
+          duplicate.occurredAt.getTime() !== event.occurredAt.getTime()
         )
           throw new ConflictException("El evento no coincide con el original.");
         this.logger.debug("Duplicate provider event acknowledged");
@@ -48,6 +49,13 @@ export class PaymentEventProcessor {
         where: { id: payment.contractingId },
       });
       await this.requests.approved(contract.requestId);
+      if (
+        !contract.requiresPaymentSnapshot ||
+        !payment.amount.equals(contract.priceSnapshot) ||
+        payment.currency !== contract.currencySnapshot ||
+        event.occurredAt < payment.createdAt
+      )
+        throw new ConflictException("El evento no coincide con la contratación confirmada.");
       const status =
         event.type === "PAYMENT_SUCCEEDED"
           ? "PAID"

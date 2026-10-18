@@ -84,6 +84,10 @@ describe("HU-03 administrative interface", () => {
       }
       if (url.endsWith("/contracting-email")) return response({ delivery: "SENT" });
       if (url.endsWith("/contracting-email/resend")) return response({ delivery: "QUEUED" });
+      if (url.endsWith("/decision-email"))
+        return response({ delivery: "SENT", sentAt: "2026-09-26T12:00:00Z" });
+      if (url.endsWith("/decision-email/resend"))
+        return response({ delivery: "SENT", sentAt: "2026-09-26T12:00:00Z" });
       if (url.endsWith("/approve") || url.endsWith("/reject")) {
         detail = {
           ...detail,
@@ -216,7 +220,7 @@ describe("HU-03 administrative interface", () => {
       await screen.findByText(
         action === "Aprobar"
           ? "Solicitud aprobada. El enlace de contratación se enviará al correo verificado."
-          : "Decisión registrada correctamente.",
+          : "Solicitud rechazada. Se notificará al representante por correo.",
       );
       expect(screen.queryByRole("button", { name: `${action} solicitud` })).not.toBeInTheDocument();
       expect(

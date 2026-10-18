@@ -28,6 +28,7 @@ const initial: Context = {
     planInterest: "UNSURE",
   },
   paymentProvider: "mock",
+  provisioning: null,
   contracting: null,
   plans: [
     {
@@ -125,6 +126,34 @@ describe("HU-04 contracting interface", () => {
     await screen.findByRole("heading", { name: "Contratación confirmada" });
     expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/payment"))).toBe(false);
     expect(screen.queryByText("Pago confirmado")).not.toBeInTheDocument();
+  });
+  it("shows the persisted activation state and the institutional login action", async () => {
+    view = {
+      ...contract(),
+      contracting: { ...contract().contracting!, status: "CONFIRMED" },
+      provisioning: {
+        status: "COMPLETED",
+        errorCode: null,
+        nextAttemptAt: null,
+        tenant: { slug: "banco-demo", legalName: "Banco Demo" },
+        activation: { status: "INVITED", delivery: "SENT", sentAt: "2026-09-26T12:00:00Z" },
+      },
+    };
+    mount();
+    await screen.findByText(/Enviamos la invitación al administrador inicial/);
+    expect(screen.queryByRole("link", { name: "Ingresar al portal institucional" })).not.toBeInTheDocument();
+    view = {
+      ...view,
+      provisioning: {
+        ...view.provisioning!,
+        activation: { status: "ACTIVE", delivery: "ACTIVATED", sentAt: "2026-09-26T12:00:00Z" },
+      },
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar estado" }));
+    expect(await screen.findByRole("link", { name: "Ingresar al portal institucional" })).toHaveAttribute(
+      "href",
+      "/iniciar-sesion",
+    );
   });
   it("starts QR with an idempotency key, without amounts from browser", async () => {
     view = contract();

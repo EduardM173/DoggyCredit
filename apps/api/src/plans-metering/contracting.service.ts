@@ -68,10 +68,13 @@ export class ContractingService {
       where: { requestId },
       include: { payments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 } },
     });
+    const provisioning =
+      contract?.status === "CONFIRMED" ? await this.provisioning.progress(contract.id) : null;
     return {
       institution,
       plans: plans.map((plan) => ({ ...plan, price: plan.price!.toFixed(2) })),
       paymentProvider: this.config.get("PAYMENT_PROVIDER"),
+      provisioning,
       contracting: contract
         ? {
             id: contract.id,
@@ -230,6 +233,7 @@ export class ContractingService {
       contractingStatus: view.contracting?.status ?? null,
       confirmedAt: view.contracting?.confirmedAt ?? null,
       payment: view.contracting?.payment ?? null,
+      provisioning: view.provisioning,
     };
   }
   async adminList(page: number) {
@@ -250,6 +254,7 @@ export class ContractingService {
         status: row.status,
         createdAt: row.createdAt.toISOString(),
         payments: row.payments.map((p) => this.paymentView(p)),
+        provisioning: row.status === "CONFIRMED" ? await this.provisioning.progress(row.id) : null,
       })),
     );
     return {
@@ -264,6 +269,7 @@ export class ContractingService {
     const payment = await this.db.client.payment.findUnique({ where: { id: paymentId } });
     if (!payment || payment.method !== "BANK_TRANSFER")
       throw new NotFoundException("Transferencia no encontrada.");
+    if (payment.status !== "PENDING") throw new ConflictException("La transferencia ya fue resuelta.");
     const contract = await this.db.client.contracting.findUniqueOrThrow({
       where: { id: payment.contractingId },
     });

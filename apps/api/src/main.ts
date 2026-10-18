@@ -4,6 +4,7 @@ import { AppModule } from "./app.module.js";
 import { configureApplication } from "./common/configure-application.js";
 import { TenantProvisioningWorker } from "./identity-tenants/public.js";
 import { ContractingEmailDeliveryService } from "./plans-metering/public.js";
+import { RequestDecisionDeliveryService } from "./identity-tenants/public.js";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +13,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
   app.get(TenantProvisioningWorker).start();
   app.get(ContractingEmailDeliveryService).start();
+  app.get(RequestDecisionDeliveryService).start();
 }
 
 void bootstrap();

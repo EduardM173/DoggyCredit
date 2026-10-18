@@ -95,7 +95,9 @@ export async function adminApi<T>(
     if (response.status === 403) message = "No tienes autorización para esta operación.";
     if (response.status === 404) message = "La solicitud no existe.";
     if (response.status === 409)
-      message = "La solicitud cambió o ya fue resuelta. Se ha actualizado el detalle.";
+      message = path.startsWith("/contractings/")
+        ? "El estado de esta contratación cambió. Actualiza la lista antes de reintentar."
+        : "La solicitud cambió o ya fue resuelta. Se ha actualizado el detalle.";
     if (response.status === 429) message = "Demasiados intentos. Intenta nuevamente en unos minutos.";
     throw new AdminError(response.status, message);
   }

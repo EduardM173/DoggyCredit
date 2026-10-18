@@ -167,6 +167,13 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     ]);
   const list = (query = "", cookie = admin) =>
     request(app.getHttpServer()).get(`/api/admin/institutions${query}`).set("Cookie", cookie);
+  const recover = (contractingId, action, cookie = admin) =>
+    request(app.getHttpServer())
+      .post(`/api/admin/contractings/${contractingId}/${action}`)
+      .set("Cookie", cookie)
+      .set("Origin", new URL(config.getOrThrow("WEB_ORIGIN")).origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({});
   async function paidContract(result = "PAID") {
     const row = await make();
     const contract = await confirm(row, paid);
@@ -176,6 +183,60 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     await app.get(PaymentEventProcessor).process(event);
     return { row, contract, payment, event };
   }
+  it("completes verified request to institutional login without a preinserted tenant", async () => {
+    const row = await make({ status: "PENDING_REVIEW", reviewedAt: null });
+    const origin = new URL(config.getOrThrow("WEB_ORIGIN")).origin;
+    const apiPost = (path, body = {}, cookie = "") =>
+      request(app.getHttpServer())
+        .post(`/api${path}`)
+        .set("Cookie", cookie)
+        .set("Origin", origin)
+        .set("X-DoggyCredit-Admin", "1")
+        .send(body);
+    assert.equal(await prisma.tenant.count(), 0);
+    await apiPost(`/admin/institution-requests/${row.id}/approve`, {}, admin).expect(200);
+    const contractingMail = emails.at(-1);
+    assert.equal(contractingMail.to, row.contactEmail);
+    const accessToken = new URLSearchParams(
+      new URL(contractingMail.text.match(/https?:\/\/\S+\/contratacion#token=[A-Za-z0-9_-]+/)[0]).hash.slice(
+        1,
+      ),
+    ).get("token");
+    const access = await apiPost("/contracting/access", { token: accessToken }).expect(200);
+    const representativeCookie = access.headers["set-cookie"][0].split(";")[0];
+    await apiPost("/contracting/plan", { planId: free.id }, representativeCookie).expect(200);
+    await worker.tick();
+    const job = await prisma.tenantProvisioning.findFirstOrThrow();
+    assert.equal(job.status, "COMPLETED");
+    const invitationMail = emails.at(-1);
+    assert.equal(invitationMail.to, row.contactEmail);
+    const invitationToken = new URLSearchParams(
+      new URL(invitationMail.text.match(/Activar cuenta: (\S+)/)[1]).hash.slice(1),
+    ).get("token");
+    const preview = await apiPost("/membership-invitations/preview", { token: invitationToken }).expect(200);
+    assert.equal(preview.body.institution.name, row.institutionName);
+    const password = "Una frase de prueba muy segura 2026";
+    const activated = await apiPost("/membership-invitations/activate", {
+      token: invitationToken,
+      password,
+    }).expect(200);
+    assert.equal(activated.body.membershipStatus, "ACTIVE");
+    const login = await request(app.getHttpServer())
+      .post("/api/institution/auth/login")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Institution", "1")
+      .send({ email: row.contactEmail, password })
+      .expect(200);
+    assert.equal(login.body.tenant.slug, activated.body.institution.slug);
+    await request(app.getHttpServer())
+      .get(`/api/institution/tenants/${login.body.tenant.slug}/home`)
+      .set("Cookie", login.headers["set-cookie"][0])
+      .expect(200);
+    assert.equal(await prisma.tenant.count(), 1);
+    assert.equal(await prisma.tenantSubscription.count(), 1);
+    assert.equal(await prisma.tenantMembership.count(), 1);
+    assert.equal(await prisma.payment.count(), 0);
+  });
   it("APPROVED alone does not create a tenant or durable job", async () => {
     await make();
     await worker.tick();
@@ -479,6 +540,60 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     assert.equal(job.lastErrorCode, "PROVISIONING_INTERNAL_ERROR");
     await worker.tick();
     assert.equal((await prisma.tenantProvisioning.findFirstOrThrow()).attemptCount, 1);
+  });
+  it("operator recovers failed provisioning after a paid event without a second payment or duplicate resources", async () => {
+    const { contract, payment } = await paidContract();
+    const original = provisioner.provision;
+    provisioner.provision = async () => {
+      throw new Error("injected failure");
+    };
+    try {
+      await worker.tick();
+    } finally {
+      provisioner.provision = original;
+    }
+    assert.equal(
+      (await prisma.tenantProvisioning.findUniqueOrThrow({ where: { contractingId: contract.id } })).status,
+      "FAILED_PERMANENT",
+    );
+    assert.equal((await recover(contract.id, "provisioning/retry", "")).status, 401);
+    const attempts = await Promise.all([
+      recover(contract.id, "provisioning/retry"),
+      recover(contract.id, "provisioning/retry"),
+    ]);
+    assert.deepEqual(
+      attempts.map((attempt) => attempt.status),
+      [200, 200],
+    );
+    assert.equal(
+      (await prisma.tenantProvisioning.findUniqueOrThrow({ where: { contractingId: contract.id } })).status,
+      "COMPLETED",
+    );
+    const baseline = await counts();
+    await recover(contract.id, "provisioning/retry").expect(200);
+    assert.deepEqual(await counts(), baseline);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status, "PAID");
+    assert.equal(await prisma.tenant.count(), 1);
+    assert.equal(await prisma.tenantSubscription.count(), 1);
+  });
+  it("operator rotates a lost initial invitation while preserving tenant identity", async () => {
+    const row = await make();
+    const contract = await confirm(row);
+    await process(contract);
+    await delivery.tick();
+    const previous = await prisma.membershipInvitation.findFirstOrThrow();
+    const before = await counts();
+    const result = await recover(contract.id, "initial-invitation/resend").expect(200);
+    assert.equal(result.body.activation.delivery, "SENT");
+    const current = await prisma.membershipInvitation.findFirstOrThrow({ where: { invalidatedAt: null } });
+    assert.notEqual(current.id, previous.id);
+    assert.notEqual(current.tokenHash, previous.tokenHash);
+    assert.ok(
+      (await prisma.membershipInvitation.findUniqueOrThrow({ where: { id: previous.id } })).invalidatedAt,
+    );
+    assert.deepEqual((await counts()).slice(0, 3), before.slice(0, 3));
+    await recover(contract.id, "initial-invitation/resend").expect(429);
+    await recover(contract.id, "initial-invitation/resend", "").expect(401);
   });
   it("colliding names have unique stable readable slugs, including empty normalized names", async () => {
     for (const name of ["Bánco del Sol S.A.", "Banco del Sol S.A.", "!!!"]) {

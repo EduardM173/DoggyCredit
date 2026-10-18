@@ -25,6 +25,7 @@ import {
   type Context,
   type Checkout,
   type Payment,
+  type ProvisioningProgress,
 } from "./api";
 
 export function ContractingPage() {
@@ -71,12 +72,14 @@ export function ContractingPage() {
           contractingStatus: "PENDING_PAYMENT" | "CONFIRMED";
           confirmedAt: string | null;
           payment: Payment;
+          provisioning: ProvisioningProgress | null;
         }>("/contracting/payment/status", { signal: controller.signal });
         if (controller.signal.aborted) return;
         setData((previous) =>
           previous?.contracting
             ? {
                 ...previous,
+                provisioning: current.provisioning,
                 contracting: {
                   ...previous.contracting,
                   status: current.contractingStatus,
@@ -103,6 +106,24 @@ export function ContractingPage() {
       clearTimeout(timer);
     };
   }, [payment?.id, payment?.status]);
+  useEffect(() => {
+    if (data?.contracting?.status !== "CONFIRMED" || data.provisioning?.activation?.delivery === "ACTIVATED")
+      return;
+    const controller = new AbortController();
+    const timer = setInterval(() => {
+      commerceApi<Context>("/contracting/context", { signal: controller.signal })
+        .then((current) => {
+          if (!controller.signal.aborted) setData(current);
+        })
+        .catch(() => {
+          /* The manual refresh remains available if polling fails. */
+        });
+    }, 5000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [data?.contracting?.status, data?.provisioning?.activation?.delivery]);
   useEffect(() => {
     let active = true;
     if (checkout)
@@ -189,7 +210,7 @@ export function ContractingPage() {
           </h1>
           <p>
             {confirmed
-              ? "La contratación está confirmada. El aprovisionamiento del servicio será el siguiente paso."
+              ? "Tu contratación está confirmada. Aquí puedes seguir la preparación y activación de la institución."
               : "Tu solicitud ha sido aprobada. Confirma el plan definitivo para continuar con la contratación."}
           </p>
           {data && (
@@ -468,13 +489,38 @@ export function ContractingPage() {
                   {confirmed && (
                     <>
                       <div className="commerce-note">
-                        <CheckCircle2 />
+                        {data.provisioning?.activation?.delivery === "ACTIVATED" ? (
+                          <CheckCircle2 />
+                        ) : (
+                          <Clock3 />
+                        )}
                         <p>
-                          {payment ? "Pago simulado confirmado." : "Este plan no requiere pago."} La
-                          preparación del espacio institucional se procesa automáticamente. El administrador
-                          inicial recibirá una invitación por correo.
+                          {data.provisioning?.activation?.delivery === "ACTIVATED"
+                            ? "La cuenta inicial está activa. Ya puedes ingresar al portal institucional."
+                            : data.provisioning?.status === "COMPLETED"
+                              ? data.provisioning.activation?.delivery === "SENT"
+                                ? "El espacio institucional está listo. Enviamos la invitación al administrador inicial. Revisa su correo para activar la cuenta."
+                                : data.provisioning.activation?.delivery === "EXPIRED" ||
+                                    data.provisioning.activation?.delivery === "FAILED"
+                                  ? "La invitación necesita atención. Contacta a DoggyCredit para reenviarla."
+                                  : "El espacio institucional está listo. La invitación inicial está en proceso de envío."
+                              : data.provisioning?.status.startsWith("FAILED")
+                                ? "La preparación necesita atención. DoggyCredit puede reintentarla sin repetir el pago."
+                                : "Estamos preparando el espacio institucional. Este estado se actualiza automáticamente."}
                         </p>
                       </div>
+                      {data.provisioning?.activation?.delivery === "ACTIVATED" &&
+                        data.provisioning.tenant && (
+                          <Link className="button commerce-primary" to="/iniciar-sesion">
+                            Ingresar al portal institucional
+                          </Link>
+                        )}
+                      <button
+                        className="button commerce-secondary"
+                        onClick={() => setAttempt((value) => value + 1)}
+                      >
+                        <RefreshCw size={16} /> Actualizar estado
+                      </button>
                       <Link className="button commerce-secondary" to="/">
                         Entendido
                       </Link>
