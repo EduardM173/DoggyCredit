@@ -298,6 +298,32 @@ describe("HU-05 durable provisioning (isolated PostgreSQL database)", () => {
     assert.equal(await prisma.tenantProvisioning.count(), 1);
     assert.equal((await prisma.tenantProvisioning.findFirstOrThrow()).status, "PENDING");
   });
+  it("QA-S4-50: FAILED then new PAID attempt with a duplicate event provisions only once", async () => {
+    const row = await make();
+    const contract = await confirm(row, paid);
+    const first = (await commerce.createPayment(row.id, "BANK_TRANSFER", randomUUID())).contracting.payment;
+    const failed = await app.get(PaymentProvider).resolveTransfer(`mock_${first.id}`, "FAILED");
+    await app.get(PaymentEventProcessor).process(failed);
+    assert.equal(await prisma.tenantProvisioning.count(), 0);
+
+    const second = (await commerce.createPayment(row.id, "BANK_TRANSFER", randomUUID())).contracting.payment;
+    assert.notEqual(second.id, first.id);
+    const succeeded = await app.get(PaymentProvider).resolveTransfer(`mock_${second.id}`, "PAID");
+    const processor = app.get(PaymentEventProcessor);
+    await Promise.all([processor.process(succeeded), processor.process(succeeded)]);
+    assert.equal((await processor.process(succeeded)).duplicate, true);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: first.id } })).status, "FAILED");
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: second.id } })).status, "PAID");
+    assert.equal(await prisma.contracting.count({ where: { id: contract.id, status: "CONFIRMED" } }), 1);
+    assert.equal(await prisma.tenantProvisioning.count({ where: { contractingId: contract.id } }), 1);
+    await worker.tick();
+    const baseline = await counts();
+    await processor.process(succeeded);
+    await worker.tick();
+    assert.deepEqual(await counts(), baseline);
+    assert.equal(await prisma.tenant.count(), 1);
+    assert.equal(await prisma.tenantSubscription.count(), 1);
+  });
   it("job survives closing and reinitializing a Nest application", async () => {
     const row = await make();
     const c = await confirm(row);

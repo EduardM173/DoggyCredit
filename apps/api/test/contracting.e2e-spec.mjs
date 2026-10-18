@@ -456,6 +456,20 @@ describe("HU-04 contracting and mock provider (PostgreSQL)", () => {
     await assert.rejects(() => processor.process({ ...event, amount: "1.00" }));
     await assert.rejects(() => processor.process({ ...event, occurredAt: new Date(0) }));
   });
+  it("concurrent PAID events for one payment confirm only once", async () => {
+    const c = await context();
+    const confirmedPlan = await plan(c);
+    const p = await payment(c);
+    const event = eventOf(p);
+    const results = await Promise.all([
+      processor.process(event),
+      processor.process({ ...event, eventId: randomUUID() }),
+    ]);
+    assert.equal(results.filter((result) => result.applied).length, 1);
+    assert.equal(await prisma.auditLog.count({ where: { entityId: p.id, action: "PAYMENT_PAID" } }), 1);
+    assert.equal(await prisma.tenantProvisioning.count({ where: { contractingId: confirmedPlan.contracting.id } }), 1);
+    assert.equal((await prisma.payment.findUniqueOrThrow({ where: { id: p.id } })).status, "PAID");
+  });
   for (const change of [
     { amount: "1.00" },
     { currency: "USD" },
