@@ -63,7 +63,7 @@ export class EmailVerificationService {
       const url = new URL("/verificar-correo", this.config.getOrThrow<string>("PUBLIC_APP_URL"));
       url.searchParams.set("token", token);
       url.searchParams.set("requestId", requestId);
-      await this.sender.send({
+      const receipt = await this.sender.send({
         to: reserved.email,
         ...verificationEmail(url.toString(), ttl),
         idempotencyKey: `institution-request-verification/${requestId}/${reserved.id}`,
@@ -102,7 +102,7 @@ export class EmailVerificationService {
         return true;
       });
       return {
-        emailDelivery: activated ? "SENT" : "UNAVAILABLE",
+        emailDelivery: activated ? (receipt?.channel === "TEST_INBOX" ? "TEST_INBOX" : "SENT") : "UNAVAILABLE",
         retryAfterSeconds: activated ? cooldown : 0,
       };
     } catch {

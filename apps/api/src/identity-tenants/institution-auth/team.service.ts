@@ -124,8 +124,12 @@ export class TeamService {
       });
       return invitation.id;
     });
-    const emailSent = await this.delivery.deliver(invitationId);
-    return { emailSent, team: await this.list(ctx) };
+    const delivery = await this.delivery.deliver(invitationId);
+    return {
+      emailSent: delivery.delivered,
+      emailDelivery: delivery.delivered ? (delivery.channel === "TEST_INBOX" ? "TEST_INBOX" : "SENT") : "FAILED",
+      team: await this.list(ctx),
+    };
   }
 
   async resend(ctx: TenantContext, invitationId: string) {
@@ -170,7 +174,11 @@ export class TeamService {
         action: "ANALYST_INVITATION_RESENT",
       });
     });
-    const emailSent = await this.delivery.deliver(invitationId);
-    return { emailSent, team: await this.list(ctx) };
+    const delivery = await this.delivery.deliver(invitationId);
+    return {
+      emailSent: delivery.delivered,
+      emailDelivery: delivery.delivered ? (delivery.channel === "TEST_INBOX" ? "TEST_INBOX" : "SENT") : "FAILED",
+      team: await this.list(ctx),
+    };
   }
 }

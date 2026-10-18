@@ -166,6 +166,88 @@ describe("HU-07 institutional login and tenant isolation", () => {
     const me = await get("/auth/me", cookie).expect(200);
     assert.equal(me.body.activeMemberships.length, 0);
   });
+  it("keeps only tenant Y after X is revoked and rejects the old X URL", async () => {
+    const f = await fixture();
+    const x = await f.addTenant();
+    const y = await f.addTenant();
+    const loginResult = await login({ email: f.user.email, password }).expect(200);
+    assert.equal(loginResult.body.resolution, "MULTIPLE_TENANTS");
+    const cookie = loginResult.headers["set-cookie"][0];
+    const before = await get("/auth/me", cookie).expect(200);
+    assert.deepEqual(
+      new Set(before.body.activeMemberships.map((membership) => membership.tenant.slug)),
+      new Set([x.tenant.slug, y.tenant.slug]),
+    );
+
+    await db.tenantMembership.update({ where: { id: x.membership.id }, data: { status: "SUSPENDED" } });
+
+    const after = await get("/auth/me", cookie).expect(200);
+    assert.deepEqual(after.body.activeMemberships.map((membership) => membership.tenant.slug), [y.tenant.slug]);
+    await get(`/tenants/${x.tenant.slug}/home`, cookie).expect(403);
+    await get(`/tenants/${y.tenant.slug}/home`, cookie).expect(200);
+  });
+  describe("S4-HF-05 regression: X/Y access is revoked in every tenant-scoped area", () => {
+    const sensitive = (slug) => [
+      `/tenants/${slug}/home`,
+      `/tenants/${slug}/team`,
+      `/tenants/${slug}/products/catalog`,
+      `/tenants/${slug}/evaluations`,
+      `/tenants/${slug}/evaluations/readiness`,
+      `/tenants/${slug}/clients/${randomUUID()}`,
+    ];
+    const assertRejected = async (tenant, cookie) => {
+      for (const path of sensitive(tenant.slug)) {
+        const res = await get(path, cookie).expect(403);
+        assert.doesNotMatch(JSON.stringify(res.body), new RegExp(tenant.legalName), path);
+      }
+      await request(app.getHttpServer())
+        .post(`/api/institution/tenants/${tenant.slug}/team/invitations`)
+        .set("Origin", origin)
+        .set("X-DoggyCredit-Institution", "1")
+        .set("Cookie", cookie)
+        .send({ email: `no-${randomUUID().slice(0, 8)}@example.test`, role: "ANALYST" })
+        .expect(403);
+    };
+    const assertStillAllowed = async (tenant, cookie) => {
+      for (const path of sensitive(tenant.slug)) {
+        const res = await get(path, cookie);
+        assert.ok(![401, 403].includes(res.status), `${path} devolvió ${res.status}`);
+      }
+    };
+    const twoTenants = async () => {
+      const f = await fixture();
+      const x = await f.addTenant();
+      const y = await f.addTenant();
+      const cookie = (await login({ email: f.user.email, password }).expect(200)).headers["set-cookie"][0];
+      await assertStillAllowed(x.tenant, cookie);
+      await assertStillAllowed(y.tenant, cookie);
+      return { x, y, cookie };
+    };
+
+    it("revoked membership X is rejected in team, products, evaluations and clients while Y keeps working", async () => {
+      const { x, y, cookie } = await twoTenants();
+      await db.tenantMembership.update({ where: { id: x.membership.id }, data: { status: "SUSPENDED" } });
+      await assertRejected(x.tenant, cookie);
+      await assertStillAllowed(y.tenant, cookie);
+      const me = await get("/auth/me", cookie).expect(200);
+      assert.deepEqual(
+        me.body.activeMemberships.map((m) => m.tenant.slug),
+        [y.tenant.slug],
+      );
+    });
+
+    it("suspended tenant X disappears from the selector and its URLs are rejected while Y keeps working", async () => {
+      const { x, y, cookie } = await twoTenants();
+      await db.tenant.update({ where: { id: x.tenant.id }, data: { status: "SUSPENDED" } });
+      await assertRejected(x.tenant, cookie);
+      await assertStillAllowed(y.tenant, cookie);
+      const me = await get("/auth/me", cookie).expect(200);
+      assert.deepEqual(
+        me.body.activeMemberships.map((m) => m.tenant.slug),
+        [y.tenant.slug],
+      );
+    });
+  });
   it("enforces idle and absolute expiry, revokes logout, and leaves admin sessions separate", async () => {
     const f = await fixture();
     await f.addTenant();

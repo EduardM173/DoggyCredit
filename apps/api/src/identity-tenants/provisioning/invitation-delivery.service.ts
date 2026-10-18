@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomBytes, randomUUID } from "node:crypto";
 import { DatabaseUnitOfWork } from "../../infrastructure/prisma/database-unit-of-work.js";
@@ -6,14 +6,44 @@ import { EmailSender, EmailDeliveryError } from "../../infrastructure/email/emai
 import { invitationHash } from "./provision-institution.service.js";
 import { invitationEmail } from "./invitation-email.js";
 
+export type InvitationDeliveryOutcome = {
+  delivered: boolean;
+  channel: "SMTP" | "TEST_INBOX" | null;
+};
+
 @Injectable()
-export class InvitationDeliveryService {
+export class InvitationDeliveryService implements OnModuleDestroy {
   private readonly logger = new Logger(InvitationDeliveryService.name);
+  private timer?: ReturnType<typeof setTimeout>;
+  private inFlight?: Promise<void>;
+  private stopped = true;
   constructor(
     private readonly db: DatabaseUnitOfWork,
     private readonly config: ConfigService,
     private readonly email: EmailSender,
   ) {}
+  start() {
+    if (!this.stopped) return;
+    this.stopped = false;
+    const pollMilliseconds = this.config.getOrThrow<number>("TENANT_PROVISIONING_POLL_SECONDS") * 1000;
+    const loop = async () => {
+      try {
+        await this.tick();
+      } catch {
+        this.logger.warn("Invitation delivery poll unavailable; retrying next poll");
+      } finally {
+        if (!this.stopped) this.timer = setTimeout(() => (this.inFlight = loop()), pollMilliseconds);
+      }
+    };
+    this.timer = setTimeout(() => (this.inFlight = loop()), 0);
+  }
+
+  async onModuleDestroy() {
+    this.stopped = true;
+    clearTimeout(this.timer);
+    await this.inFlight;
+  }
+
   async tick() {
     const now = new Date();
     const stale = new Date(
@@ -48,7 +78,7 @@ export class InvitationDeliveryService {
       await this.deliver(row.id);
     }
   }
-  async deliver(id: string): Promise<boolean> {
+  async deliver(id: string): Promise<InvitationDeliveryOutcome> {
     const now = new Date();
     const stale = new Date(
       now.getTime() - this.config.getOrThrow<number>("TENANT_PROVISIONING_LEASE_SECONDS") * 1000,
@@ -85,7 +115,7 @@ export class InvitationDeliveryService {
         where: { id },
         select: { sentAt: true },
       });
-      return Boolean(current?.sentAt);
+      return { delivered: Boolean(current?.sentAt), channel: null };
     }
     const invitation = await this.db.client.membershipInvitation.findUniqueOrThrow({
       where: { id },
@@ -98,7 +128,8 @@ export class InvitationDeliveryService {
         },
       },
     });
-    if (invitation.sendLeaseToken !== lease || invitation.tokenHash !== invitationHash(token)) return false;
+    if (invitation.sendLeaseToken !== lease || invitation.tokenHash !== invitationHash(token))
+      return { delivered: false, channel: null };
     const url = new URL("/activar-cuenta", this.config.getOrThrow<string>("PUBLIC_APP_URL"));
     url.hash = new URLSearchParams({ token }).toString();
     const message = {
@@ -114,10 +145,12 @@ export class InvitationDeliveryService {
     };
     let delivered = false;
     let retryable = false;
+    let channel: InvitationDeliveryOutcome["channel"] = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        await this.email.send(message);
+        const receipt = await this.email.send(message);
         delivered = true;
+        channel = receipt?.channel ?? "SMTP";
         break;
       } catch (error) {
         retryable = error instanceof EmailDeliveryError && error.retryable;
@@ -138,6 +171,6 @@ export class InvitationDeliveryService {
       },
     });
     if (!delivered) this.logger.warn("Membership invitation delivery incomplete; membership remains invited");
-    return delivered;
+    return { delivered, channel };
   }
 }

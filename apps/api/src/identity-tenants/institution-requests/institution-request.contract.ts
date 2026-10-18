@@ -16,6 +16,6 @@ export interface InstitutionRequestReceipt {
   id: string;
   contactEmail: string;
   status: "EMAIL_PENDING";
-  emailDelivery: "SENT" | "FAILED" | "UNAVAILABLE";
+  emailDelivery: "SENT" | "TEST_INBOX" | "FAILED" | "UNAVAILABLE";
   retryAfterSeconds: number;
 }

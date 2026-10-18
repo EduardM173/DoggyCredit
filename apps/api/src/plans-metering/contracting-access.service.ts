@@ -61,7 +61,15 @@ export class ContractingAccessService {
           : ("FAILED" as const),
       sentAt: credential.sentAt?.toISOString() ?? null,
       errorCode: credential.lastSendErrorCode,
+      // Canal con el que el transporte aceptó el mensaje. Se deriva del transporte configurado
+      // (no se persiste), para no afirmar una entrega externa cuando solo existe la bandeja de pruebas.
+      channel: credential.sentAt ? this.deliveryChannel() : null,
     };
+  }
+  private deliveryChannel() {
+    return this.config.get<string>("EMAIL_TRANSPORT") === "test_inbox"
+      ? ("TEST_INBOX" as const)
+      : ("SMTP" as const);
   }
   async issue(requestId: string, actorUserId: string) {
     return this.db.run(async () => {
