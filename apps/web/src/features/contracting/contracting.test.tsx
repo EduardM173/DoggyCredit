@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ContractingPage } from "./ContractingPage";
 import { DoggyPayPage } from "./DoggyPayPage";
 import { type Context, type Payment } from "./api";
+import QRCode from "qrcode";
 
 vi.mock("qrcode", () => ({ default: { toDataURL: vi.fn(async () => "data:image/png;base64,AAAA") } }));
 const pending: Payment = {
@@ -160,7 +161,7 @@ describe("HU-04 contracting interface", () => {
     fetchMock.mockImplementation((url: string) =>
       response(
         url.endsWith("/checkout")
-          ? { checkoutUrl: "http://example.test/doggypay-demo#token=demo", expiresAt: "2027-01-01T00:00:00Z" }
+          ? { checkoutUrl: "http://192.168.100.9:5173/doggypay-demo#token=demo", expiresAt: "2027-01-01T00:00:00Z" }
           : url.endsWith("/payment")
             ? contract(pending)
             : view,
@@ -176,7 +177,11 @@ describe("HU-04 contracting interface", () => {
     expect(options.headers["Idempotency-Key"]).toMatch(/^[a-f0-9-]{36}$/);
     expect(screen.getByRole("link", { name: "Abrir DoggyPay Demo" })).toHaveAttribute(
       "href",
-      "http://example.test/doggypay-demo#token=demo",
+      `${window.location.origin}/doggypay-demo#token=demo`,
+    );
+    expect(QRCode.toDataURL).toHaveBeenCalledWith(
+      `${window.location.origin}/doggypay-demo#token=demo`,
+      expect.objectContaining({ width: 280 }),
     );
   });
   it.each(["FAILED", "CANCELLED"] as const)(

@@ -39,6 +39,15 @@ export function ContractingPage() {
   const activeOperation = useRef(false);
   const [attempt, setAttempt] = useState(0);
   const [checkout, setCheckout] = useState<Checkout | null>(null);
+  const checkoutUrl = checkout
+    ? (() => {
+        const url = new URL(checkout.checkoutUrl);
+        if (url.pathname !== "/doggypay-demo") return checkout.checkoutUrl;
+        url.host = window.location.host;
+        url.protocol = window.location.protocol;
+        return url.toString();
+      })()
+    : null;
   const [qr, setQr] = useState("");
   const key = useRef<string | null>(null);
   useEffect(() => {
@@ -126,8 +135,8 @@ export function ContractingPage() {
   }, [data?.contracting?.status, data?.provisioning?.activation?.delivery]);
   useEffect(() => {
     let active = true;
-    if (checkout)
-      QRCode.toDataURL(checkout.checkoutUrl, { width: 280, margin: 4, errorCorrectionLevel: "M" })
+    if (checkoutUrl)
+      QRCode.toDataURL(checkoutUrl, { width: 280, margin: 4, errorCorrectionLevel: "M" })
         .then((value) => {
           if (active) setQr(value);
         })
@@ -137,7 +146,7 @@ export function ContractingPage() {
     return () => {
       active = false;
     };
-  }, [checkout]);
+  }, [checkoutUrl]);
   async function run(operation: () => Promise<void>) {
     if (activeOperation.current) return;
     activeOperation.current = true;
@@ -424,7 +433,7 @@ export function ContractingPage() {
                                   )}
                                   <a
                                     className="button commerce-secondary"
-                                    href={checkout.checkoutUrl}
+                                    href={checkoutUrl ?? undefined}
                                     target="_blank"
                                     rel="noreferrer"
                                   >
