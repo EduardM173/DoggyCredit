@@ -9,7 +9,11 @@ export class AuditService extends AuditWriter {
     tenantId: string;
     actorUserId: string;
     invitationId: string;
-    action: "ANALYST_INVITATION_CREATED" | "ANALYST_INVITATION_RESENT";
+    action:
+      | "ANALYST_INVITATION_CREATED"
+      | "ANALYST_INVITATION_RESENT"
+      | "ADMIN_INVITATION_CREATED"
+      | "ADMIN_INVITATION_RESENT";
   }): Promise<void> {
     await this.database.client.auditLog.create({
       data: {
@@ -18,6 +22,25 @@ export class AuditService extends AuditWriter {
         action: event.action,
         entityType: "MembershipInvitation",
         entityId: event.invitationId,
+      },
+    });
+  }
+  async recordTeamAccess(event: {
+    tenantId: string;
+    actorUserId: string;
+    membershipId: string;
+    action: "INVITATION_CANCELLED" | "MEMBERSHIP_SUSPENDED" | "MEMBERSHIP_REACTIVATED" | "MEMBERSHIP_REVOKED";
+    fromStatus: string;
+    toStatus: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: event.action,
+        entityType: "TenantMembership",
+        entityId: event.membershipId,
+        metadata: { fromStatus: event.fromStatus, toStatus: event.toStatus },
       },
     });
   }

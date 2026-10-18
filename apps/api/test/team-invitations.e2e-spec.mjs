@@ -249,4 +249,170 @@ describe("HU-09 team invitations", () => {
       rejectMail = false;
     }
   });
+
+  it("cancels a pending invitation and rejects its unexpired token", async () => {
+    const admin = await fixture();
+    const cookie = (await admin.login()).headers["set-cookie"][0];
+    const email = `cancel-${randomUUID().slice(0, 8)}@example.test`;
+    const invited = await post(`${teamUrl(admin.tenant.slug)}/invitations`, cookie, { email }).expect(200);
+    const member = invited.body.team.members.find((row) => row.email === email);
+    const token = tokenFrom(sent.at(-1));
+    const url = `${teamUrl(admin.tenant.slug)}/members/${member.id}/cancel`;
+    await post(url, cookie).expect(200);
+    await post(url, cookie).expect(200);
+    await preview(token).expect(400);
+    await activate(token, { password }).expect(400);
+    assert.equal((await db.tenantMembership.findUnique({ where: { id: member.id } })).status, "REVOKED");
+    assert.equal(
+      await db.auditLog.count({ where: { entityId: member.id, action: "INVITATION_CANCELLED" } }),
+      1,
+    );
+  });
+
+  it("only one of activation and cancellation wins a concurrent race", async () => {
+    const admin = await fixture();
+    const cookie = (await admin.login()).headers["set-cookie"][0];
+    const email = `race-cancel-${randomUUID().slice(0, 8)}@example.test`;
+    const invited = await post(`${teamUrl(admin.tenant.slug)}/invitations`, cookie, { email }).expect(200);
+    const member = invited.body.team.members.find((row) => row.email === email);
+    const token = tokenFrom(sent.at(-1));
+    const [accepted, cancelled] = await Promise.all([
+      activate(token, { password }),
+      post(`${teamUrl(admin.tenant.slug)}/members/${member.id}/cancel`, cookie),
+    ]);
+    assert.ok([200, 400].includes(accepted.status));
+    assert.ok([200, 409].includes(cancelled.status));
+    assert.equal([accepted.status, cancelled.status].filter((status) => status === 200).length, 1);
+    const state = await db.tenantMembership.findUnique({ where: { id: member.id } });
+    assert.equal(state.status, accepted.status === 200 ? "ACTIVE" : "REVOKED");
+  });
+
+  it("suspends, reactivates and revokes only X while Y and global identity remain", async () => {
+    const x = await fixture();
+    const y = await fixture();
+    const analyst = await fixture("ANALYST");
+    const membershipX = await db.tenantMembership.create({
+      data: { tenantId: x.tenant.id, userId: analyst.user.id, role: "ANALYST", status: "ACTIVE" },
+    });
+    const membershipY = await db.tenantMembership.create({
+      data: { tenantId: y.tenant.id, userId: analyst.user.id, role: "ANALYST", status: "ACTIVE" },
+    });
+    const client = await db.client.create({
+      data: {
+        tenantId: x.tenant.id,
+        type: "PERSON",
+        documentType: "CI",
+        documentNumber: `ci-${randomUUID()}`,
+        name: "Solicitante de prueba",
+      },
+    });
+    const evaluation = await db.evaluation.create({
+      data: {
+        tenantId: x.tenant.id,
+        clientId: client.id,
+        createdByMembershipId: membershipX.id,
+        idempotencyKey: randomUUID(),
+        purpose: "OTHER",
+        requestedAmount: "1000.00",
+        status: "IN_PROGRESS",
+        applicantSnapshot: { name: client.name },
+      },
+    });
+    const adminCookie = (await x.login()).headers["set-cookie"][0];
+    const yCookie = (await y.login()).headers["set-cookie"][0];
+    const analystLogin = await analyst.login();
+    const analystCookie = analystLogin.headers["set-cookie"][0];
+    const xHome = `/api/institution/tenants/${x.tenant.slug}/home`;
+    const yHome = `/api/institution/tenants/${y.tenant.slug}/home`;
+    await get(xHome, analystCookie).expect(200);
+    await post(`${teamUrl(x.tenant.slug)}/members/${membershipY.id}/revoke`, adminCookie).expect(404);
+    await post(`${teamUrl(x.tenant.slug)}/members/${membershipX.id}/suspend`, adminCookie).expect(200);
+    await get(xHome, analystCookie).expect(403);
+    await get(yHome, analystCookie).expect(200);
+    const selector = await get("/api/institution/auth/me", analystCookie).expect(200);
+    assert.ok(selector.body.activeMemberships.some((row) => row.tenant.slug === y.tenant.slug));
+    assert.ok(!selector.body.activeMemberships.some((row) => row.tenant.slug === x.tenant.slug));
+    await post(`${teamUrl(x.tenant.slug)}/members/${membershipX.id}/reactivate`, adminCookie).expect(200);
+    await get(xHome, analystCookie).expect(200);
+    await post(`${teamUrl(x.tenant.slug)}/members/${membershipX.id}/revoke`, adminCookie).expect(200);
+    await get(xHome, analystCookie).expect(403);
+    await get(yHome, analystCookie).expect(200);
+    await get(`/api/institution/tenants/${x.tenant.slug}/evaluations/${evaluation.id}`, analystCookie).expect(
+      403,
+    );
+    await get(`/api/institution/tenants/${x.tenant.slug}/evaluations/${evaluation.id}`, adminCookie).expect(
+      200,
+    );
+    assert.equal(
+      (await db.evaluation.findUnique({ where: { id: evaluation.id } })).createdByMembershipId,
+      membershipX.id,
+    );
+    assert.equal((await db.evaluation.findUnique({ where: { id: evaluation.id } })).status, "IN_PROGRESS");
+    await post(`${teamUrl(x.tenant.slug)}/members/${membershipX.id}/reactivate`, adminCookie).expect(409);
+    assert.equal((await db.user.findUnique({ where: { id: analyst.user.id } })).status, "ACTIVE");
+    assert.equal((await db.tenantMembership.findUnique({ where: { id: membershipY.id } })).status, "ACTIVE");
+    assert.equal((await db.tenantMembership.findUnique({ where: { id: membershipX.id } })).status, "REVOKED");
+    await post(`${teamUrl(y.tenant.slug)}/members/${membershipX.id}/revoke`, yCookie).expect(404);
+  });
+
+  it("accepts an invited replacement and serializes attempts to remove both administrators", async () => {
+    const initial = await fixture();
+    const firstCookie = (await initial.login()).headers["set-cookie"][0];
+    const email = `replacement-${randomUUID().slice(0, 8)}@example.test`;
+    const invited = await post(`${teamUrl(initial.tenant.slug)}/invitations`, firstCookie, {
+      email,
+      role: "INSTITUTION_ADMIN",
+    }).expect(200);
+    const replacement = invited.body.team.members.find((row) => row.email === email);
+    const initialMember = invited.body.team.members.find((row) => row.isInitialAdmin);
+    const token = tokenFrom(sent.at(-1));
+    await post(`${teamUrl(initial.tenant.slug)}/members/${initialMember.id}/revoke`, firstCookie).expect(403);
+    await activate(token, { password }).expect(200);
+    const replacementLogin = await request(app.getHttpServer())
+      .post("/api/institution/auth/login")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Institution", "1")
+      .send({ email, password })
+      .expect(200);
+    const replacementCookie = replacementLogin.headers["set-cookie"][0];
+    const [removeInitial, removeReplacement] = await Promise.all([
+      post(`${teamUrl(initial.tenant.slug)}/members/${initialMember.id}/revoke`, replacementCookie),
+      post(`${teamUrl(initial.tenant.slug)}/members/${replacement.id}/revoke`, firstCookie),
+    ]);
+    assert.ok(
+      [403, 409].includes([removeInitial.status, removeReplacement.status].find((status) => status !== 200)),
+    );
+    assert.equal(
+      [removeInitial.status, removeReplacement.status].filter((status) => status === 200).length,
+      1,
+    );
+    assert.equal(
+      await db.tenantMembership.count({
+        where: { tenantId: initial.tenant.id, role: "INSTITUTION_ADMIN", status: "ACTIVE" },
+      }),
+      1,
+    );
+  });
+
+  it("paginates team membership and counts statuses only within the selected tenant", async () => {
+    const x = await fixture();
+    const y = await fixture();
+    const cookie = (await x.login()).headers["set-cookie"][0];
+    const ids = Array.from({ length: 22 }, () => randomUUID());
+    await db.user.createMany({ data: ids.map((id) => ({ id, email: `page-${id}@example.test`, fullName: id, status: "ACTIVE" })) });
+    await db.tenantMembership.createMany({ data: ids.map((userId, index) => ({
+      tenantId: x.tenant.id, userId, role: "ANALYST", status: index % 2 ? "SUSPENDED" : "REVOKED",
+    })) });
+    const first = await get(`${teamUrl(x.tenant.slug)}?page=1`, cookie).expect(200);
+    const second = await get(`${teamUrl(x.tenant.slug)}?page=2`, cookie).expect(200);
+    assert.equal(first.body.members.length, 20);
+    assert.equal(second.body.members.length, 3);
+    assert.equal(first.body.total, 23);
+    assert.equal(first.body.pageCount, 2);
+    assert.equal(first.body.counts.ACTIVE, 1);
+    assert.equal(first.body.counts.REVOKED, 11);
+    assert.equal(first.body.counts.SUSPENDED, 11);
+    assert.ok(![...first.body.members, ...second.body.members].some((row) => row.email === y.user.email));
+    await get(`${teamUrl(x.tenant.slug)}?page=0`, cookie).expect(400);
+  });
 });

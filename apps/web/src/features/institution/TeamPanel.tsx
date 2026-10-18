@@ -8,7 +8,7 @@ type TeamMember = {
   name: string | null;
   email: string;
   role: "INSTITUTION_ADMIN" | "ANALYST";
-  status: "ACTIVE" | "INVITED";
+  status: "ACTIVE" | "INVITED" | "SUSPENDED" | "REVOKED";
   isInitialAdmin: boolean;
   invitation: {
     id: string;
@@ -17,7 +17,15 @@ type TeamMember = {
     lastSendErrorCode: string | null;
   } | null;
 };
-type Team = { tenant: { name: string; slug: string }; members: TeamMember[] };
+type Team = {
+  tenant: { name: string; slug: string };
+  actorMembershipId?: string;
+  members: TeamMember[];
+  counts?: Partial<Record<TeamMember["status"], number>>;
+  page?: number;
+  pageCount?: number;
+  total?: number;
+};
 type TeamMutation = { emailSent: boolean; emailDelivery?: "SENT" | "TEST_INBOX" | "FAILED"; team: Team };
 
 async function teamApi<T>(slug: string, path = "", body?: object): Promise<T> {
@@ -62,18 +70,25 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"ANALYST" | "INSTITUTION_ADMIN">("ANALYST");
+  const [choice, setChoice] = useState<{
+    member: TeamMember;
+    action: "cancel" | "suspend" | "reactivate" | "revoke";
+  } | null>(null);
   const [modal, setModal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [page, setPage] = useState(1);
   const inviteButton = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
+  const choiceDialog = useRef<HTMLDivElement>(null);
   const emailInput = useRef<HTMLInputElement>(null);
   const inFlight = useRef(false);
 
   useEffect(() => {
     let active = true;
-    teamApi<Team>(slug)
+    teamApi<Team>(slug, `?page=${page}`)
       .then((value) => {
         if (active) {
           setTeam(value);
@@ -85,7 +100,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
     return () => {
       active = false;
     };
-  }, [slug, reload]);
+  }, [slug, reload, page]);
 
   useEffect(() => {
     if (!modal) return;
@@ -94,14 +109,21 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
     return () => trigger?.focus();
   }, [modal]);
 
+  useEffect(() => {
+    if (choice) choiceDialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [choice]);
+
   function dialogKeys(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) {
-      setModal(false);
+      if (choice) setChoice(null);
+      else setModal(false);
       return;
     }
     if (event.key !== "Tab") return;
     const focusable = [
-      ...(dialog.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)") ?? []),
+      ...((choice ? choiceDialog : dialog).current?.querySelectorAll<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled)",
+      ) ?? []),
     ];
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -121,8 +143,9 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
     setBusy(true);
     setError("");
     try {
-      const response = await teamApi<TeamMutation>(slug, "/invitations", { email });
+      const response = await teamApi<TeamMutation>(slug, "/invitations", { email, role: inviteRole });
       setTeam(response.team);
+      setPage(1);
       setNotice(
         response.emailSent
           ? response.emailDelivery === "TEST_INBOX"
@@ -132,6 +155,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
       );
       setModal(false);
       setEmail("");
+      setInviteRole("ANALYST");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No se pudo enviar la invitación.");
       setReload((value) => value + 1);
@@ -154,6 +178,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
         {},
       );
       setTeam(response.team);
+      setPage(1);
       setNotice(
         response.emailSent
           ? response.emailDelivery === "TEST_INBOX"
@@ -167,6 +192,49 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
     } finally {
       inFlight.current = false;
       setResending(null);
+    }
+  }
+
+  async function change() {
+    if (!choice || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await teamApi<Team>(
+        slug,
+        `/members/${encodeURIComponent(choice.member.id)}/${choice.action}`,
+        {},
+      );
+      setTeam(result);
+      setPage(1);
+      setNotice("El acceso institucional se actualizó.");
+      setChoice(null);
+    } catch (reason) {
+      const expected =
+        choice.action === "reactivate" ? "ACTIVE" : choice.action === "suspend" ? "SUSPENDED" : "REVOKED";
+      try {
+        const latest = await teamApi<Team>(slug, `?page=${page}`);
+        setTeam(latest);
+        if (latest.members.find((member) => member.id === choice.member.id)?.status === expected) {
+          setNotice("El estado guardado confirma el cambio de acceso.");
+        } else {
+          setError(
+            reason instanceof Error
+              ? `El estado cambió o no se confirmó. ${reason.message}`
+              : "El estado cambió o no se confirmó. Revisa el equipo.",
+          );
+        }
+      } catch {
+        setError(
+          "No se pudo confirmar el estado guardado. Reintenta la consulta antes de repetir la acción.",
+        );
+      }
+      setChoice(null);
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
   }
 
@@ -185,20 +253,32 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
             <h2>Equipo</h2>
             <p>
               {team
-                ? `${team.members.filter((member) => member.status === "ACTIVE").length} personas con acceso`
+                ? `${team.counts?.ACTIVE ?? team.members.filter((member) => member.status === "ACTIVE").length} personas con acceso · ${team.counts?.INVITED ?? team.members.filter((member) => member.status === "INVITED").length} invitaciones · ${team.counts?.SUSPENDED ?? 0} suspendidos · ${team.counts?.REVOKED ?? 0} revocados`
                 : "Cargando equipo..."}
             </p>
           </div>
-          <button
-            ref={inviteButton}
-            className="institution-primary"
-            onClick={() => {
-              setError("");
-              setModal(true);
-            }}
-          >
-            <Plus size={20} /> Invitar analista
-          </button>
+          <div className="team-heading-actions">
+            <button
+              ref={inviteButton}
+              className="institution-primary"
+              onClick={() => {
+                setError("");
+                setInviteRole("ANALYST");
+                setModal(true);
+              }}
+            >
+              <Plus size={20} /> Invitar analista
+            </button>
+            <button
+              className="team-resend"
+              onClick={() => {
+                setInviteRole("INSTITUTION_ADMIN");
+                setModal(true);
+              }}
+            >
+              <Plus size={17} /> Invitar reemplazo administrativo
+            </button>
+          </div>
         </div>
         {notice && (
           <p className="team-notice" role="status">
@@ -248,33 +328,91 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                         : "Administrador"}
                   </span>
                   <span role="cell">
-                    <span className={`team-status ${member.status === "ACTIVE" ? "active" : "pending"}`}>
+                    <span className={`team-status ${member.status.toLowerCase()}`}>
                       {member.status === "ACTIVE" ? <CheckCircle2 size={17} /> : <Clock3 size={17} />}
                       {member.status === "ACTIVE"
                         ? "Activo"
-                        : member.invitation?.sentAt
-                          ? "Invitación pendiente"
-                          : "Envío pendiente"}
+                        : member.status === "SUSPENDED"
+                          ? "Suspendido"
+                          : member.status === "REVOKED"
+                            ? "Revocado"
+                            : member.invitation?.sentAt
+                              ? "Invitación pendiente"
+                              : "Envío pendiente"}
                     </span>
                   </span>
                   <span role="cell">
-                    {member.status === "INVITED" && member.invitation && member.role === "ANALYST" ? (
-                      <button
-                        className="team-resend"
-                        disabled={resending !== null}
-                        onClick={() => resend(member.invitation!.id)}
-                      >
-                        <Send size={17} />
-                        {resending === member.invitation.id ? "Reenviando..." : "Reenviar invitación"}
-                      </button>
-                    ) : (
-                      <span className="team-dash">—</span>
-                    )}
+                    <span className="team-actions">
+                      {member.status === "INVITED" && member.invitation && (
+                        <button
+                          className="team-resend"
+                          disabled={busy || resending !== null}
+                          onClick={() => resend(member.invitation!.id)}
+                        >
+                          <Send size={17} /> Reenviar
+                        </button>
+                      )}
+                      {member.status === "INVITED" && (
+                        <button
+                          className="team-resend"
+                          disabled={busy}
+                          onClick={() => setChoice({ member, action: "cancel" })}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      {member.role === "ANALYST" && member.status === "ACTIVE" && (
+                        <button
+                          className="team-resend"
+                          disabled={busy}
+                          onClick={() => setChoice({ member, action: "suspend" })}
+                        >
+                          Suspender
+                        </button>
+                      )}
+                      {member.role === "ANALYST" && member.status === "SUSPENDED" && (
+                        <button
+                          className="team-resend"
+                          disabled={busy}
+                          onClick={() => setChoice({ member, action: "reactivate" })}
+                        >
+                          Reactivar
+                        </button>
+                      )}
+                      {(member.status === "ACTIVE" || member.status === "SUSPENDED") &&
+                        member.id !== team.actorMembershipId && (
+                          <button
+                            className="team-resend"
+                            disabled={busy}
+                            onClick={() => setChoice({ member, action: "revoke" })}
+                          >
+                            Revocar
+                          </button>
+                        )}
+                      {member.status === "REVOKED" && <span className="team-dash">—</span>}
+                    </span>
                   </span>
                 </div>
               ))}
             </div>
-            {!team.members.some((member) => member.role === "ANALYST") && (
+            {(team.pageCount ?? 1) > 1 && (
+              <nav className="team-pagination" aria-label="Páginas del equipo">
+                <button className="team-resend" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  Anterior
+                </button>
+                <span>
+                  Página {team.page ?? page} de {team.pageCount}
+                </span>
+                <button
+                  className="team-resend"
+                  disabled={page >= (team.pageCount ?? 1)}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Siguiente
+                </button>
+              </nav>
+            )}
+            {!team.members.some((member) => member.role === "ANALYST" && member.status === "ACTIVE") && (
               <div className="team-empty">
                 <Users size={32} />
                 <strong>Todavía no hay analistas activos.</strong>
@@ -300,7 +438,9 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
             onKeyDown={dialogKeys}
           >
             <div className="team-dialog-heading">
-              <h2 id="team-dialog-title">Invitar analista</h2>
+              <h2 id="team-dialog-title">
+                {inviteRole === "ANALYST" ? "Invitar analista" : "Invitar reemplazo administrativo"}
+              </h2>
               <button
                 type="button"
                 aria-label="Cerrar"
@@ -342,10 +482,14 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                 </div>
                 <div>
                   <dt>Se invitará como</dt>
-                  <dd>Analista</dd>
+                  <dd>{inviteRole === "ANALYST" ? "Analista" : "Administrador institucional"}</dd>
                 </div>
               </dl>
-              <p>La invitación generará un enlace para activar el acceso a {tenantName}.</p>
+              <p>
+                {inviteRole === "ANALYST"
+                  ? `La invitación generará un enlace para activar el acceso a ${tenantName}.`
+                  : `El reemplazo deberá aceptar la invitación antes de que otro administrador pueda retirar el acceso anterior en ${tenantName}.`}
+              </p>
               <div className="team-dialog-actions">
                 <button type="button" disabled={busy} onClick={() => setModal(false)}>
                   Cancelar
@@ -355,6 +499,57 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {choice && (
+        <div
+          className="team-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) setChoice(null);
+          }}
+        >
+          <div
+            ref={choiceDialog}
+            className="team-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="team-action-title"
+            onKeyDown={dialogKeys}
+          >
+            <h2 id="team-action-title">
+              {
+                {
+                  cancel: "Cancelar invitación",
+                  suspend: "Suspender acceso",
+                  reactivate: "Reactivar acceso",
+                  revoke: "Revocar acceso",
+                }[choice.action]
+              }
+            </h2>
+            <p>
+              <strong>{choice.member.name ?? choice.member.email}</strong> · {choice.member.email}
+            </p>
+            <p>
+              Institución: <strong>{tenantName}</strong>
+            </p>
+            <p>
+              {choice.action === "cancel"
+                ? "El enlace pendiente dejará de funcionar."
+                : choice.action === "suspend"
+                  ? "La persona perderá acceso a esta institución hasta que la reactives."
+                  : choice.action === "reactivate"
+                    ? "La persona recuperará acceso a esta institución con sus credenciales actuales."
+                    : "La persona perderá acceso a esta institución. Su historial y otros accesos institucionales permanecerán intactos."}
+            </p>
+            <div className="team-dialog-actions">
+              <button disabled={busy} onClick={() => setChoice(null)}>
+                Volver
+              </button>
+              <button className="institution-primary" disabled={busy} onClick={change}>
+                {busy ? "Guardando..." : "Confirmar"}
+              </button>
+            </div>
           </div>
         </div>
       )}

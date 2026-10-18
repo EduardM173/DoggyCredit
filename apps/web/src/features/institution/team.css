@@ -9,6 +9,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 20px;
+  flex-wrap: wrap;
   margin-bottom: 24px;
 }
 .team-heading h2 {
@@ -23,6 +24,22 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
+}
+.team-heading-actions,
+.team-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.team-pagination {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.team-resend:focus-visible,
+.team-dialog button:focus-visible {
+  outline: 2px solid #0874db;
+  outline-offset: 2px;
 }
 .team-notice {
   display: flex;
@@ -41,10 +58,9 @@
 .team-table-head,
 .team-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) minmax(190px, 1.35fr) minmax(120px, 0.8fr) minmax(
-      145px,
-      1fr
-    ) minmax(160px, 1fr);
+  grid-template-columns:
+    minmax(180px, 1.4fr) minmax(190px, 1.35fr) minmax(120px, 0.8fr) minmax(145px, 1fr)
+    minmax(160px, 1fr);
   gap: 12px;
   align-items: center;
 }
@@ -117,6 +133,23 @@
   border: 1px solid #95c6f5;
   border-radius: 5px;
   cursor: pointer;
+}
+.team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.team-status.invited {
+  color: #945b00;
+  background: #fff0ce;
+}
+.team-status.suspended {
+  color: #855400;
+  background: #fff0ce;
+}
+.team-status.revoked {
+  color: #4b5b68;
+  background: #e8edf0;
 }
 .team-resend:disabled {
   opacity: 0.6;
