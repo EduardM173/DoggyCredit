@@ -7,6 +7,7 @@ import type { ClientsService } from "../clients/public.js";
 import type { TenantPreparationService, TenantContext } from "../identity-tenants/public.js";
 import type { AuditWriter } from "../audit/public.js";
 import type { BankMockSource } from "../financial-integrations/public.js";
+import type { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
 import type { FinancialProfileCalculator } from "../financial-profile/public.js";
 import type { EvaluationRecommender } from "../recommendations/public.js";
 
@@ -172,6 +173,12 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       mockBureau as unknown as any,
       mockProfileCalculator as unknown as FinancialProfileCalculator,
       mockRecommender as unknown as EvaluationRecommender,
+      {
+        queryBank: (_providerId: string | undefined, ...args: unknown[]) =>
+          (mockBank.query as unknown as (...a: unknown[]) => unknown)(...args),
+        queryBureau: (_providerId: string | undefined, ...args: unknown[]) =>
+          (mockBureau.query as unknown as (...a: unknown[]) => unknown)(...args),
+      } as unknown as ResilientSources,
     );
   });
 
@@ -1329,5 +1336,3 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
     });
   });
 });
-
-

@@ -17,6 +17,7 @@ import {
   type NormalizedBureauData,
   type SourceSubjectType,
 } from "../financial-integrations/public.js";
+import { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
 import {
   FinancialProfileCalculator,
   type ProfileIndicatorProvenance,
@@ -73,6 +74,7 @@ export class EvaluationsService {
     private readonly bureau: BureauMockSource,
     private readonly profileCalculator: FinancialProfileCalculator,
     private readonly recommender: EvaluationRecommender,
+    private readonly resilient: ResilientSources,
   ) {}
 
 
@@ -478,7 +480,12 @@ export class EvaluationsService {
       bankResultId = existingBank.id;
       bankPayload = existingBank.normalizedPayload as unknown as NormalizedFinancialData;
     } else {
-      const bankQueryResult = await this.bank.query(ctx.tenantId, documentNumber, subject);
+      const bankQueryResult = await this.resilient.queryBank(
+        bankProvider?.id,
+        ctx.tenantId,
+        documentNumber,
+        subject,
+      );
       bankStatus = bankQueryResult.status;
       const attemptCount = existingBank ? existingBank.attemptCount + 1 : 1;
       const id = existingBank?.id ?? randomUUID();
@@ -537,7 +544,11 @@ export class EvaluationsService {
         bureauResultId = existingBureau.id;
         bureauPayload = existingBureau.normalizedPayload as unknown as NormalizedBureauData;
       } else {
-        const bureauQueryResult = await this.bureau.query(ctx.tenantId, documentNumber);
+        const bureauQueryResult = await this.resilient.queryBureau(
+          bureauProvider?.id,
+          ctx.tenantId,
+          documentNumber,
+        );
         bureauStatusVal = bureauQueryResult.status;
         const attemptCount = existingBureau ? existingBureau.attemptCount + 1 : 1;
         const id = existingBureau?.id ?? randomUUID();
@@ -935,4 +946,3 @@ export class EvaluationsService {
     };
   }
 }
-
