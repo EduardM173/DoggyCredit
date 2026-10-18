@@ -10,6 +10,8 @@ import {
 const DEFAULT_MAX_DTI = 0.4;
 const RULE_VERSION = "1.0.0";
 
+type EvaluationContext = Parameters<EvaluationRecommender["evaluate"]>[2];
+
 const CATEGORY_ORDER: Record<string, number> = {
   MICRO_CREDIT: 1,
   GREEN_CREDIT: 2,
@@ -22,24 +24,23 @@ export class RecommendationService extends EvaluationRecommender {
     super();
   }
 
+  /**
+   * S4-HF-06: lee el catálogo una sola vez y persiste recomendaciones, razones y
+   * snapshot del producto dentro de una unidad de trabajo atómica, de modo que una
+   * edición concurrente del catálogo no deje una operación a medias ni mezclada.
+   */
   async evaluate(
     tenantId: string,
     evaluationId: string,
-    context: {
-      applicantScope: string;
-      purpose: string;
-      requestedAmount: number;
-      profile: {
-        averageMonthlyIncome: number | null;
-        averageMonthlyExpenses: number | null;
-        disposableIncome: number | null;
-        totalDebt: number | null;
-        activeCredits: number | null;
-        debtToIncome: number | null;
-        hasRecentArrears: boolean | null;
-        completeness: number;
-      };
-    },
+    context: EvaluationContext,
+  ): Promise<ProductRecommendationDto[]> {
+    return this.db.run(() => this.evaluateWithinUnitOfWork(tenantId, evaluationId, context));
+  }
+
+  private async evaluateWithinUnitOfWork(
+    tenantId: string,
+    evaluationId: string,
+    context: EvaluationContext,
   ): Promise<ProductRecommendationDto[]> {
     // CA-12.02 & CA-12.03: Only active products belonging strictly to this tenant
     const products = await this.db.client.financialProduct.findMany({
@@ -214,6 +215,22 @@ export class RecommendationService extends EvaluationRecommender {
         outcome = "RECOMMENDED";
       }
 
+      // S4-HF-06: congelar el producto y sus reglas tal como se evaluaron.
+      const productSnapshot = {
+        name: product.name,
+        category: product.category,
+        applicantScope: product.applicantScope,
+        minAmount,
+        maxAmount,
+        maxDebtToIncome: product.maxDebtToIncome !== null ? Number(product.maxDebtToIncome) : null,
+        minMonthlyDisposableIncome:
+          product.minMonthlyDisposableIncome !== null
+            ? Number(product.minMonthlyDisposableIncome)
+            : null,
+        allowsRecentArrears: product.allowsRecentArrears,
+        purposes: product.purposes.map((p) => p.purpose),
+      };
+
       // Persist EvaluationRecommendation (DB enum: RECOMMENDED | NOT_COMPATIBLE)
       const dbOutcome = outcome === "RECOMMENDED" ? "RECOMMENDED" : "NOT_COMPATIBLE";
       const existingRec = await this.db.client.evaluationRecommendation.findFirst({
@@ -226,6 +243,7 @@ export class RecommendationService extends EvaluationRecommender {
         update: {
           outcome: dbOutcome,
           ruleVersion: RULE_VERSION,
+          productSnapshot,
           evaluatedAt: new Date(),
         },
         create: {
@@ -235,6 +253,7 @@ export class RecommendationService extends EvaluationRecommender {
           productId: product.id,
           outcome: dbOutcome,
           ruleVersion: RULE_VERSION,
+          productSnapshot,
         },
       });
 

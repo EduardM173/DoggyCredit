@@ -21,6 +21,7 @@ describe("RecommendationService (HU-12)", () => {
         createMany: MockFn;
       };
     };
+    run: MockFn;
   };
 
   beforeEach(() => {
@@ -43,6 +44,7 @@ describe("RecommendationService (HU-12)", () => {
           createMany: jest.fn(),
         },
       },
+      run: jest.fn(async (work: () => Promise<unknown>) => work()),
     };
 
     service = new RecommendationService(mockDb as unknown as DatabaseUnitOfWork);

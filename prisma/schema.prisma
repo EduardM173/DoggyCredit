@@ -667,13 +667,15 @@ model ProfileSource {
 }
 
 model EvaluationRecommendation {
-  id           String                @id @default(uuid()) @db.Uuid
-  tenantId     String                @db.Uuid
-  evaluationId String                @db.Uuid
-  productId    String                @db.Uuid
-  outcome      RecommendationOutcome
-  ruleVersion  String                @db.VarChar(60)
-  evaluatedAt  DateTime              @default(now()) @db.Timestamptz(6)
+  id              String                @id @default(uuid()) @db.Uuid
+  tenantId        String                @db.Uuid
+  evaluationId    String                @db.Uuid
+  productId       String                @db.Uuid
+  outcome         RecommendationOutcome
+  ruleVersion     String                @db.VarChar(60)
+  // S4-HF-06: producto y reglas tal como estaban al evaluar; las filas previas al hotfix quedan en NULL.
+  productSnapshot Json?
+  evaluatedAt     DateTime              @default(now()) @db.Timestamptz(6)
 
   tenant     Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   evaluation Evaluation             @relation(fields: [tenantId, evaluationId], references: [tenantId, id], onDelete: Restrict)

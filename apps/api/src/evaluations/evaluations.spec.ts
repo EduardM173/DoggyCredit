@@ -756,6 +756,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         client: {
           id: "client-comp-2",
           type: "COMPANY",
+          documentType: "NIT",
           documentNumber: "1020304050",
         },
         sourceResults: [],
@@ -873,7 +874,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
 
       const res = await service.processEvaluation(makeContext(), "eval-multi-1");
 
-      expect(mockBank.query).toHaveBeenCalledWith("tenant-a", "1234567");
+      expect(mockBank.query).toHaveBeenCalledWith("tenant-a", "1234567", "PERSON");
       expect(mockBureau.query).toHaveBeenCalledWith("tenant-a", "1234567");
       expect(mockProfileCalculator.consolidate).toHaveBeenCalledWith(
         expect.objectContaining({
