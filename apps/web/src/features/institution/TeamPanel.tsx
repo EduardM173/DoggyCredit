@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Clock3, Mail, Plus, Send, Users, X } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Mail,
+  MailX,
+  PauseCircle,
+  Plus,
+  RotateCcw,
+  Send,
+  ShieldAlert,
+  Users,
+  X,
+} from "lucide-react";
 import "./team.css";
 
 type TeamMember = {
@@ -439,7 +452,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
           >
             <div className="team-dialog-heading">
               <h2 id="team-dialog-title">
-                {inviteRole === "ANALYST" ? "Invitar analista" : "Invitar reemplazo administrativo"}
+                {inviteRole === "ANALYST" ? "Invitar analista" : "Invitar administrador de reemplazo"}
               </h2>
               <button
                 type="button"
@@ -468,24 +481,24 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                   setEmail(event.target.value);
                   setError("");
                 }}
-                placeholder="analista@institucion.com"
+                placeholder="correo@institucion.com"
               />
               {error && (
                 <p id="team-email-error" role="alert" className="institution-error">
                   {error}
                 </p>
               )}
-              <dl>
+              <dl className="team-invite-summary">
                 <div>
                   <dt>Institución</dt>
                   <dd>{tenantName}</dd>
                 </div>
                 <div>
-                  <dt>Se invitará como</dt>
+                  <dt>Rol que se asignará</dt>
                   <dd>{inviteRole === "ANALYST" ? "Analista" : "Administrador institucional"}</dd>
                 </div>
               </dl>
-              <p>
+              <p className="team-invite-note">
                 {inviteRole === "ANALYST"
                   ? `La invitación generará un enlace para activar el acceso a ${tenantName}.`
                   : `El reemplazo deberá aceptar la invitación antes de que otro administrador pueda retirar el acceso anterior en ${tenantName}.`}
@@ -494,7 +507,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                 <button type="button" disabled={busy} onClick={() => setModal(false)}>
                   Cancelar
                 </button>
-                <button className="institution-primary" disabled={busy || !email.trim()}>
+                <button className="institution-primary team-invite-submit" disabled={busy || !email.trim()}>
                   {busy ? "Enviando..." : "Enviar invitación"}
                 </button>
               </div>
@@ -511,12 +524,23 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
         >
           <div
             ref={choiceDialog}
-            className="team-dialog"
+            className={`team-dialog team-action-dialog team-action-${choice.action}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-action-title"
             onKeyDown={dialogKeys}
           >
+            <span className="team-action-icon" aria-hidden="true">
+              {choice.action === "suspend" ? (
+                <PauseCircle size={25} />
+              ) : choice.action === "revoke" ? (
+                <ShieldAlert size={25} />
+              ) : choice.action === "cancel" ? (
+                <MailX size={25} />
+              ) : (
+                <RotateCcw size={25} />
+              )}
+            </span>
             <h2 id="team-action-title">
               {
                 {
@@ -527,27 +551,37 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                 }[choice.action]
               }
             </h2>
-            <p>
-              <strong>{choice.member.name ?? choice.member.email}</strong> · {choice.member.email}
-            </p>
-            <p>
-              Institución: <strong>{tenantName}</strong>
-            </p>
-            <p>
+            <div className="team-action-context">
+              {choice.member.name && choice.member.name !== choice.member.email && (
+                <strong>{choice.member.name}</strong>
+              )}
+              <span className="team-action-email">{choice.member.email}</span>
+              <span className="team-action-tenant">
+                Institución: <strong>{tenantName}</strong>
+              </span>
+            </div>
+            <p className="team-action-description">
               {choice.action === "cancel"
                 ? "El enlace pendiente dejará de funcionar."
                 : choice.action === "suspend"
-                  ? "La persona perderá acceso a esta institución hasta que la reactives."
+                  ? "Esta persona perderá temporalmente el acceso a esta institución hasta que se reactive."
                   : choice.action === "reactivate"
                     ? "La persona recuperará acceso a esta institución con sus credenciales actuales."
                     : "La persona perderá acceso a esta institución. Su historial y otros accesos institucionales permanecerán intactos."}
             </p>
             <div className="team-dialog-actions">
               <button disabled={busy} onClick={() => setChoice(null)}>
-                Volver
+                Cancelar
               </button>
-              <button className="institution-primary" disabled={busy} onClick={change}>
-                {busy ? "Guardando..." : "Confirmar"}
+              <button className="team-action-submit" disabled={busy} onClick={change}>
+                {busy
+                  ? "Guardando..."
+                  : {
+                      cancel: "Cancelar invitación",
+                      suspend: "Suspender acceso",
+                      reactivate: "Reactivar acceso",
+                      revoke: "Revocar acceso",
+                    }[choice.action]}
               </button>
             </div>
           </div>

@@ -88,6 +88,9 @@ describe("HU-07 institutional interface", () => {
     fetchMock.mockImplementation(() => response({}, 403));
     mount("/banco-y");
     expect(await screen.findByRole("alert")).toHaveTextContent("No tienes acceso");
+    expect(screen.getByRole("heading", { name: "No tienes acceso a esta institución" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mis instituciones" })).toHaveAttribute("href", "/elegir-institucion");
+    expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
     expect(screen.queryByText("Banco Y")).not.toBeInTheDocument();
   });
   it("hides the previous tenant immediately while a new slug is checked", async () => {

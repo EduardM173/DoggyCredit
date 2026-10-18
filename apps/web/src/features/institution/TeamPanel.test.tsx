@@ -132,7 +132,9 @@ describe("HU-09 team page", () => {
     await screen.findByText("analista@real.test");
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.getByRole("dialog", { name: "Cancelar invitación" })).toHaveTextContent("Banco Real");
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    fireEvent.click(
+      screen.getByRole("dialog", { name: "Cancelar invitación" }).querySelector(".team-action-submit")!,
+    );
     await screen.findByText("Revocado");
     expect(
       fetchMock.mock.calls.some(
@@ -169,8 +171,42 @@ describe("HU-09 team page", () => {
     );
     await screen.findByText("Carlos");
     fireEvent.click(screen.getByRole("button", { name: "Suspender" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    const dialog = screen.getByRole("dialog", { name: "Suspender acceso" });
+    expect(dialog.textContent?.match(/carlos@real\.test/g)).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Suspender acceso" }));
     await screen.findByText("Suspendido");
     expect(screen.getByRole("status")).toHaveTextContent("estado guardado confirma");
+  });
+
+  it("presents revocation as danger and keeps replacement invitation details", async () => {
+    const analyst = {
+      id: "analyst",
+      name: "Carlos",
+      email: "carlos@real.test",
+      role: "ANALYST",
+      status: "ACTIVE",
+      isInitialAdmin: false,
+      invitation: null,
+    };
+    fetchMock.mockImplementation(() => response({ ...team, members: [administrator, analyst] }));
+    render(
+      <MemoryRouter>
+        <TeamPanel slug="banco-real" tenantName="Banco Real" />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Carlos");
+    fireEvent.click(screen.getByRole("button", { name: "Revocar" }));
+    const revoke = screen.getByRole("dialog", { name: "Revocar acceso" });
+    expect(revoke).toHaveClass("team-action-revoke");
+    expect(revoke.textContent?.match(/carlos@real\.test/g)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Revocar acceso" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invitar reemplazo administrativo" }));
+    expect(screen.getByRole("dialog", { name: "Invitar administrador de reemplazo" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Correo electrónico")).toHaveAttribute(
+      "placeholder",
+      "correo@institucion.com",
+    );
+    expect(screen.getByText("Administrador institucional")).toBeInTheDocument();
   });
 });
