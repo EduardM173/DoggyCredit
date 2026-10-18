@@ -1,6 +1,11 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { BankMockSource, type SourceQueryResult, type NormalizedFinancialData } from "./public.js";
+import {
+  BankMockSource,
+  type SourceQueryResult,
+  type NormalizedFinancialData,
+  type SourceSubjectType,
+} from "./public.js";
 
 @Injectable()
 export class BankMockSourceService extends BankMockSource {
@@ -43,7 +48,11 @@ export class BankMockSourceService extends BankMockSource {
     return true;
   }
 
-  async query(tenantId: string, documentNumber: string): Promise<SourceQueryResult> {
+  async query(
+    tenantId: string,
+    documentNumber: string,
+    subjectType: SourceSubjectType = "PERSON",
+  ): Promise<SourceQueryResult> {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BANK_MOCK" },
       select: { id: true, status: true },
@@ -96,15 +105,16 @@ export class BankMockSourceService extends BankMockSource {
 
     // Fixture scenario: Incomplete data (e.g. ends with "111")
     if (doc.endsWith("111")) {
+      const isCompany = subjectType === "COMPANY";
       const data: NormalizedFinancialData = {
         documentNumber: doc,
         accounts: [
           {
             accountNumberMasked: "BO-****-1111",
-            accountType: "SAVINGS",
+            accountType: isCompany ? "CHECKING" : "SAVINGS",
             currency: "BOB",
-            currentBalance: 5200.0,
-            averageMonthlyInflow: 4800.0,
+            currentBalance: isCompany ? 62000.0 : 5200.0,
+            averageMonthlyInflow: isCompany ? 38000.0 : 4800.0,
             averageMonthlyOutflow: 0,
           },
         ],
@@ -120,7 +130,38 @@ export class BankMockSourceService extends BankMockSource {
       };
     }
 
-    // Fixture scenario: Standard SUCCESS
+    // Fixture scenario: Standard SUCCESS for a company (NIT), at business scale (S4-HF-07)
+    if (subjectType === "COMPANY") {
+      const data: NormalizedFinancialData = {
+        documentNumber: doc,
+        accounts: [
+          {
+            accountNumberMasked: "BO-****-4050",
+            accountType: "CHECKING",
+            currency: "BOB",
+            currentBalance: 120000.0,
+            averageMonthlyInflow: 85000.0,
+            averageMonthlyOutflow: 52000.0,
+          },
+        ],
+        loans: [
+          {
+            loanId: `L-${doc.slice(-4)}-C1`,
+            loanType: "COMMERCIAL",
+            originalAmount: 150000.0,
+            outstandingBalance: 90000.0,
+            monthlyInstallment: 4500.0,
+            status: "ACTIVE",
+            daysPastDue: 0,
+          },
+        ],
+        reportedAt: new Date().toISOString(),
+        currency: "BOB",
+      };
+      return { status: "SUCCESS", data, externalReference: ref, providerId: provider.id };
+    }
+
+    // Fixture scenario: Standard SUCCESS for a person
     const data: NormalizedFinancialData = {
       documentNumber: doc,
       accounts: [

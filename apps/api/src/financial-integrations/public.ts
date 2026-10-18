@@ -59,10 +59,38 @@ export interface SourceStatus {
   healthStatus?: "ACTIVE" | "DEGRADED" | "INACTIVE";
 }
 
+/** Tipo de sujeto que una fuente puede consultar (S4-HF-07). */
+export type SourceSubjectType = "PERSON" | "COMPANY";
+
+export type SourceProviderCode = "BANK_MOCK" | "BUREAU_MOCK";
+
+/**
+ * Cobertura real de cada fuente simulada por tipo de sujeto. Es la única
+ * declaración: la preparación, la creación del borrador y el procesamiento
+ * consultan esta tabla en lugar de suponer que toda fuente cubre todo.
+ * El Buró simulado solo conoce personas; el Banco simulado cubre personas y
+ * empresas (NIT).
+ */
+export const SOURCE_COVERAGE: Readonly<Record<SourceProviderCode, readonly SourceSubjectType[]>> = {
+  BANK_MOCK: ["PERSON", "COMPANY"],
+  BUREAU_MOCK: ["PERSON"],
+};
+
+export function sourceCoversSubject(
+  providerCode: SourceProviderCode,
+  subject: SourceSubjectType,
+): boolean {
+  return SOURCE_COVERAGE[providerCode].includes(subject);
+}
+
 export abstract class BankMockSource {
   abstract status(tenantId: string): Promise<SourceStatus>;
   abstract enable(tenantId: string): Promise<boolean>;
-  abstract query(tenantId: string, documentNumber: string): Promise<SourceQueryResult>;
+  abstract query(
+    tenantId: string,
+    documentNumber: string,
+    subjectType: SourceSubjectType,
+  ): Promise<SourceQueryResult>;
 }
 
 export interface BureauLoanRecord {
