@@ -9,6 +9,7 @@ import {
   House,
   Info,
   ListChecks,
+  LockKeyhole,
   LogOut,
   Package,
   Settings2,
@@ -153,11 +154,30 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
     return (
       <main className="institution-gate">
         {error ? (
-          <>
-            <p role="alert">{error}</p>
-            <button onClick={() => setReload((value) => value + 1)}>Reintentar</button>
-            <Link to="/elegir-institucion">Mis instituciones</Link>
-          </>
+          <section className="institution-gate-panel" aria-labelledby="institution-gate-title">
+            <div className="institution-gate-brand" aria-label="DoggyCredit">
+              Doggy<span>Credit</span>
+            </div>
+            <span className="institution-gate-icon" aria-hidden="true">
+              <LockKeyhole size={26} />
+            </span>
+            <h1 id="institution-gate-title">No tienes acceso a esta institución</h1>
+            <p className="institution-gate-description">
+              No pudimos abrir este espacio con tu sesión actual. Puedes elegir otra institución o intentar de
+              nuevo.
+            </p>
+            <p className="institution-gate-detail" role="alert">
+              {error}
+            </p>
+            <div className="institution-gate-actions">
+              <Link className="institution-gate-primary" to="/elegir-institucion">
+                Mis instituciones
+              </Link>
+              <button className="institution-gate-secondary" onClick={() => setReload((value) => value + 1)}>
+                Reintentar
+              </button>
+            </div>
+          </section>
         ) : (
           <p role="status">Comprobando acceso...</p>
         )}

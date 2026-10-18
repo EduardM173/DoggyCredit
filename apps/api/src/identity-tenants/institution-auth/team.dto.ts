@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsEmail, MaxLength } from "class-validator";
+import { IsEmail, IsIn, IsOptional, MaxLength } from "class-validator";
 
 export class InviteAnalystDto {
   @Transform(({ value }: { value: unknown }) =>
@@ -8,4 +8,8 @@ export class InviteAnalystDto {
   @IsEmail()
   @MaxLength(254)
   email!: string;
+
+  @IsOptional()
+  @IsIn(["ANALYST", "INSTITUTION_ADMIN"])
+  role?: "ANALYST" | "INSTITUTION_ADMIN";
 }

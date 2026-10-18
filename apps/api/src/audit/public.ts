@@ -9,7 +9,19 @@ export abstract class AuditWriter {
     tenantId: string;
     actorUserId: string;
     invitationId: string;
-    action: "ANALYST_INVITATION_CREATED" | "ANALYST_INVITATION_RESENT";
+    action:
+      | "ANALYST_INVITATION_CREATED"
+      | "ANALYST_INVITATION_RESENT"
+      | "ADMIN_INVITATION_CREATED"
+      | "ADMIN_INVITATION_RESENT";
+  }): Promise<void>;
+  abstract recordTeamAccess(event: {
+    tenantId: string;
+    actorUserId: string;
+    membershipId: string;
+    action: "INVITATION_CANCELLED" | "MEMBERSHIP_SUSPENDED" | "MEMBERSHIP_REACTIVATED" | "MEMBERSHIP_REVOKED";
+    fromStatus: string;
+    toStatus: string;
   }): Promise<void>;
   abstract recordInstitutionPreparation(event: {
     tenantId: string;

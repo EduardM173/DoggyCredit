@@ -41,7 +41,7 @@ export class ActivationService {
       row.tenantId !== row.membership.tenantId ||
       row.membership.status !== "INVITED" ||
       !(
-        (row.membership.role === "INSTITUTION_ADMIN" && row.membership.isInitialAdmin) ||
+        row.membership.role === "INSTITUTION_ADMIN" ||
         (row.membership.role === "ANALYST" && !row.membership.isInitialAdmin)
       ) ||
       row.membership.tenant.status !== "ACTIVE" ||
