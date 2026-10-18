@@ -18,7 +18,7 @@ type TeamMember = {
   } | null;
 };
 type Team = { tenant: { name: string; slug: string }; members: TeamMember[] };
-type TeamMutation = { emailSent: boolean; team: Team };
+type TeamMutation = { emailSent: boolean; emailDelivery?: "SENT" | "TEST_INBOX" | "FAILED"; team: Team };
 
 async function teamApi<T>(slug: string, path = "", body?: object): Promise<T> {
   const base = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
@@ -125,7 +125,9 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
       setTeam(response.team);
       setNotice(
         response.emailSent
-          ? `Invitación enviada a ${email.trim().toLowerCase()}. El analista debe abrir el enlace para activar su acceso.`
+          ? response.emailDelivery === "TEST_INBOX"
+            ? `La invitación se generó en la bandeja de pruebas local para ${email.trim().toLowerCase()}; no se envió a una casilla externa.`
+            : `Invitación enviada a ${email.trim().toLowerCase()}. El analista debe abrir el enlace para activar su acceso.`
           : `La invitación quedó pendiente, pero el correo aún no salió. Puedes reenviarlo desde Equipo.`,
       );
       setModal(false);
@@ -154,7 +156,9 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
       setTeam(response.team);
       setNotice(
         response.emailSent
-          ? "Invitación reenviada. El enlace anterior ya no es válido."
+          ? response.emailDelivery === "TEST_INBOX"
+            ? "La nueva invitación está en la bandeja de pruebas local. El enlace anterior ya no es válido."
+            : "Invitación reenviada. El enlace anterior ya no es válido."
           : "El correo sigue pendiente. Puedes intentar reenviarlo más tarde.",
       );
     } catch (reason) {
@@ -341,7 +345,7 @@ export function TeamPanel({ slug, tenantName }: { slug: string; tenantName: stri
                   <dd>Analista</dd>
                 </div>
               </dl>
-              <p>El analista recibirá un enlace para activar su acceso a {tenantName}.</p>
+              <p>La invitación generará un enlace para activar el acceso a {tenantName}.</p>
               <div className="team-dialog-actions">
                 <button type="button" disabled={busy} onClick={() => setModal(false)}>
                   Cancelar

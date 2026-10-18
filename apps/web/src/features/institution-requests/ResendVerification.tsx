@@ -39,6 +39,8 @@ export function ResendVerification({
       setFeedback(
         result.emailDelivery === "SENT"
           ? "Enviamos un nuevo enlace. Revisa tu bandeja de entrada y spam."
+          : result.emailDelivery === "TEST_INBOX"
+            ? "Generamos un nuevo enlace en la bandeja de pruebas de la demostración; no fue enviado a una casilla externa."
           : result.emailDelivery === "FAILED"
             ? "Tu solicitud está guardada, pero no pudimos confirmar el envío. Podrás reintentarlo al terminar la espera."
             : "No hay un reenvío disponible para esta referencia. Revisa si ya confirmaste tu correo.",

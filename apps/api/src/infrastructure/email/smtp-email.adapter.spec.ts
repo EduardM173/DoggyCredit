@@ -29,7 +29,7 @@ describe("SmtpEmailAdapter (no network)", () => {
       .spyOn(nodemailer, "createTransport")
       .mockReturnValue({ sendMail, close } as never);
 
-    await new SmtpEmailAdapter(config).send(message);
+    await expect(new SmtpEmailAdapter(config).send(message)).resolves.toEqual({ channel: "SMTP" });
 
     expect(createTransport).toHaveBeenCalledWith(
       expect.objectContaining({

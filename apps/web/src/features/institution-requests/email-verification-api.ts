@@ -1,4 +1,4 @@
-export type Delivery = { emailDelivery: "SENT" | "FAILED" | "UNAVAILABLE"; retryAfterSeconds: number };
+export type Delivery = { emailDelivery: "SENT" | "TEST_INBOX" | "FAILED" | "UNAVAILABLE"; retryAfterSeconds: number };
 export type Verified = { contactEmail: string; status: "PENDING_REVIEW" };
 
 export class VerificationError extends Error {
@@ -62,7 +62,7 @@ export async function verifyEmail(token: string): Promise<Verified> {
 export async function resendVerification(requestId: string): Promise<Delivery> {
   const body = await post("resend", { requestId });
   if (
-    !["SENT", "FAILED", "UNAVAILABLE"].includes(body?.emailDelivery) ||
+    !["SENT", "TEST_INBOX", "FAILED", "UNAVAILABLE"].includes(body?.emailDelivery) ||
     typeof body.retryAfterSeconds !== "number" ||
     body.retryAfterSeconds < 0
   )

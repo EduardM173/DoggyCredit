@@ -6,8 +6,14 @@ export interface EmailMessage {
   idempotencyKey: string;
 }
 
+export type EmailDeliveryChannel = "SMTP" | "TEST_INBOX";
+
+export interface EmailDeliveryReceipt {
+  channel: EmailDeliveryChannel;
+}
+
 export abstract class EmailSender {
-  abstract send(message: EmailMessage): Promise<void>;
+  abstract send(message: EmailMessage): Promise<EmailDeliveryReceipt>;
 }
 
 export class EmailDeliveryError extends Error {

@@ -10,3 +10,4 @@ coverage
 tools/control-center/.runtime/
 apps/api/src/generated/prisma
 *.pdf
+tmp/

@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import nodemailer from "nodemailer";
-import { EmailDeliveryError, EmailSender, type EmailMessage } from "./email-sender.js";
+import {
+  EmailDeliveryError,
+  EmailSender,
+  type EmailDeliveryReceipt,
+  type EmailMessage,
+} from "./email-sender.js";
 
 const transientCodes = new Set([
   "ECONNECTION",
@@ -30,7 +35,7 @@ export class SmtpEmailAdapter extends EmailSender {
     super();
   }
 
-  async send(message: EmailMessage): Promise<void> {
+  async send(message: EmailMessage): Promise<EmailDeliveryReceipt> {
     const host = this.config.get<string>("SMTP_HOST");
     const user = this.config.get<string>("SMTP_USER");
     const password = this.config.get<string>("SMTP_PASSWORD");
@@ -59,6 +64,7 @@ export class SmtpEmailAdapter extends EmailSender {
         },
       });
       if (!result.accepted.length || result.rejected.length) throw new EmailDeliveryError(false);
+      return { channel: "SMTP" };
     } catch (error) {
       // SMTP errors can contain recipients, message content or credentials.
       throw error instanceof EmailDeliveryError ? error : new EmailDeliveryError(isRetryable(error));
