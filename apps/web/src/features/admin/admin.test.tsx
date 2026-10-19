@@ -234,7 +234,9 @@ describe("HU-03 administrative interface", () => {
         ).toBeInTheDocument();
       else {
         expect(
-          await screen.findByText("El enlace personal fue enviado al correo verificado del representante."),
+          await screen.findByText(
+            "El proveedor aceptó el correo dirigido al contacto verificado; la recepción no está confirmada.",
+          ),
         ).toBeInTheDocument();
         fireEvent.click(screen.getByRole("button", { name: "Reenviar correo" }));
         await screen.findByText("Se solicitó el envío al correo verificado de la solicitud.");
@@ -262,13 +264,56 @@ describe("HU-03 administrative interface", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("El enlace personal fue enviado al correo verificado del representante."),
+      screen.queryByText(
+        "El proveedor aceptó el correo dirigido al contacto verificado; la recepción no está confirmada.",
+      ),
     ).not.toBeInTheDocument();
     const section = screen.getByRole("heading", { name: "Acceso a contratación" }).closest("section")!;
     expect(within(section).getByRole("link", { name: "Bandeja de pruebas" })).toHaveAttribute(
       "href",
       "/admin/bandeja-pruebas",
     );
+  });
+  it("offers authorized link recovery when contracting email delivery fails", async () => {
+    detail = {
+      ...detail,
+      status: "APPROVED",
+      reviewedAt: "2026-09-26T12:00:00Z",
+      reviewer: { fullName: session.user.fullName },
+    };
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, options: unknown) =>
+      url.endsWith("/contracting-email")
+        ? response({ delivery: "FAILED", channel: null })
+        : url.endsWith("/contracting-access")
+          ? response({
+              url: "http://localhost:5173/contratacion#token=synthetic",
+              expiresAt: "2026-10-19T12:00:00Z",
+            })
+          : original(url, options),
+    );
+    renderFlow("/admin/solicitudes/request");
+    const recovery = await screen.findByRole("button", { name: "Generar enlace seguro" });
+    fireEvent.click(recovery);
+    expect(await screen.findByRole("textbox", { name: "Enlace de contratación" })).toHaveValue(
+      "http://localhost:5173/contratacion#token=synthetic",
+    );
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/contracting-access"))).toBe(true);
+  });
+  it("keeps manual recovery available while contracting email is queued", async () => {
+    detail = {
+      ...detail,
+      status: "APPROVED",
+      reviewedAt: "2026-09-26T12:00:00Z",
+      reviewer: { fullName: session.user.fullName },
+    };
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, options: unknown) =>
+      url.endsWith("/contracting-email") ? response({ delivery: "QUEUED" }) : original(url, options),
+    );
+    renderFlow("/admin/solicitudes/request");
+    expect(await screen.findByRole("button", { name: "Generar enlace seguro" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar enlace por correo" })).not.toBeInTheDocument();
   });
   it("prevents duplicate decisions while pending", async () => {
     const original = fetchMock.getMockImplementation()!;

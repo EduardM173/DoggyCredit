@@ -531,8 +531,38 @@
   line-height: 1.5;
   color: #576c84;
 }
-.contracting-access-action > button {
+.contracting-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-top: 12px;
+}
+.contracting-access-manual {
+  display: grid;
+  gap: 8px;
+  max-width: 720px;
+  margin-top: 20px;
+}
+.contracting-access-manual label {
+  font-weight: 700;
+  color: #0b1f4d;
+}
+.contracting-access-manual input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #b8c5de;
+  border-radius: 6px;
+  background: #f5f9fb;
+  color: #0b1f4d;
+  font: inherit;
+}
+.contracting-access-manual input:focus-visible {
+  outline: 2px solid #1267e8;
+  outline-offset: 2px;
+}
+.contracting-access-manual small {
+  color: #51627d;
 }
 .contracting-access-action > small {
   display: block;

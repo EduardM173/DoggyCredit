@@ -156,6 +156,8 @@ describe("HU-09 team invitations", () => {
   it("reuses a global user from another tenant without replacing credentials", async () => {
     const admin = await fixture();
     const existing = await fixture("ANALYST");
+    const verifiedAt = new Date();
+    await db.user.update({ where: { id: existing.user.id }, data: { emailVerifiedAt: verifiedAt } });
     const cookie = (await admin.login()).headers["set-cookie"][0];
     const invited = await post(`${teamUrl(admin.tenant.slug)}/invitations`, cookie, {
       email: existing.user.email,
@@ -163,8 +165,25 @@ describe("HU-09 team invitations", () => {
     assert.equal(invited.body.emailSent, true);
     const token = tokenFrom(sent.at(-1));
     assert.equal((await preview(token).expect(200)).body.requiresCredentialSetup, false);
-    await activate(token).expect(200);
+    const existingCookie = (await existing.login()).headers["set-cookie"][0];
+    await get(`/api/institution/tenants/${admin.tenant.slug}/home`, existingCookie).expect(403);
+    const other = await fixture("ANALYST");
+    const otherCookie = (await other.login()).headers["set-cookie"][0];
+    await request(app.getHttpServer())
+      .post("/api/membership-invitations/activate")
+      .set("Cookie", otherCookie)
+      .send({ token })
+      .expect(200);
+    await get(`/api/institution/tenants/${admin.tenant.slug}/home`, otherCookie).expect(403);
+    assert.equal(
+      await db.tenantMembership.count({ where: { tenantId: admin.tenant.id, userId: other.user.id } }),
+      0,
+    );
     assert.equal(await db.user.count({ where: { email: existing.user.email } }), 1);
+    const unchanged = await db.user.findUniqueOrThrow({ where: { id: existing.user.id } });
+    assert.equal(unchanged.passwordHash, existing.user.passwordHash);
+    assert.equal(unchanged.emailVerifiedAt.getTime(), verifiedAt.getTime());
+    await get(`/api/institution/tenants/${admin.tenant.slug}/home`, existingCookie).expect(200);
     const memberships = await db.tenantMembership.findMany({
       where: { userId: existing.user.id, status: "ACTIVE" },
     });
@@ -176,6 +195,31 @@ describe("HU-09 team invitations", () => {
     await post(`${teamUrl(admin.tenant.slug)}/invitations`, cookie, { email: existing.user.email }).expect(
       409,
     );
+  });
+
+  it("serializes invitations from two tenants into one global identity and separate pending memberships", async () => {
+    const x = await fixture();
+    const y = await fixture();
+    const email = `shared-${randomUUID().slice(0, 8)}@example.test`;
+    const xCookie = (await x.login()).headers["set-cookie"][0];
+    const yCookie = (await y.login()).headers["set-cookie"][0];
+    const responses = await Promise.all([
+      post(`${teamUrl(x.tenant.slug)}/invitations`, xCookie, { email }),
+      post(`${teamUrl(y.tenant.slug)}/invitations`, yCookie, { email }),
+    ]);
+    assert.deepEqual(
+      responses.map((response) => response.status),
+      [200, 200],
+    );
+    const users = await db.user.findMany({ where: { email } });
+    assert.equal(users.length, 1);
+    const memberships = await db.tenantMembership.findMany({ where: { userId: users[0].id } });
+    assert.equal(memberships.length, 2);
+    assert.deepEqual(
+      new Set(memberships.map((member) => member.tenantId)),
+      new Set([x.tenant.id, y.tenant.id]),
+    );
+    assert.ok(memberships.every((member) => member.status === "INVITED"));
   });
 
   it("rejects duplicate/concurrent invitations and isolates tenant resources", async () => {
@@ -399,10 +443,17 @@ describe("HU-09 team invitations", () => {
     const y = await fixture();
     const cookie = (await x.login()).headers["set-cookie"][0];
     const ids = Array.from({ length: 22 }, () => randomUUID());
-    await db.user.createMany({ data: ids.map((id) => ({ id, email: `page-${id}@example.test`, fullName: id, status: "ACTIVE" })) });
-    await db.tenantMembership.createMany({ data: ids.map((userId, index) => ({
-      tenantId: x.tenant.id, userId, role: "ANALYST", status: index % 2 ? "SUSPENDED" : "REVOKED",
-    })) });
+    await db.user.createMany({
+      data: ids.map((id) => ({ id, email: `page-${id}@example.test`, fullName: id, status: "ACTIVE" })),
+    });
+    await db.tenantMembership.createMany({
+      data: ids.map((userId, index) => ({
+        tenantId: x.tenant.id,
+        userId,
+        role: "ANALYST",
+        status: index % 2 ? "SUSPENDED" : "REVOKED",
+      })),
+    });
     const first = await get(`${teamUrl(x.tenant.slug)}?page=1`, cookie).expect(200);
     const second = await get(`${teamUrl(x.tenant.slug)}?page=2`, cookie).expect(200);
     assert.equal(first.body.members.length, 20);
