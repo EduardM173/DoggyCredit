@@ -8,7 +8,6 @@ import {
   AdminAuthGuard,
   AdminLoginRateGuard,
   AdminOriginGuard,
-  OperatorGuard,
   sessionToken,
   type AdminRequest,
 } from "./admin-auth.guards.js";
@@ -33,7 +32,7 @@ export class AdminAuthController {
   @Post("login")
   @HttpCode(200)
   @UseGuards(AdminOriginGuard, AdminLoginRateGuard)
-  @ApiOperation({ summary: "Iniciar sesión interna como OPERATOR" })
+  @ApiOperation({ summary: "Iniciar sesión interna como OPERATOR o PLATFORM_ADMIN" })
   async login(
     @Body() body: AdminLoginDto,
     @Req() request: Request,
@@ -47,8 +46,10 @@ export class AdminAuthController {
     return result.view;
   }
 
+  // HU-30: la sesión la consultan OPERATOR y PLATFORM_ADMIN. El permiso por rol lo
+  // aplican los guards de cada ruta (OperatorGuard / PlatformAdminGuard), no este endpoint.
   @Get("session")
-  @UseGuards(AdminAuthGuard, OperatorGuard)
+  @UseGuards(AdminAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({ summary: "Consultar identidad y expiración de la sesión" })
   session(@Req() request: AdminRequest) {

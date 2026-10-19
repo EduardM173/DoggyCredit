@@ -17,6 +17,8 @@ export type SourceItem = {
   available: boolean;
   enabled: boolean;
   healthStatus: "ACTIVE" | "DEGRADED" | "INACTIVE" | string;
+  /** HU-30: false cuando la plataforma deshabilitó el proveedor (distinto de la habilitación de la institución). */
+  globallyEnabled?: boolean;
 };
 
 export type InstitutionHome = {

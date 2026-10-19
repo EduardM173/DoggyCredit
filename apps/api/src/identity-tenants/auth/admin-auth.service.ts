@@ -22,7 +22,14 @@ export class AdminAuthService {
       select: { ...identitySelect, status: true, passwordHash: true },
     });
     const valid = await verifyPassword(user?.passwordHash ?? (await this.dummy), password);
-    if (!valid || !user || user.status !== "ACTIVE" || user.platformRole !== "OPERATOR")
+    // HU-30: el administrador de plataforma también inicia sesión; sus permisos los separan los guards
+    // (OperatorGuard no lo admite, PlatformAdminGuard no admite a OPERATOR).
+    if (
+      !valid ||
+      !user ||
+      user.status !== "ACTIVE" ||
+      (user.platformRole !== "OPERATOR" && user.platformRole !== "PLATFORM_ADMIN")
+    )
       throw new UnauthorizedException("Credenciales incorrectas.");
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(

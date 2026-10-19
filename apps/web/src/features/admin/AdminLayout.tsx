@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut } from "lucide-react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap } from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { adminApi, AdminError, type Session } from "./api";
 
 export function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -21,6 +22,12 @@ export function AdminLayout() {
       });
     return () => controller.abort();
   }, [navigate, attempt]);
+  const isPlatformAdmin = session?.user.platformRole === "PLATFORM_ADMIN";
+  useEffect(() => {
+    // HU-30: el administrador de plataforma solo trabaja en Proveedores; las pantallas de operador le darían 403.
+    if (isPlatformAdmin && !location.pathname.startsWith("/admin/proveedores"))
+      navigate("/admin/proveedores", { replace: true });
+  }, [isPlatformAdmin, location.pathname, navigate]);
   async function logout() {
     setBusy(true);
     try {
@@ -61,22 +68,31 @@ export function AdminLayout() {
         <Brand dark />
         <p className="admin-brand-caption">Administración</p>
         <nav aria-label="Administración">
-          <NavLink to="/admin/solicitudes">
-            <FileText size={21} />
-            Solicitudes
-          </NavLink>
-          <NavLink to="/admin/contrataciones">
-            <CreditCard size={21} />
-            Contrataciones
-          </NavLink>
-          <NavLink to="/admin/instituciones">
-            <Building2 size={21} />
-            Instituciones
-          </NavLink>
-          <NavLink to="/admin/bandeja-pruebas">
-            <Inbox size={21} />
-            Bandeja de pruebas
-          </NavLink>
+          {isPlatformAdmin ? (
+            <NavLink to="/admin/proveedores">
+              <PlugZap size={21} />
+              Proveedores
+            </NavLink>
+          ) : (
+            <>
+              <NavLink to="/admin/solicitudes">
+                <FileText size={21} />
+                Solicitudes
+              </NavLink>
+              <NavLink to="/admin/contrataciones">
+                <CreditCard size={21} />
+                Contrataciones
+              </NavLink>
+              <NavLink to="/admin/instituciones">
+                <Building2 size={21} />
+                Instituciones
+              </NavLink>
+              <NavLink to="/admin/bandeja-pruebas">
+                <Inbox size={21} />
+                Bandeja de pruebas
+              </NavLink>
+            </>
+          )}
         </nav>
         <Link className="admin-public-link" to="/">
           <ArrowLeft size={20} />
@@ -94,7 +110,7 @@ export function AdminLayout() {
           </span>
           <div>
             <strong>{session.user.fullName}</strong>
-            <small>Operador</small>
+            <small>{isPlatformAdmin ? "Administrador de plataforma" : "Operador"}</small>
           </div>
           <button
             className="admin-icon-button"

@@ -35,6 +35,20 @@ export interface ReviewList {
   page: number;
   pageSize: number;
 }
+/** HU-30: habilitación global, salud observada y habilitación por instituciones son tres hechos distintos. */
+export interface ProviderAdminView {
+  code: "BANK_MOCK" | "BUREAU_MOCK";
+  name: string;
+  kind: "BANK" | "CREDIT_BUREAU";
+  description: string;
+  registered: boolean;
+  coverage: { subjectTypes: ("PERSON" | "COMPANY")[] };
+  global: { enabled: boolean; changedAt: string | null };
+  health: { status: "ACTIVE" | "DEGRADED" | "INACTIVE" };
+  tenants: { enabled: number };
+  acceptsNewQueries: boolean;
+  simulationScenarios?: { status: string; documentEnding: string; description: string }[];
+}
 export class AdminError extends Error {
   constructor(
     public status: number,

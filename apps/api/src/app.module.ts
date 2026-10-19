@@ -9,6 +9,7 @@ import { ClientsModule } from "./clients/public.js";
 import { EvaluationsModule } from "./evaluations/public.js";
 import { FinancialIntegrationsModule } from "./financial-integrations/financial-integrations.module.js";
 import { FinancialProfileModule } from "./financial-profile/financial-profile.module.js";
+import { PlatformProvidersModule } from "./platform-providers.module.js";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { FinancialProfileModule } from "./financial-profile/financial-profile.mo
     EvaluationsModule,
     FinancialIntegrationsModule,
     FinancialProfileModule,
+    PlatformProvidersModule,
   ],
   controllers: [HealthController],
 })

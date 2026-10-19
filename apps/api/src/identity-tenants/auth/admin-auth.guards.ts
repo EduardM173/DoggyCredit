@@ -34,6 +34,18 @@ export class OperatorGuard implements CanActivate {
   }
 }
 
+/** HU-30: acciones reservadas al administrador de plataforma. OPERATOR no hereda este permiso. */
+@Injectable()
+export class PlatformAdminGuard implements CanActivate {
+  canActivate(context: ExecutionContext) {
+    if (
+      context.switchToHttp().getRequest<AdminRequest>().adminSession?.user.platformRole !== "PLATFORM_ADMIN"
+    )
+      throw new ForbiddenException("Solo el administrador de plataforma puede gestionar proveedores.");
+    return true;
+  }
+}
+
 @Injectable()
 export class AdminOriginGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}

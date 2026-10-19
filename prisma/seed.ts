@@ -131,6 +131,28 @@ async function main() {
     );
   }
   await seedOperator(email, fullName, password);
+  await seedPlatformAdminFromEnv();
+}
+
+/** HU-30: administrador de plataforma de demostración. Solo development/test y solo si se configuran las variables. */
+async function seedPlatformAdminFromEnv() {
+  const email = process.env.PLATFORM_ADMIN_SEED_EMAIL?.trim().toLowerCase();
+  const fullName = process.env.PLATFORM_ADMIN_SEED_NAME?.trim();
+  const password = process.env.PLATFORM_ADMIN_SEED_PASSWORD;
+  if (!email && !fullName && !password) return;
+  if (
+    !email ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !fullName ||
+    !password ||
+    password.length < 12 ||
+    password.length > 128
+  ) {
+    throw new Error(
+      "Configure PLATFORM_ADMIN_SEED_NAME, PLATFORM_ADMIN_SEED_EMAIL and a 12-128 character PLATFORM_ADMIN_SEED_PASSWORD.",
+    );
+  }
+  await seedOperator(email, fullName, password, PlatformRole.PLATFORM_ADMIN);
 }
 
 async function seedEvaluationPreparation() {
@@ -138,6 +160,17 @@ async function seedEvaluationPreparation() {
     where: { code: "BANK_MOCK" },
     update: {},
     create: { code: "BANK_MOCK", name: "Bank Mock", kind: "BANK", status: "ACTIVE" },
+  });
+  // HU-30 (CA-30.01): ambos proveedores globales existen sin crear IDs a mano por tenant.
+  await prisma.integrationProvider.upsert({
+    where: { code: "BUREAU_MOCK" },
+    update: {},
+    create: {
+      code: "BUREAU_MOCK",
+      name: "Buró crediticio simulado",
+      kind: "CREDIT_BUREAU",
+      status: "ACTIVE",
+    },
   });
   const fixtures = [
     {
@@ -259,9 +292,14 @@ async function seedEvaluationPreparation() {
   );
 }
 
-async function seedOperator(email: string, fullName: string, password: string) {
+async function seedOperator(
+  email: string,
+  fullName: string,
+  password: string,
+  platformRole: PlatformRole = PlatformRole.OPERATOR,
+) {
   const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
-  if (existing && existing.platformRole !== PlatformRole.OPERATOR) {
+  if (existing && existing.platformRole !== platformRole) {
     throw new Error("Demo seed cannot replace a user with another role.");
   }
   if (existing && (await prisma.tenantMembership.count({ where: { userId: existing.id } }))) {
@@ -283,7 +321,7 @@ async function seedOperator(email: string, fullName: string, password: string) {
         fullName,
         passwordHash,
         status: UserStatus.ACTIVE,
-        platformRole: PlatformRole.OPERATOR,
+        platformRole,
         emailVerifiedAt: new Date(),
       },
     });

@@ -90,7 +90,7 @@ npx prisma migrate dev
 npm run prisma:seed
 ```
 
-El seed es idempotente. El operador personalizado se configura con `SEED_DEMO_OPERATOR=true`, `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local. No publiques sus credenciales reales. Todos los seeds demo están restringidos a `NODE_ENV=development` o `test`; en producción se rechazan antes de modificar datos.
+El seed es idempotente. El operador personalizado se configura con `SEED_DEMO_OPERATOR=true`, `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local. Para probar HU-30 (proveedores) puedes sembrar además un administrador de plataforma con `PLATFORM_ADMIN_SEED_NAME`, `PLATFORM_ADMIN_SEED_EMAIL` y `PLATFORM_ADMIN_SEED_PASSWORD` (12-128 caracteres), solo en development/test. No publiques sus credenciales reales. Todos los seeds demo están restringidos a `NODE_ENV=development` o `test`; en producción se rechazan antes de modificar datos.
 
 ### Usuarios de prueba del backoffice
 
