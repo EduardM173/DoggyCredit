@@ -1,6 +1,6 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import type { SourceStatus, BureauQueryResult } from "./public.js";
+import { providerAcceptsQueries, type SourceStatus, type BureauQueryResult } from "./public.js";
 
 export abstract class BureauMockSource {
   abstract status(tenantId: string): Promise<SourceStatus>;
@@ -17,7 +17,7 @@ export class BureauMockSourceService extends BureauMockSource {
   async status(tenantId: string): Promise<SourceStatus> {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BUREAU_MOCK" },
-      select: { id: true, status: true },
+      select: { id: true, status: true, globallyEnabled: true },
     });
     if (!provider) {
       return { available: false, enabled: false, healthStatus: "INACTIVE" };
@@ -26,11 +26,13 @@ export class BureauMockSourceService extends BureauMockSource {
       where: { tenantId_providerId: { tenantId, providerId: provider.id } },
       select: { enabled: true, status: true },
     });
-    const isAvailable = provider.status === "ACTIVE";
+    // HU-30 (CA-30.05): habilitación global, habilitación del tenant y salud son tres hechos distintos.
+    const isAvailable = providerAcceptsQueries(provider);
     return {
       available: isAvailable,
       enabled: isAvailable && source?.enabled === true && source.status === "ACTIVE",
       healthStatus: provider.status as "ACTIVE" | "DEGRADED" | "INACTIVE",
+      globallyEnabled: provider.globallyEnabled,
     };
   }
 
@@ -38,7 +40,7 @@ export class BureauMockSourceService extends BureauMockSource {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BUREAU_MOCK" },
     });
-    if (!provider || provider.status !== "ACTIVE") {
+    if (!provider || !providerAcceptsQueries(provider)) {
       throw new ServiceUnavailableException(
         "El Buró crediticio simulado no está disponible en la plataforma. Intenta nuevamente más tarde.",
       );
@@ -61,10 +63,12 @@ export class BureauMockSourceService extends BureauMockSource {
   async query(tenantId: string, documentNumber: string) {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BUREAU_MOCK" },
-      select: { id: true, status: true },
+      select: { id: true, status: true, globallyEnabled: true },
     });
-    if (!provider || provider.status !== "ACTIVE") {
-      throw new ServiceUnavailableException("El Buró crediticio simulado no está disponible en la plataforma.");
+    if (!provider || !providerAcceptsQueries(provider)) {
+      throw new ServiceUnavailableException(
+        "El Buró crediticio simulado no está disponible en la plataforma.",
+      );
     }
 
     const tenantIntegration = await this.db.client.tenantIntegration.findUnique({
@@ -72,7 +76,9 @@ export class BureauMockSourceService extends BureauMockSource {
       select: { enabled: true, status: true },
     });
     if (!tenantIntegration?.enabled || tenantIntegration.status !== "ACTIVE") {
-      throw new ServiceUnavailableException("El Buró crediticio simulado no está habilitado para esta institución.");
+      throw new ServiceUnavailableException(
+        "El Buró crediticio simulado no está habilitado para esta institución.",
+      );
     }
 
     const doc = documentNumber.trim();

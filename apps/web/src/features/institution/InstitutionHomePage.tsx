@@ -554,6 +554,11 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                                   >
                                     {src.enabled ? "Habilitada para la institución" : "No habilitada"}
                                   </span>
+                                  {src.globallyEnabled === false && (
+                                    <span className="institution-badge badge-inactive">
+                                      Deshabilitada por la plataforma
+                                    </span>
+                                  )}
                                   <span
                                     className={
                                       src.available && src.healthStatus === "ACTIVE"
@@ -585,8 +590,9 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                                 <div className="institution-source-actions">
                                   {!src.available ? (
                                     <div className="institution-source-unavailable-msg" role="status">
-                                      Esta fuente no se encuentra disponible actualmente en la plataforma o
-                                      para tu plan.
+                                      {src.globallyEnabled === false
+                                        ? "La plataforma deshabilitó esta fuente para nuevas consultas. Tu configuración se conserva y las evaluaciones anteriores no cambian."
+                                        : "Esta fuente no se encuentra disponible actualmente en la plataforma o para tu plan."}
                                     </div>
                                   ) : isBureau ? (
                                     <button

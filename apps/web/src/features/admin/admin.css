@@ -945,3 +945,52 @@
     flex-direction: column;
   }
 }
+
+/* HU-30: proveedores simulados */
+.provider-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.provider-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.provider-card h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.provider-facts {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+.provider-facts dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+.provider-facts dd {
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+.provider-facts small {
+  color: var(--muted);
+  font-weight: 400;
+}
+.provider-confirm {
+  display: grid;
+  gap: 10px;
+}
+.provider-confirm label {
+  display: grid;
+  gap: 6px;
+}

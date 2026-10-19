@@ -2,6 +2,7 @@ import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import {
   BankMockSource,
+  providerAcceptsQueries,
   type SourceQueryResult,
   type NormalizedFinancialData,
   type SourceSubjectType,
@@ -16,23 +17,26 @@ export class BankMockSourceService extends BankMockSource {
   async status(tenantId: string) {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BANK_MOCK" },
-      select: { id: true, status: true },
+      select: { id: true, status: true, globallyEnabled: true },
     });
     if (!provider) return { available: false, enabled: false, healthStatus: "INACTIVE" as const };
     const source = await this.db.client.tenantIntegration.findUnique({
       where: { tenantId_providerId: { tenantId, providerId: provider.id } },
       select: { enabled: true, status: true },
     });
+    // HU-30 (CA-30.05): habilitación global, habilitación del tenant y salud son tres hechos distintos.
+    const accepts = providerAcceptsQueries(provider);
     return {
-      available: provider.status === "ACTIVE",
-      enabled: provider.status === "ACTIVE" && source?.enabled === true && source.status === "ACTIVE",
+      available: accepts,
+      enabled: accepts && source?.enabled === true && source.status === "ACTIVE",
       healthStatus: provider.status as "ACTIVE" | "DEGRADED" | "INACTIVE",
+      globallyEnabled: provider.globallyEnabled,
     };
   }
 
   async enable(tenantId: string) {
     const provider = await this.db.client.integrationProvider.findUnique({ where: { code: "BANK_MOCK" } });
-    if (provider?.status !== "ACTIVE")
+    if (!provider || !providerAcceptsQueries(provider))
       throw new ServiceUnavailableException(
         "La fuente bancaria no está disponible. Intenta nuevamente más tarde.",
       );
@@ -55,17 +59,21 @@ export class BankMockSourceService extends BankMockSource {
   ): Promise<SourceQueryResult> {
     const provider = await this.db.client.integrationProvider.findUnique({
       where: { code: "BANK_MOCK" },
-      select: { id: true, status: true },
+      select: { id: true, status: true, globallyEnabled: true },
     });
-    if (!provider || provider.status !== "ACTIVE") {
-      throw new ServiceUnavailableException("La fuente bancaria simulada no está disponible en la plataforma.");
+    if (!provider || !providerAcceptsQueries(provider)) {
+      throw new ServiceUnavailableException(
+        "La fuente bancaria simulada no está disponible en la plataforma.",
+      );
     }
     const tenantIntegration = await this.db.client.tenantIntegration.findUnique({
       where: { tenantId_providerId: { tenantId, providerId: provider.id } },
       select: { enabled: true, status: true },
     });
     if (!tenantIntegration?.enabled || tenantIntegration.status !== "ACTIVE") {
-      throw new ServiceUnavailableException("La fuente bancaria simulada no está habilitada para esta institución.");
+      throw new ServiceUnavailableException(
+        "La fuente bancaria simulada no está habilitada para esta institución.",
+      );
     }
 
     const doc = documentNumber.trim();

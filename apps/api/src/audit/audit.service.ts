@@ -65,6 +65,33 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+  async recordProviderAdministration(event: {
+    actorUserId: string;
+    providerId: string;
+    providerCode: string;
+    action: "PROVIDER_GLOBALLY_ENABLED" | "PROVIDER_GLOBALLY_DISABLED";
+    previousEnabled: boolean;
+    currentEnabled: boolean;
+    reason?: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        // Evento de plataforma: no pertenece a ninguna institución.
+        tenantId: null,
+        actorUserId: event.actorUserId,
+        action: event.action,
+        entityType: "IntegrationProvider",
+        entityId: event.providerId,
+        // Sin URLs, claves ni datos de solicitantes: solo el cambio y su motivo.
+        metadata: {
+          providerCode: event.providerCode,
+          previousEnabled: event.previousEnabled,
+          currentEnabled: event.currentEnabled,
+          ...(event.reason ? { reason: event.reason } : {}),
+        },
+      },
+    });
+  }
   async recordMembershipActivation(event: {
     userId: string;
     tenantId: string;

@@ -502,7 +502,12 @@ model IntegrationProvider {
   code      String            @unique @db.VarChar(60)
   name      String            @db.VarChar(140)
   kind      IntegrationKind
+  /// Salud observada del proveedor (no es una decisión administrativa).
   status    IntegrationStatus @default(ACTIVE)
+  /// HU-30: habilitación global decidida por PLATFORM_ADMIN. Distinta de la salud
+  /// (`status`) y de la habilitación de cada institución (`TenantIntegration.enabled`).
+  globallyEnabled Boolean     @default(true)
+  globalChangedAt DateTime?   @db.Timestamptz(6)
   createdAt DateTime          @default(now()) @db.Timestamptz(6)
   updatedAt DateTime          @updatedAt @db.Timestamptz(6)
 

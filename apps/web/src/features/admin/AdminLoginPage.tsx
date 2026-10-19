@@ -4,6 +4,11 @@ import { ArrowRight, Eye, EyeOff, FileText, LockKeyhole, Mail, ShieldCheck, User
 import { Brand } from "../../components/Brand";
 import { adminApi, type Session } from "./api";
 
+// HU-30: el administrador de plataforma entra directo a Proveedores; el operador, a Solicitudes.
+function destination(session?: Session) {
+  return session?.user?.platformRole === "PLATFORM_ADMIN" ? "/admin/proveedores" : "/admin/solicitudes";
+}
+
 export function AdminLoginPage() {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(false);
@@ -13,7 +18,7 @@ export function AdminLoginPage() {
   useEffect(() => {
     const controller = new AbortController();
     adminApi<Session>("/auth/session", { signal: controller.signal })
-      .then(() => navigate("/admin/solicitudes", { replace: true }))
+      .then((session) => navigate(destination(session), { replace: true }))
       .catch(() => {});
     return () => controller.abort();
   }, [navigate]);
@@ -26,11 +31,11 @@ export function AdminLoginPage() {
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
-      await adminApi<Session>("/auth/login", {
+      const session = await adminApi<Session>("/auth/login", {
         body: { email: String(data.get("email")).trim(), password: data.get("password") },
       });
       form.reset();
-      navigate("/admin/solicitudes", { replace: true });
+      navigate(destination(session), { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo iniciar sesión.");
     } finally {

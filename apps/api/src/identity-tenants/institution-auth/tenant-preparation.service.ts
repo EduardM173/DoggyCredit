@@ -16,6 +16,8 @@ export interface SourceItemDto {
   available: boolean;
   enabled: boolean;
   healthStatus: "ACTIVE" | "DEGRADED" | "INACTIVE";
+  /** HU-30: false cuando la plataforma deshabilitó el proveedor; distinto de `enabled` (decisión de la institución). */
+  globallyEnabled: boolean;
 }
 
 @Injectable()
@@ -59,23 +61,28 @@ export class TenantPreparationService {
         code: "BANK_MOCK",
         name: "Fuente bancaria simulada",
         kind: "BANK",
-        description: "Proporciona información de cuentas, balances, ingresos, egresos y créditos bancarios simulados.",
+        description:
+          "Proporciona información de cuentas, balances, ingresos, egresos y créditos bancarios simulados.",
         purpose: "Evaluación de capacidad de pago y flujo de ingresos mediante datos bancarios.",
         coverage: "Personas y microempresas con cuentas bancarias registradas.",
         available: bankStatus.available,
         enabled: bankStatus.enabled,
         healthStatus: bankStatus.healthStatus ?? (bankStatus.available ? "ACTIVE" : "INACTIVE"),
+        globallyEnabled: bankStatus.globallyEnabled !== false,
       },
       {
         code: "BUREAU_MOCK",
         name: "Buró crediticio simulado",
         kind: "CREDIT_BUREAU",
-        description: "Aporta historial crediticio consolidado, deuda global en el sistema financiero y comportamiento de mora histórico.",
-        purpose: "Evaluación de antecedentes crediticios, riesgo de sobreendeudamiento y morosidad histórica.",
+        description:
+          "Aporta historial crediticio consolidado, deuda global en el sistema financiero y comportamiento de mora histórico.",
+        purpose:
+          "Evaluación de antecedentes crediticios, riesgo de sobreendeudamiento y morosidad histórica.",
         coverage: "Cobertura orientada a solicitantes particulares y personas naturales.",
         available: bureauStatus.available,
         enabled: bureauStatus.enabled,
         healthStatus: bureauStatus.healthStatus ?? (bureauStatus.available ? "ACTIVE" : "INACTIVE"),
+        globallyEnabled: bureauStatus.globallyEnabled !== false,
       },
     ];
     return {
