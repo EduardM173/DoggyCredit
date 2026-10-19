@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import process from "node:process";
-import { URL } from "node:url";
+import { URL, URLSearchParams } from "node:url";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { before, after, describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
@@ -373,6 +373,76 @@ describe("HU-03 administrative review (PostgreSQL)", () => {
     assert.equal(sentEmails.at(-1).to, row.contactEmail);
     assert.doesNotMatch(JSON.stringify(retry.body), /token=|\/contratacion/);
     await post(`/institution-requests/${row.id}/contracting-email/resend`).expect(429);
+  });
+  it("recovers a failed approval email through an operator-issued link without another contract", async () => {
+    const row = await create();
+    emailFailure = "rejected";
+    try {
+      await post(`/institution-requests/${row.id}/approve`).expect(200);
+    } finally {
+      emailFailure = null;
+    }
+    const recovered = await post(`/institution-requests/${row.id}/contracting-access`).expect(200);
+    const token = new URLSearchParams(new URL(recovered.body.url).hash.slice(1)).get("token");
+    assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+    assert.equal(await prisma.contracting.count({ where: { requestId: row.id } }), 0);
+    assert.equal(
+      (await get(`/institution-requests/${row.id}/contracting-email`).expect(200)).body.delivery,
+      "REPLACED",
+    );
+    await request(app.getHttpServer())
+      .post("/api/contracting/access")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({ token })
+      .expect(200);
+    await request(app.getHttpServer())
+      .post("/api/contracting/access")
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({ token })
+      .expect(401);
+    await request(app.getHttpServer())
+      .post(`/api/admin/institution-requests/${row.id}/contracting-access`)
+      .set("Origin", origin)
+      .set("X-DoggyCredit-Admin", "1")
+      .send({})
+      .expect(401);
+    assert.equal(
+      await prisma.auditLog.count({ where: { entityId: row.id, action: "CONTRACTING_ACCESS_ISSUED" } }),
+      1,
+    );
+  });
+  it("recovers a stalled queued email but does not replace a link during an active send", async () => {
+    const row = await create();
+    emailFailure = "temporary";
+    try {
+      await post(`/institution-requests/${row.id}/approve`).expect(200);
+    } finally {
+      emailFailure = null;
+    }
+    const pending = await prisma.contractingCredential.findFirstOrThrow({
+      where: { requestId: row.id, kind: "ACCESS", revokedAt: null },
+    });
+    await prisma.contractingCredential.update({
+      where: { id: pending.id },
+      data: { sendLockedAt: new Date(), sendLeaseToken: randomUUID() },
+    });
+    await post(`/institution-requests/${row.id}/contracting-access`).expect(409);
+    await prisma.contractingCredential.update({
+      where: { id: pending.id },
+      data: { sendLockedAt: new Date(Date.now() - 61_000) },
+    });
+    const before = sentEmails.length;
+    const access = await post(`/institution-requests/${row.id}/contracting-access`).expect(200);
+    assert.match(access.body.url, /\/contratacion#token=/);
+    await app.get(ContractingEmailDeliveryService).tick(row.id);
+    assert.equal(sentEmails.length, before);
+    assert.equal(
+      await prisma.contractingCredential.count({ where: { requestId: row.id, revokedAt: null } }),
+      1,
+    );
+    assert.equal(await prisma.contracting.count({ where: { requestId: row.id } }), 0);
   });
   it("recovers a temporary mail failure without a second approval or leaked token", async () => {
     const row = await create();

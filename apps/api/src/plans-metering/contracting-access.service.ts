@@ -111,6 +111,17 @@ export class ContractingAccessService {
       await this.db.client
         .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`contract-access:${requestId}`},0))`;
       await this.requests.approved(requestId);
+      const activeSend = await this.db.client.contractingCredential.findFirst({
+        where: {
+          requestId,
+          kind: "ACCESS",
+          revokedAt: null,
+          sendLockedAt: { gt: new Date(Date.now() - 60_000) },
+        },
+        select: { id: true },
+      });
+      if (activeSend)
+        throw new ConflictException("El correo está en proceso de envío. Intenta de nuevo en un momento.");
       const token = randomBytes(32).toString("base64url");
       const expiresAt = new Date(
         Date.now() + this.config.getOrThrow<number>("CONTRACTING_ACCESS_TOKEN_TTL_MINUTES") * 60000,
