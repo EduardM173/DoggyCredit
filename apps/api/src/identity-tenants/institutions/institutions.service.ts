@@ -147,12 +147,11 @@ export class InstitutionsService {
         : {}),
     };
 
-    return this.db.run(async () => {
-      const total = await this.db.client.tenant.count({ where });
-      const rows = await this.db.client.tenant.findMany({
-        where,
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
+    const total = await this.db.client.tenant.count({ where });
+    const rows = await this.db.client.tenant.findMany({
+      where,
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
         orderBy: [{ createdFromRequest: { reviewedAt: { sort: "desc", nulls: "last" } } }, { id: "desc" }],
         select: {
           id: true,
@@ -294,13 +293,11 @@ export class InstitutionsService {
         page: query.page,
         pageSize: query.pageSize,
       };
-    });
   }
 
   async getDetail(tenantId: string): Promise<TenantOperationalDetailDto> {
-    return this.db.run(async () => {
-      const tenant = await this.db.client.tenant.findUnique({
-        where: { id: tenantId },
+    const tenant = await this.db.client.tenant.findUnique({
+      where: { id: tenantId },
         include: {
           createdFromRequest: { select: { reviewedAt: true } },
           memberships: {
@@ -464,6 +461,5 @@ export class InstitutionsService {
         privacyNotice:
           "Acceso operativo restringido. Conforme a las políticas de secreto bancario y privacidad (RF-05, CA-22.05), la información de solicitantes, expedientes, créditos y consultas individuales permanece inaccesible.",
       };
-    });
   }
 }

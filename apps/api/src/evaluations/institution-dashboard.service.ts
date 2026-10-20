@@ -72,6 +72,8 @@ export interface DashboardMetricsDto {
 
 @Injectable()
 export class InstitutionDashboardService {
+  private readonly dashboardCache = new Map<string, { value: DashboardMetricsDto; expiresAt: number }>();
+
   constructor(
     private readonly db: DatabaseUnitOfWork,
     private readonly preparation: TenantPreparationService,
@@ -113,6 +115,13 @@ export class InstitutionDashboardService {
   }
 
   async getDashboard(ctx: TenantContext, periodCode: DashboardPeriod = "last_30_days"): Promise<DashboardMetricsDto> {
+    const cacheKey = `${ctx.tenantId}:${periodCode}`;
+    const nowTimestamp = Date.now();
+    const cached = this.dashboardCache.get(cacheKey);
+    if (cached && cached.expiresAt > nowTimestamp) {
+      return cached.value;
+    }
+
     const { from, to, label } = this.resolvePeriodBounds(periodCode);
 
     // 1. Check readiness & tenant information
@@ -250,7 +259,7 @@ export class InstitutionDashboardService {
     const isSmallSample = totalEvaluations > 0 && totalEvaluations < 5;
     const isAdmin = ctx.role === "INSTITUTION_ADMIN";
 
-    return {
+    const result: DashboardMetricsDto = {
       tenant: {
         id: ctx.tenantId,
         name: tenantName,
@@ -293,5 +302,8 @@ export class InstitutionDashboardService {
         canEvaluate: isReady,
       },
     };
+
+    this.dashboardCache.set(cacheKey, { value: result, expiresAt: nowTimestamp + 5000 });
+    return result;
   }
 }
