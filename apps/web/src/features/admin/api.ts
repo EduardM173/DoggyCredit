@@ -93,6 +93,122 @@ export interface IntegrationDetail extends Omit<IntegrationListItem, "health"> {
   };
 }
 
+/** HU-22: supervisión operativa de instituciones, suscripciones y consumo */
+export type CapacityState = "LIMITADO" | "ILIMITADO" | "NO_CONFIGURADO" | "NO_DISPONIBLE";
+
+export interface InstitutionPlanSummary {
+  code: string;
+  name: string;
+}
+
+export interface InstitutionCapacitySummary {
+  state: CapacityState;
+  consumed: number;
+  limit: number | null;
+  percentage: number | null;
+}
+
+export interface InstitutionIntegrationsSummary {
+  state:
+    | "OPERATIVO_OBSERVADO"
+    | "DEGRADADO_OBSERVADO"
+    | "SIN_SENAL_RECIENTE"
+    | "ERROR_MONITOREO"
+    | "NO_CONFIGURADO";
+  label: string;
+  hasDegraded: boolean;
+  degradedProviderCode?: string;
+}
+
+export interface InstitutionListItem {
+  tenantId: string;
+  institutionName: string;
+  slug?: string;
+  nit: string;
+  initialAdmin: { name: string; email: string };
+  activationStatus: "INVITED" | "ACTIVE" | "SUSPENDED";
+  approvedAt: string | null;
+  plan?: InstitutionPlanSummary | null;
+  capacity?: InstitutionCapacitySummary;
+  membersCount?: number;
+  integrationsHealth?: InstitutionIntegrationsSummary;
+}
+
+export interface InstitutionList {
+  items: InstitutionListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface TenantOperationalDetail {
+  institution: {
+    tenantId: string;
+    institutionName: string;
+    slug: string;
+    taxId: string;
+    institutionType: string;
+    status: string;
+    approvedAt: string | null;
+  };
+  subscription: {
+    id: string | null;
+    status: "ACTIVE" | "SUSPENDED" | "ENDED" | "NO_SUBSCRIPTION";
+    startsAt: string | null;
+    endsAt: string | null;
+  };
+  plan: {
+    id: string | null;
+    code: string;
+    name: string;
+    price: number;
+    currency: string;
+    billingPeriod: string;
+    evaluationsLimit: number | null;
+    maxUsers: number | null;
+  } | null;
+  capacity: {
+    state: CapacityState;
+    unit: string;
+    limit: number | null;
+    consumed: number;
+    remaining: number | null;
+    percentage: number | null;
+    isExceeded: boolean;
+  };
+  cycle: {
+    startDate: string;
+    endDate: string;
+    renewalDate: string;
+    timezone: "America/La_Paz";
+  };
+  membershipsSummary: {
+    totalUsers: number;
+    adminsCount: number;
+    analystsCount: number;
+    members: Array<{
+      id: string;
+      fullName: string;
+      email: string;
+      role: "INSTITUTION_ADMIN" | "ANALYST";
+      status: "INVITED" | "ACTIVE" | "SUSPENDED";
+      isInitialAdmin: boolean;
+      createdAt: string;
+    }>;
+  };
+  integrations: Array<{
+    providerCode: string;
+    providerName: string;
+    enabled: boolean;
+    globallyEnabled: boolean;
+    healthState: "OPERATIVO_OBSERVADO" | "DEGRADADO_OBSERVADO" | "SIN_SENAL_RECIENTE" | "ERROR_MONITOREO";
+    healthLabel: string;
+    lastSignalAt: string | null;
+    hasIssue: boolean;
+  }>;
+  privacyNotice: string;
+}
+
 export class AdminError extends Error {
   constructor(
     public status: number,
@@ -167,4 +283,3 @@ export const displayDate = (value: string | null) =>
         new Date(value),
       )
     : "No registrada";
-    

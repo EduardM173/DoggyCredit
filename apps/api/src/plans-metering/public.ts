@@ -7,6 +7,7 @@ export { EmptyCommerceDto } from "./contracting.dto.js";
 export type { ProvisioningEligibility } from "./provisioning-contract.js";
 export {
   TenantPlanMeteringService,
+  getCycleBounds,
   type TenantPlanMeteringDto,
   type CapacityState,
 } from "./tenant-plan-metering.service.js";

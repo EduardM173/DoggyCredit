@@ -13,6 +13,7 @@ import { ContractingPage } from "./features/contracting/ContractingPage";
 import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
 import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
 import { InstitutionsPage } from "./features/admin/InstitutionsPage";
+import { InstitutionDetailPage } from "./features/admin/InstitutionDetailPage";
 import { TestInboxPage } from "./features/admin/TestInboxPage";
 import { ProvidersPage } from "./features/admin/ProvidersPage";
 import { ActivationPage } from "./features/activation/ActivationPage";
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: "solicitudes", element: <ReviewListPage /> },
       { path: "contrataciones", element: <AdminContractingsPage /> },
       { path: "instituciones", element: <InstitutionsPage /> },
+      { path: "instituciones/:id", element: <InstitutionDetailPage /> },
       { path: "bandeja-pruebas", element: <TestInboxPage /> },
       { path: "proveedores", element: <ProvidersPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
