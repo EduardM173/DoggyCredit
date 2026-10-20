@@ -579,6 +579,12 @@
 .admin-login-panel form {
   margin-top: 36px;
 }
+.admin-forgot-password {
+  display: block;
+  margin-top: 12px;
+  color: #005bbd;
+  text-align: right;
+}
 .admin-login-panel label {
   display: block;
   margin: 22px 0 9px;

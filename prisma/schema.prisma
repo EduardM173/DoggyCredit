@@ -364,6 +364,7 @@ model User {
   email           String        @unique @db.VarChar(254)
   fullName        String        @db.VarChar(160)
   passwordHash    String?       @db.VarChar(255)
+  passwordChangedAt DateTime?    @db.Timestamptz(6)
   status          UserStatus    @default(INVITED)
   platformRole    PlatformRole?
   emailVerifiedAt DateTime?     @db.Timestamptz(6)
@@ -376,6 +377,27 @@ model User {
   auditEvents      AuditLog[]           @relation("AuditActor")
   adminSessions    AdminSession[]
   institutionSessions InstitutionSession[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  tokenHash     String    @unique @db.VarChar(64)
+  expiresAt     DateTime  @db.Timestamptz(6)
+  sentAt        DateTime? @db.Timestamptz(6)
+  usedAt        DateTime? @db.Timestamptz(6)
+  invalidatedAt DateTime? @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model RecoveryRateLimit {
+  keyHash     String   @id @db.VarChar(64)
+  windowStart DateTime @db.Timestamptz(6)
+  attempts   Int      @default(0)
 }
 
 model InstitutionSession {

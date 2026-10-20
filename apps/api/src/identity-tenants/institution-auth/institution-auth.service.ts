@@ -75,7 +75,8 @@ export class InstitutionAuthService {
         lastSeenAt: true,
         expiresAt: true,
         revokedAt: true,
-        user: { select: { id: true, fullName: true, email: true, status: true } },
+        createdAt: true,
+        user: { select: { id: true, fullName: true, email: true, status: true, passwordChangedAt: true } },
       },
     });
     if (
@@ -83,7 +84,8 @@ export class InstitutionAuthService {
       session.revokedAt ||
       session.expiresAt <= now ||
       session.lastSeenAt <= idleCutoff ||
-      session.user.status !== "ACTIVE"
+      session.user.status !== "ACTIVE" ||
+      (session.user.passwordChangedAt && session.createdAt <= session.user.passwordChangedAt)
     )
       throw new UnauthorizedException("La sesión terminó. Inicia sesión nuevamente.");
     const touched = await this.prisma.institutionSession.updateMany({
@@ -92,7 +94,7 @@ export class InstitutionAuthService {
         revokedAt: null,
         expiresAt: { gt: now },
         lastSeenAt: { gt: idleCutoff },
-        user: { status: "ACTIVE" },
+        user: { status: "ACTIVE", passwordChangedAt: session.user.passwordChangedAt },
       },
       data: { lastSeenAt: now },
     });

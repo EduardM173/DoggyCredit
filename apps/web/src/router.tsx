@@ -23,10 +23,13 @@ import { InstitutionHomePage } from "./features/institution/InstitutionHomePage"
 import { IntegrationsPage } from "./features/admin/IntegrationsPage";
 import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
 import { AdminActivityLogPage } from "./features/admin/ActivityLogPage";
+import { PasswordRecoveryPage } from "./features/password-recovery/PasswordRecoveryPage";
 
 export const router = createBrowserRouter([
   { path: "/activar-cuenta", element: <ActivationPage /> },
   { path: "/iniciar-sesion", element: <InstitutionLoginPage /> },
+  { path: "/recuperar-contrasena", element: <PasswordRecoveryPage /> },
+  { path: "/restablecer-contrasena", element: <PasswordRecoveryPage reset /> },
   { path: "/elegir-institucion", element: <InstitutionSelectPage /> },
   { path: "/contratacion", element: <ContractingPage /> },
   { path: "/doggypay-demo", element: <DoggyPayPage /> },
