@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IntegrationNotice } from "./IntegrationNotice";
 import { Link, useLocation } from "react-router-dom";
 import {
   AlertCircle,
@@ -626,7 +627,7 @@ export function EvaluationWizard({
                 </div>
               </div>
             </div>
-
+                <IntegrationNotice slug={slug} />
             <div className="eval-consent-box">
               <label className="eval-consent-label">
                 <input

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap } from "lucide-react";
+import { Activity, ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap } from "lucide-react";
 import { Brand } from "../../components/Brand";
-import { adminApi, AdminError, type Session } from "./api";
+import { adminApi, AdminError, type IntegrationListItem, type Session } from "./api";
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export function AdminLayout() {
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [degraded, setDegraded] = useState<IntegrationListItem[]>([]);
   useEffect(() => {
     const controller = new AbortController();
     adminApi<Session>("/auth/session", { signal: controller.signal })
@@ -28,6 +29,24 @@ export function AdminLayout() {
     if (isPlatformAdmin && !location.pathname.startsWith("/admin/proveedores"))
       navigate("/admin/proveedores", { replace: true });
   }, [isPlatformAdmin, location.pathname, navigate]);
+  useEffect(() => {
+    // HU-23: alerta global para el operador. Un fallo de esta consulta no muestra nada.
+    if (!session || isPlatformAdmin) return;
+    const controller = new AbortController();
+    const load = () =>
+      adminApi<IntegrationListItem[]>("/platform/integrations", { signal: controller.signal })
+        .then((items) => {
+          if (!controller.signal.aborted)
+            setDegraded(items.filter((item) => item.health.state === "DEGRADADO_OBSERVADO"));
+        })
+        .catch(() => undefined);
+    void load();
+    const timer = setInterval(() => void load(), 60_000);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [session, isPlatformAdmin, location.pathname]);
   async function logout() {
     setBusy(true);
     try {
@@ -91,6 +110,10 @@ export function AdminLayout() {
                 <Inbox size={21} />
                 Bandeja de pruebas
               </NavLink>
+              <NavLink to="/admin/integraciones">
+                <Activity size={21} />
+                Integraciones
+              </NavLink>
             </>
           )}
         </nav>
@@ -125,6 +148,12 @@ export function AdminLayout() {
         {error && (
           <p className="admin-alert" role="alert">
             {error}
+          </p>
+        )}
+        {degraded.length > 0 && !location.pathname.startsWith("/admin/integraciones") && (
+          <p className="integration-banner" role="alert">
+            Degradación observada en: {degraded.map((item) => item.name).join(", ")}. Las evaluaciones nuevas
+            pueden fallar temporalmente. <Link to="/admin/integraciones">Ver integraciones</Link>
           </p>
         )}
         <main className="admin-content">

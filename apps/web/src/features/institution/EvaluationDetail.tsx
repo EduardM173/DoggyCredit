@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IntegrationNotice } from "./IntegrationNotice";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -285,6 +286,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                 para derivar el perfil financiero consolidado.
               </p>
             </div>
+            <IntegrationNotice slug={slug} refreshKey={evaluation.status} />
             <button className="eval-btn-primary" onClick={handleStartProcessing}>
               <TrendingUp size={18} /> Iniciar evaluación
             </button>
@@ -870,6 +872,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               Puedes reintentar la operación sobre este mismo caso sin necesidad de volver a crear o capturar
               la información del solicitante.
             </p>
+            <IntegrationNotice slug={slug} refreshKey={evaluation.status} />
             <div className="eval-actions" style={{ marginTop: 24 }}>
               <button className="eval-btn-primary" onClick={handleStartProcessing}>
                 <RefreshCw size={18} /> Reintentar evaluación

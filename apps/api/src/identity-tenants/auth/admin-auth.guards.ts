@@ -33,7 +33,16 @@ export class OperatorGuard implements CanActivate {
     return true;
   }
 }
-
+/** HU-23: diagnóstico de integraciones para personal interno (OPERATOR y PLATFORM_ADMIN). */
+@Injectable()
+export class InternalStaffGuard implements CanActivate {
+  canActivate(context: ExecutionContext) {
+    const role = context.switchToHttp().getRequest<AdminRequest>().adminSession?.user.platformRole;
+    if (role !== "OPERATOR" && role !== "PLATFORM_ADMIN")
+      throw new ForbiddenException("No tienes permiso para consultar el estado de las integraciones.");
+    return true;
+  }
+}
 /** HU-30: acciones reservadas al administrador de plataforma. OPERATOR no hereda este permiso. */
 @Injectable()
 export class PlatformAdminGuard implements CanActivate {
