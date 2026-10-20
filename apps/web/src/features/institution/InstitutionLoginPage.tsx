@@ -114,6 +114,9 @@ export function InstitutionLoginPage() {
                 {visible ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            <Link className="institution-forgot-password" to="/recuperar-contrasena">
+              ¿Olvidaste tu contraseña?
+            </Link>
             {error && (
               <p role="alert" className="institution-error">
                 {error}

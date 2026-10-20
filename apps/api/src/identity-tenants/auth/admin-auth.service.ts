@@ -62,10 +62,17 @@ export class AdminAuthService {
       select: {
         expiresAt: true,
         revokedAt: true,
-        user: { select: { ...identitySelect, status: true } },
+        createdAt: true,
+        user: { select: { ...identitySelect, status: true, passwordChangedAt: true } },
       },
     });
-    if (!session || session.revokedAt || session.expiresAt <= new Date() || session.user.status !== "ACTIVE")
+    if (
+      !session ||
+      session.revokedAt ||
+      session.expiresAt <= new Date() ||
+      session.user.status !== "ACTIVE" ||
+      (session.user.passwordChangedAt && session.createdAt <= session.user.passwordChangedAt)
+    )
       throw new UnauthorizedException("La sesión no está disponible. Inicia sesión nuevamente.");
     const { id, fullName, email, platformRole } = session.user;
     return { user: { id, fullName, email, platformRole }, expiresAt: session.expiresAt.toISOString() };

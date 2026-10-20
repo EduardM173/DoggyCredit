@@ -121,6 +121,9 @@ export function AdminLoginPage() {
                 {visible ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
+            <Link className="admin-forgot-password" to="/recuperar-contrasena?from=internal">
+              ¿Olvidaste tu contraseña?
+            </Link>
             {error && (
               <p className="admin-alert" role="alert">
                 {error}
