@@ -994,3 +994,55 @@
   display: grid;
   gap: 6px;
 }
+/* HU-23 · Integraciones (tokens de la guía visual) */
+.integration-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 999px; border: 1px solid transparent;
+  font-size: 14px; line-height: 20px; font-weight: 600; white-space: nowrap;
+}
+.integration-chip--ok { background: #d1fadf; color: #067647; border-color: #a6f4c5; }
+.integration-chip--bad { background: #fee4e2; color: #b42318; border-color: #fecdca; }
+.integration-chip--warn { background: #fef0c7; color: #b54708; border-color: #fedf89; }
+.integration-chip--unknown { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+.integration-note { display: block; margin-top: 4px; font-size: 12px; color: #51627d; }
+
+.integration-toolbar {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  padding: 16px 24px; margin-bottom: 16px;
+  background: #fff; border: 1px solid #d9e4f0; border-radius: 14px;
+}
+.integration-toolbar label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: #0b1f4d; }
+.integration-toolbar select {
+  min-width: 240px; height: 44px; padding: 0 12px;
+  border: 1px solid #d9e4f0; border-radius: 10px; background: #fff; color: #0b1f4d;
+}
+.integration-toolbar .button { height: 44px; }
+
+.integration-table-wrap { overflow-x: auto; background: #fff; border: 1px solid #d9e4f0; border-radius: 14px; }
+.integration-table { width: 100%; border-collapse: collapse; }
+.integration-table thead th {
+  background: #f5f9fb; color: #0b1f4d; font-size: 14px; font-weight: 600;
+  text-align: left; padding: 14px 20px; border-bottom: 1px solid #d9e4f0;
+}
+.integration-table tbody th, .integration-table tbody td {
+  text-align: left; padding: 16px 20px; border-bottom: 1px solid #d9e4f0;
+  color: #0b1f4d; font-size: 14px; vertical-align: middle;
+}
+.integration-table tbody th a { color: #1267e8; font-weight: 600; text-decoration: none; }
+.integration-table tbody th a:hover { text-decoration: underline; }
+.integration-table tbody tr:hover { background: #f5f9fb; }
+.integration-table tbody tr:last-child th, .integration-table tbody tr:last-child td { border-bottom: 0; }
+
+/* Detalle */
+.integration-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px 32px; margin: 16px 0 0; }
+.integration-facts dt { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #51627d; }
+.integration-facts dd { margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #0b1f4d; }
+.integration-detail-section { display: block; padding: 24px; margin-bottom: 16px; background: #fff; border: 1px solid #d9e4f0; border-radius: 14px; }
+.integration-detail-section h2 { margin: 0 0 8px; font-size: 20px; color: #0b1f4d; }
+.integration-detail-section summary { cursor: pointer; font-weight: 600; color: #1267e8; }
+
+.integration-banner {
+  margin: 16px 32px 0; padding: 12px 16px; border-radius: 10px;
+  background: #fee4e2; border: 1px solid #fecdca; color: #b42318; font-size: 14px;
+}
+.integration-banner a { color: inherit; font-weight: 700; text-decoration: underline; }

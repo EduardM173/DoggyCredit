@@ -1032,4 +1032,11 @@
   gap: 8px;
 }
 
+.eval-integration-notice {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 16px 0; padding: 16px; border-radius: 12px;
+  background: #fef0c7; border: 1px solid #fedf89; color: #b54708;
+}
+.eval-integration-notice ul { margin: 6px 0; padding-left: 18px; }
+.eval-integration-notice p { margin: 6px 0 0; font-size: 14px; color: #712f06; }
 

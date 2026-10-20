@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EvaluationDetail } from "./EvaluationDetail";
+vi.mock("./IntegrationNotice", () => ({ IntegrationNotice: () => null }));
 
 const jsonResponse = (data: unknown, status = 200) =>
   Promise.resolve({

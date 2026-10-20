@@ -6,6 +6,7 @@ export type { InstitutionContext } from "./request-context.js";
 export {
   AdminAuthGuard,
   AdminOriginGuard,
+  InternalStaffGuard,
   OperatorGuard,
   PlatformAdminGuard,
 } from "./auth/admin-auth.guards.js";

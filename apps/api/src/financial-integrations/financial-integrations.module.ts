@@ -5,6 +5,8 @@ import { BankMockSource, BureauMockSource, ProviderAdministrationService } from 
 import { BankMockSourceService } from "./bank-mock-source.service.js";
 import { BureauMockSourceService } from "./bureau-mock-source.service.js";
 import { ResilientSources } from "./resilience/resilient-sources.js";
+import { ProviderEpisodeService } from "./health/provider-episode.service.js";
+import { ProviderHealthReadService } from "./health/provider-health-read.service.js";
 
 @Module({
   imports: [PrismaModule, AuditModule],
@@ -13,7 +15,16 @@ import { ResilientSources } from "./resilience/resilient-sources.js";
     { provide: BureauMockSource, useClass: BureauMockSourceService },
     ResilientSources,
     ProviderAdministrationService,
+    ProviderEpisodeService,
+    ProviderHealthReadService,
   ],
-  exports: [BankMockSource, BureauMockSource, ResilientSources, ProviderAdministrationService],
+  exports: [
+    BankMockSource,
+    BureauMockSource,
+    ResilientSources,
+    ProviderAdministrationService,
+    ProviderEpisodeService,
+    ProviderHealthReadService,
+  ],
 })
 export class FinancialIntegrationsModule {}

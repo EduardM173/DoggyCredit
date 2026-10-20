@@ -49,6 +49,50 @@ export interface ProviderAdminView {
   acceptsNewQueries: boolean;
   simulationScenarios?: { status: string; documentEnding: string; description: string }[];
 }
+
+/** HU-23: salud observada de integraciones (vista del operador). */
+export type IntegrationHealthState =
+  | "SIN_SENAL_RECIENTE"
+  | "OPERATIVO_OBSERVADO"
+  | "DEGRADADO_OBSERVADO"
+  | "ERROR_MONITOREO";
+export interface IntegrationListItem {
+  code: string;
+  name: string;
+  globallyEnabled: boolean;
+  health: {
+    state: IntegrationHealthState;
+    lastSignalAt: string | null;
+    confidence?: string;
+  };
+  tenants: {
+    enabled: number;
+    affected: { known: boolean; count: number | null };
+  };
+}
+export interface IntegrationDetail extends Omit<IntegrationListItem, "health"> {
+  health: {
+    state: IntegrationHealthState;
+    lastSignalAt: string | null;
+    confidence?: string;
+    windowStart?: string;
+    windowEnd?: string;
+    label: string;
+    explanation: string;
+    nextStep: string;
+  };
+  episode: { episodeId: string; startedAt: string } | null;
+  protection: { label: string };
+  affectedTenants: { name: string }[];
+  advanced: {
+    breakerState: string;
+    scope: string;
+    reasonCode: string;
+    samples: number;
+    failures: number;
+  };
+}
+
 export class AdminError extends Error {
   constructor(
     public status: number,
@@ -123,3 +167,4 @@ export const displayDate = (value: string | null) =>
         new Date(value),
       )
     : "No registrada";
+    

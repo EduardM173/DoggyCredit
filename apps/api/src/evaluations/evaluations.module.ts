@@ -11,6 +11,8 @@ import { EvaluationsController } from "./evaluations.controller.js";
 import { EvaluationsService } from "./evaluations.service.js";
 import { InstitutionDashboardController } from "./institution-dashboard.controller.js";
 import { InstitutionDashboardService } from "./institution-dashboard.service.js";
+import { IntegrationStatusController } from "./integration-status.controller.js";
+import { IntegrationStatusService } from "./integration-status.service.js";
 
 @Module({
   imports: [
@@ -23,8 +25,16 @@ import { InstitutionDashboardService } from "./institution-dashboard.service.js"
     RecommendationsModule,
     PlansMeteringModule,
   ],
-  controllers: [EvaluationsController, InstitutionDashboardController],
-  providers: [EvaluationsService, InstitutionDashboardService],
+  controllers: [
+    EvaluationsController,
+    InstitutionDashboardController,
+    IntegrationStatusController,
+  ],
+  providers: [
+    EvaluationsService,
+    InstitutionDashboardService,
+    IntegrationStatusService,
+  ],
   exports: [EvaluationsService, InstitutionDashboardService],
 })
 export class EvaluationsModule {}

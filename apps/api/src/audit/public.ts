@@ -77,6 +77,18 @@ export abstract class AuditWriter {
     currentEnabled: boolean;
     reason?: string;
   }): Promise<void>;
+    /** HU-23: transición de salud de un proveedor (una vez por episodio, sin PII). */
+  abstract recordProviderHealthTransition(event: {
+    providerId: string;
+    providerCode: string;
+    action: "PROVIDER_DEGRADED" | "PROVIDER_RECOVERED";
+    from: string;
+    to: string;
+    episodeId: string;
+  }): Promise<void>;
+  abstract findOpenProviderEpisode(
+    providerId: string,
+  ): Promise<{ episodeId: string; startedAt: Date } | null>;
   abstract recordProductCatalogAction(event: {
     tenantId: string;
     actorUserId: string;

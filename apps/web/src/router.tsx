@@ -19,6 +19,8 @@ import { ActivationPage } from "./features/activation/ActivationPage";
 import { InstitutionLoginPage } from "./features/institution/InstitutionLoginPage";
 import { InstitutionSelectPage } from "./features/institution/InstitutionSelectPage";
 import { InstitutionHomePage } from "./features/institution/InstitutionHomePage";
+import { IntegrationsPage } from "./features/admin/IntegrationsPage";
+import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
 
 export const router = createBrowserRouter([
   { path: "/activar-cuenta", element: <ActivationPage /> },
@@ -38,6 +40,8 @@ export const router = createBrowserRouter([
       { path: "bandeja-pruebas", element: <TestInboxPage /> },
       { path: "proveedores", element: <ProvidersPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
+      { path: "integraciones", element: <IntegrationsPage /> },
+      { path: "integraciones/:code", element: <IntegrationDetailPage /> },
     ],
   },
   {
