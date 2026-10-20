@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, jest } from "@jest/globals";
 import { InstitutionDashboardController } from "./institution-dashboard.controller.js";
 import type { InstitutionDashboardService, DashboardMetricsDto } from "./institution-dashboard.service.js";

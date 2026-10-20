@@ -7,7 +7,7 @@ import { BureauMockSourceService } from "./financial-integrations/public.js";
 import type { DatabaseUnitOfWork } from "./infrastructure/prisma/database-unit-of-work.js";
 import type { TenantContext } from "./identity-tenants/public.js";
 import type { AuditWriter } from "./audit/public.js";
-import type { ResilientSources } from "./financial-integrations/resilience/resilient-sources.js";
+import type { ResilientSources } from "./financial-integrations/public.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type MockFn = jest.Mock<any>;

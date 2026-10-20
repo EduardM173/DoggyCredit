@@ -2,7 +2,7 @@ import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AdminAuthGuard, InternalStaffGuard } from "./identity-tenants/public.js";
 // Import directo (no desde public.ts) para no ampliar el ciclo de imports de financial-integrations.
-import { ProviderHealthReadService } from "./financial-integrations/health/provider-health-read.service.js";
+import { ProviderHealthReadService } from "./financial-integrations/public.js";
 
 /**
  * HU-23 — Salud observada de Bank/Buró Mock para personal interno (OPERATOR y PLATFORM_ADMIN).

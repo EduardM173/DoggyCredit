@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { TenantPlanMeteringService, getCycleBounds } from "./tenant-plan-metering.service.js";

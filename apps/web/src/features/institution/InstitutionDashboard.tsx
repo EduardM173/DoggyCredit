@@ -12,7 +12,6 @@ import {
   Package,
   Plus,
   RefreshCw,
-  ShieldAlert,
   Users,
 } from "lucide-react";
 import {
@@ -46,8 +45,6 @@ export function InstitutionDashboard({
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError("");
 
     fetchDashboard(slug, period, controller.signal)
       .then((metrics) => {

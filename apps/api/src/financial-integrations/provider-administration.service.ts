@@ -11,7 +11,7 @@ import {
   providerAcceptsQueries,
   type SourceProviderCode,
   type SourceSubjectType,
-} from "./public.js";
+} from "./source-contracts.js";
 
 /**
  * HU-30. Vista administrativa de un proveedor simulado.

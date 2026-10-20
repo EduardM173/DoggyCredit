@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { ForbiddenException } from "@nestjs/common";
 import { EvaluationsService } from "./evaluations.service.js";
@@ -8,7 +9,7 @@ import type { AuditWriter } from "../audit/public.js";
 import type { BankMockSource } from "../financial-integrations/public.js";
 import type { FinancialProfileCalculator } from "../financial-profile/public.js";
 import type { EvaluationRecommender } from "../recommendations/public.js";
-import type { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
+import type { ResilientSources } from "../financial-integrations/public.js";
 
 const makeContext = (overrides?: Partial<TenantContext>): TenantContext => ({
   userId: "user-1",

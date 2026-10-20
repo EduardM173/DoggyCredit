@@ -128,7 +128,7 @@ export class InstitutionDashboardService {
     const prepStatus = await this.preparation.read(ctx);
     const tenantName = ctx.tenantName || prepStatus.tenant?.name || "Institución Financiera";
     const tenantSlug = ctx.tenantSlug || prepStatus.tenant?.slug || "";
-    const isReady = typeof (prepStatus as any).ready === "boolean" ? (prepStatus as any).ready : prepStatus.completed === 3;
+    const isReady = typeof (prepStatus as { ready?: boolean }).ready === "boolean" ? Boolean((prepStatus as { ready?: boolean }).ready) : prepStatus.completed === 3;
 
     // 2. Count total lifetime evaluations (to distinguish brand new tenant vs no activity in period - CA-20.08)
     const totalLifetimeEvaluations = await this.db.client.evaluation.count({
@@ -201,7 +201,7 @@ export class InstitutionDashboardService {
         byStatus[ev.status as keyof typeof byStatus]++;
       }
 
-      const snapshot = ev.applicantSnapshot as any;
+      const snapshot = ev.applicantSnapshot as { type?: string } | null;
       if (snapshot?.type === "COMPANY") {
         byScope.COMPANY++;
       } else {
@@ -231,7 +231,7 @@ export class InstitutionDashboardService {
 
     // Format pending items without sensitive data (CA-20.10)
     const pendingAttention: PendingAttentionItem[] = attentionEvaluations.map((ev) => {
-      const snap = ev.applicantSnapshot as any;
+      const snap = ev.applicantSnapshot as { type?: string; name?: string } | null;
       const applicantName = snap?.name || "Solicitante registrado";
       const applicantType = snap?.type === "COMPANY" ? "COMPANY" : "PERSON";
 

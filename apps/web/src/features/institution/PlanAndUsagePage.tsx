@@ -8,7 +8,6 @@ import {
   Clock,
   HelpCircle,
   Info,
-  Layers,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
@@ -36,8 +35,6 @@ export function PlanAndUsagePage({ slug, role, tenantName }: PlanAndUsagePagePro
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError("");
 
     fetchTenantPlanMetering(slug, controller.signal)
       .then((res) => {

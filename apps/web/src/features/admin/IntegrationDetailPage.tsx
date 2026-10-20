@@ -32,7 +32,6 @@ export function IntegrationDetailPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setError("");
     adminApi<IntegrationDetail>(`/platform/integrations/${encodeURIComponent(code)}`, {
       signal: controller.signal,
     })

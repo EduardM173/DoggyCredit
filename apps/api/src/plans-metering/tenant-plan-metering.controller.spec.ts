@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { TenantPlanMeteringController } from "./tenant-plan-metering.controller.js";
 import type { TenantPlanMeteringService } from "./tenant-plan-metering.service.js";

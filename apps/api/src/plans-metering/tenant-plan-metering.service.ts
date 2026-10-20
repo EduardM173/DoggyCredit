@@ -99,7 +99,7 @@ export class TenantPlanMeteringService {
       orderBy: { createdAt: "desc" },
     });
 
-    let state: CapacityState = "NO_CONFIGURADO";
+    let state: CapacityState;
     let subStatus: "ACTIVE" | "SUSPENDED" | "ENDED" | "NO_SUBSCRIPTION" = "NO_SUBSCRIPTION";
     let startsAt: string | null = null;
     let endsAt: string | null = null;

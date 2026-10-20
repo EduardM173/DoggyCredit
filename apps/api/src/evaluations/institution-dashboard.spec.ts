@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { InstitutionDashboardService } from "./institution-dashboard.service.js";
 import type { TenantContext } from "../identity-tenants/public.js";

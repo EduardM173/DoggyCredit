@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { config } from "dotenv";
@@ -17,6 +18,7 @@ import {
   RecommendationOutcome,
   UsageMetric,
 } from "./generated/prisma/client.js";
+/* eslint-disable-next-line no-restricted-imports -- direct implementation for adapter substitution test */
 import { FinancialProfileService } from "./financial-profile/financial-profile.service.js";
 import type { DatabaseUnitOfWork } from "./infrastructure/prisma/database-unit-of-work.js";
 import type {

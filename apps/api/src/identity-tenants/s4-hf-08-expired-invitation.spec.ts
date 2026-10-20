@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolve } from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
 import { config } from "dotenv";
@@ -17,6 +18,7 @@ import {
 } from "../generated/prisma/client.js";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { PrismaService } from "../infrastructure/prisma/prisma.service.js";
+/* eslint-disable-next-line no-restricted-imports */
 import { AuditService } from "../audit/audit.service.js";
 import { ActivationService } from "./activation/activation.service.js";
 import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recovery.service.js";
@@ -25,15 +27,15 @@ import { TeamService } from "./institution-auth/team.service.js";
 import { ProvisioningQueue } from "./provisioning/provisioning-queue.js";
 import { createHash } from "node:crypto";
 const invitationHash = (token: string) => createHash("sha256").update(token).digest("hex");
-import type { EmailSender, EmailMessage, EmailReceipt } from "../infrastructure/email/email-sender.js";
+import type { EmailSender, EmailMessage, EmailDeliveryReceipt } from "../infrastructure/email/email-sender.js";
 import type { TenantContext } from "./institution-auth/tenant-context.guard.js";
 
 class InMemoryEmailSender implements EmailSender {
   messages: EmailMessage[] = [];
 
-  async send(message: EmailMessage): Promise<EmailReceipt> {
+  async send(message: EmailMessage): Promise<EmailDeliveryReceipt> {
     this.messages.push(message);
-    return { channel: "TEST_INBOX", accepted: true, messageId: randomUUID() };
+    return { channel: "TEST_INBOX" };
   }
 
   popLastToken(): string | null {
@@ -95,7 +97,7 @@ describe("S4-HF-08 — Recuperar invitación vencida sin soporte SQL", () => {
     recoveryService = new InitialAdminRecoveryService(db, configService as any, audit, deliveryService);
     activationService = new ActivationService(db, audit);
     teamService = new TeamService(db, audit, configService as any, deliveryService);
-    provisioningQueue = new ProvisioningQueue(db, configService as any);
+    provisioningQueue = new ProvisioningQueue(db);
 
     await prisma.user.create({
       data: {
@@ -167,8 +169,8 @@ describe("S4-HF-08 — Recuperar invitación vencida sin soporte SQL", () => {
         confirmedPlanId: plan.id,
         planCodeSnapshot: plan.code,
         planNameSnapshot: plan.name,
-        priceSnapshot: plan.price,
-        currencySnapshot: plan.currency,
+        priceSnapshot: plan.price ?? 0,
+        currencySnapshot: plan.currency ?? "BOB",
         billingPeriodSnapshot: "MONTHLY",
         requiresPaymentSnapshot: false,
         status: "CONFIRMED",

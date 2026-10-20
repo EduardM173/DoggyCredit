@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { ConflictException, HttpException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
+/* eslint-disable-next-line no-restricted-imports -- Break circular dependency with identity-tenants/public */
 import { RequestContextReader } from "../identity-tenants/request-context.js";
 import { AuditWriter } from "../audit/public.js";
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");

@@ -1,7 +1,9 @@
 import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
+/* eslint-disable no-restricted-imports -- Break circular dependency with identity-tenants/public */
 import { RequestContextReader } from "../identity-tenants/request-context.js";
 import { ProvisioningQueue } from "../identity-tenants/provisioning/provisioning-queue.js";
+/* eslint-enable no-restricted-imports */
 import { AuditWriter } from "../audit/public.js";
 import type { ProviderPaymentEvent } from "../infrastructure/payments/payment-provider.js";
 @Injectable()
