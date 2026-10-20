@@ -62,8 +62,13 @@ class MockConfigService {
 }
 
 describe("S4-HF-08 — Recuperar invitación vencida sin soporte SQL", () => {
-  let pool: Pool;
-  let prisma: PrismaClient;
+  const databaseUrl =
+    process.env.TEST_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    "postgresql://postgres:postgres@localhost:5435/doggycredit?schema=public";
+  const pool = new Pool({ connectionString: databaseUrl });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  const prismaService = prisma as unknown as PrismaService;
   let db: DatabaseUnitOfWork;
   let audit: AuditService;
   let emailSender: InMemoryEmailSender;
@@ -78,17 +83,7 @@ describe("S4-HF-08 — Recuperar invitación vencida sin soporte SQL", () => {
   const operatorUserId = randomUUID();
 
   beforeAll(async () => {
-    const databaseUrl =
-      process.env.TEST_DATABASE_URL ||
-      process.env.DATABASE_URL ||
-      "postgresql://postgres:postgres@localhost:5435/doggycredit?schema=public";
-
-    pool = new Pool({ connectionString: databaseUrl });
-    const adapter = new PrismaPg(pool);
-    prisma = new PrismaClient({ adapter });
     await prisma.$connect();
-
-    const prismaService = prisma as unknown as PrismaService;
     db = new DatabaseUnitOfWork(prismaService);
     audit = new AuditService(db);
     emailSender = new InMemoryEmailSender();
@@ -111,7 +106,6 @@ describe("S4-HF-08 — Recuperar invitación vencida sin soporte SQL", () => {
 
   afterAll(async () => {
     await prisma.$disconnect();
-    await pool.end();
   });
 
   it("Escenario 1 (Administrador Inicial): expira enlace inicial, rechaza activación, se recupera vía operador y activa sin soporte SQL", async () => {
