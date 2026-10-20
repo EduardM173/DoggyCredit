@@ -50,7 +50,10 @@ export class CreateEvaluationDto {
   @MaxLength(60, { message: "El documento no puede superar 60 caracteres." })
   documentNumber!: string;
 
-  @ApiProperty({ description: "Nombre completo del solicitante o razón social de la empresa", example: "Carlos Quispe" })
+  @ApiProperty({
+    description: "Nombre completo del solicitante o razón social de la empresa",
+    example: "Carlos Quispe",
+  })
   @IsString()
   @IsNotEmpty({ message: "Introduce el nombre del solicitante." })
   @MinLength(2, { message: "El nombre debe tener al menos 2 caracteres." })
@@ -78,9 +81,10 @@ export class CreateEvaluationDto {
   @Equals(true, { message: "Debes registrar el consentimiento del solicitante para iniciar la evaluación." })
   consentGiven!: boolean;
 
-  @ApiPropertyOptional({ description: "Clave de idempotencia única del cliente" })
-  @IsOptional()
+  @ApiProperty({ description: "Clave estable de idempotencia para esta operación lógica" })
   @IsString()
+  @IsNotEmpty({ message: "La clave de operación es obligatoria para iniciar una evaluación." })
+  @MinLength(16, { message: "La clave de operación no es válida." })
   @MaxLength(80)
   idempotencyKey?: string;
 }

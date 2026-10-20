@@ -19,6 +19,8 @@ import {
 import {
   institutionApi,
   InstitutionError,
+  evaluationOperationKey,
+  clearEvaluationOperationKey,
   type ClientSearchResult,
   type CreateEvaluationPayload,
   type EvaluationItem,
@@ -58,9 +60,7 @@ export function EvaluationWizard({
     } | null
   )?.prefill;
 
-  const [readiness, setReadiness] = useState<EvaluationReadiness | null>(
-    initialReadiness ?? null,
-  );
+  const [readiness, setReadiness] = useState<EvaluationReadiness | null>(initialReadiness ?? null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [applicantType, setApplicantType] = useState<"PERSON" | "COMPANY">(
     prefill?.clientType === "COMPANY" ? "COMPANY" : "PERSON",
@@ -85,9 +85,7 @@ export function EvaluationWizard({
   // Fetch full readiness when ready and not provided initially
   useEffect(() => {
     if (ready && !initialReadiness) {
-      institutionApi<EvaluationReadiness>(
-        `/tenants/${encodeURIComponent(slug)}/evaluations/readiness`,
-      )
+      institutionApi<EvaluationReadiness>(`/tenants/${encodeURIComponent(slug)}/evaluations/readiness`)
         .then((data) => setReadiness(data))
         .catch(() => {});
     }
@@ -150,10 +148,7 @@ export function EvaluationWizard({
 
   function handleNextStep1() {
     if (applicantType === "COMPANY" && !isCompanySupported) {
-      setError(
-        companyReason ||
-          "Tu institución no cuenta con productos crediticios activos para empresas.",
-      );
+      setError(companyReason || "Tu institución no cuenta con productos crediticios activos para empresas.");
       return;
     }
     if (!documentNumber.trim()) {
@@ -197,24 +192,24 @@ export function EvaluationWizard({
     setBusy(true);
     setError("");
     try {
-      const payload: CreateEvaluationPayload = {
+      const payload: Omit<CreateEvaluationPayload, "idempotencyKey"> = {
         clientType: applicantType,
         documentType: applicantType === "COMPANY" ? "NIT" : "CI",
         documentNumber: documentNumber.trim(),
         name: name.trim(),
         economicActivity:
-          applicantType === "COMPANY" && economicActivity.trim()
-            ? economicActivity.trim()
-            : undefined,
+          applicantType === "COMPANY" && economicActivity.trim() ? economicActivity.trim() : undefined,
         purpose,
         requestedAmount: Number(requestedAmount),
         consentGiven: true,
       };
 
+      const idempotencyKey = await evaluationOperationKey(slug, payload);
       const result = await institutionApi<EvaluationItem>(
         `/tenants/${encodeURIComponent(slug)}/evaluations`,
-        { body: payload },
+        { body: { ...payload, idempotencyKey } },
       );
+      clearEvaluationOperationKey(slug, idempotencyKey);
       setCreatedEvaluation(result);
     } catch (err) {
       if (err instanceof InstitutionError) {
@@ -279,8 +274,10 @@ export function EvaluationWizard({
             El caso para <strong>{createdEvaluation.clientName || name}</strong> (
             {applicantType === "COMPANY" ? "NIT: " : "CI: "}
             {createdEvaluation.documentNumber || documentNumber}) por un monto de{" "}
-            <strong>Bs {Number(createdEvaluation.requestedAmount ?? requestedAmount).toLocaleString()}</strong> ha
-            sido registrado con su snapshot inmutable y consentimiento legal.
+            <strong>
+              Bs {Number(createdEvaluation.requestedAmount ?? requestedAmount).toLocaleString()}
+            </strong>{" "}
+            ha sido registrado con su snapshot inmutable y consentimiento legal.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/${createdEvaluation.id}`}>
@@ -335,8 +332,8 @@ export function EvaluationWizard({
           <div>
             <h2>Paso 1: Identificación del solicitante</h2>
             <p className="eval-card-subtitle">
-              Selecciona el tipo de solicitante e ingresa su documento para verificar si cuenta con
-              expediente en {tenantName}.
+              Selecciona el tipo de solicitante e ingresa su documento para verificar si cuenta con expediente
+              en {tenantName}.
             </p>
 
             {/* Selector Persona / Empresa (CA-14.01, CA-14.12) */}
@@ -436,13 +433,13 @@ export function EvaluationWizard({
                       <p>
                         {applicantType === "COMPANY" ? (
                           <>
-                            La empresa <strong>{name}</strong> (NIT: {documentNumber}) ya cuenta con
-                            historial en esta institución. Los datos se reutilizarán en este caso.
+                            La empresa <strong>{name}</strong> (NIT: {documentNumber}) ya cuenta con historial
+                            en esta institución. Los datos se reutilizarán en este caso.
                           </>
                         ) : (
                           <>
-                            El cliente <strong>{name}</strong> ya cuenta con historial en esta
-                            institución. Los datos del expediente se reutilizarán en este caso.
+                            El cliente <strong>{name}</strong> ya cuenta con historial en esta institución.
+                            Los datos del expediente se reutilizarán en este caso.
                           </>
                         )}
                       </p>
@@ -529,9 +526,7 @@ export function EvaluationWizard({
                 id="eval-purpose"
                 className="eval-select"
                 value={purpose}
-                onChange={(e) =>
-                  setPurpose(e.target.value as CreateEvaluationPayload["purpose"])
-                }
+                onChange={(e) => setPurpose(e.target.value as CreateEvaluationPayload["purpose"])}
               >
                 <option value="WORKING_CAPITAL">Capital de trabajo</option>
                 <option value="BUSINESS_INVESTMENT">Inversión empresarial</option>
@@ -551,9 +546,7 @@ export function EvaluationWizard({
                 step="500"
                 placeholder="10000"
                 value={requestedAmount}
-                onChange={(e) =>
-                  setRequestedAmount(e.target.value === "" ? "" : Number(e.target.value))
-                }
+                onChange={(e) => setRequestedAmount(e.target.value === "" ? "" : Number(e.target.value))}
               />
               <p className="eval-help-text">Ingresa el monto requerido para evaluar compatibilidad.</p>
             </div>
@@ -627,7 +620,7 @@ export function EvaluationWizard({
                 </div>
               </div>
             </div>
-                <IntegrationNotice slug={slug} />
+            <IntegrationNotice slug={slug} />
             <div className="eval-consent-box">
               <label className="eval-consent-label">
                 <input
