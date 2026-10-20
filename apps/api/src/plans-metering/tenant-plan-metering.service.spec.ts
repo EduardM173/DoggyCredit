@@ -19,6 +19,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
     name: "Plan Básico",
     description: "Para cooperativas y financieras emergentes",
     evaluationsPerMonth: 50,
+    evaluationLimitMode: "LIMITADO",
     maxUsers: 3,
     scoringEnabled: false,
     price: 0,
@@ -34,6 +35,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
     name: "Plan Empresarial",
     description: "Para bancos de primer orden",
     evaluationsPerMonth: null, // Unlimited
+    evaluationLimitMode: "ILIMITADO",
     maxUsers: null,
     scoringEnabled: true,
     price: 799,
@@ -78,9 +80,9 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
     it("throws NotFoundException if tenant does not exist", async () => {
       mockDb.client.tenant.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.getTenantPlanAndUsage("unknown-id", "INSTITUTION_ADMIN")
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getTenantPlanAndUsage("unknown-id", "INSTITUTION_ADMIN")).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it("returns LIMITADO plan with usage and remaining capacity for Ana (Admin)", async () => {
@@ -99,7 +101,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
       const result = await service.getTenantPlanAndUsage(
         mockTenant.id,
         "INSTITUTION_ADMIN",
-        new Date("2026-10-20T12:00:00.000Z")
+        new Date("2026-10-20T12:00:00.000Z"),
       );
 
       expect(result.tenant.name).toBe("Banco X S.A.");
@@ -132,7 +134,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
       const result = await service.getTenantPlanAndUsage(
         mockTenant.id,
         "INSTITUTION_ADMIN",
-        new Date("2026-10-20T12:00:00.000Z")
+        new Date("2026-10-20T12:00:00.000Z"),
       );
 
       expect(result.capacity.state).toBe("ILIMITADO");
@@ -147,10 +149,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
       mockDb.client.tenant.findUnique.mockResolvedValue(mockTenant);
       mockDb.client.tenantSubscription.findFirst.mockResolvedValue(null);
 
-      const result = await service.getTenantPlanAndUsage(
-        mockTenant.id,
-        "INSTITUTION_ADMIN"
-      );
+      const result = await service.getTenantPlanAndUsage(mockTenant.id, "INSTITUTION_ADMIN");
 
       expect(result.capacity.state).toBe("NO_CONFIGURADO");
       expect(result.subscription.status).toBe("NO_SUBSCRIPTION");
@@ -171,10 +170,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
           endsAt: new Date("2026-10-01T00:00:00.000Z"),
         });
 
-      const result = await service.getTenantPlanAndUsage(
-        mockTenant.id,
-        "INSTITUTION_ADMIN"
-      );
+      const result = await service.getTenantPlanAndUsage(mockTenant.id, "INSTITUTION_ADMIN");
 
       expect(result.capacity.state).toBe("NO_DISPONIBLE");
       expect(result.subscription.status).toBe("SUSPENDED");
@@ -192,10 +188,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
       });
       mockDb.client.usageRecord.count.mockResolvedValue(5);
 
-      const result = await service.getTenantPlanAndUsage(
-        mockTenant.id,
-        "ANALYST"
-      );
+      const result = await service.getTenantPlanAndUsage(mockTenant.id, "ANALYST");
 
       expect(result.permissions.canViewCommercialTerms).toBe(false);
       expect(result.permissions.role).toBe("ANALYST");
@@ -211,9 +204,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
       });
       mockDb.client.usageRecord.count.mockResolvedValue(49); // 49 of 50
 
-      await expect(
-        service.checkQuotaAvailable(mockTenant.id, "INSTITUTION_ADMIN")
-      ).resolves.toBeUndefined();
+      await expect(service.checkQuotaAvailable(mockTenant.id, "INSTITUTION_ADMIN")).resolves.toBeUndefined();
     });
 
     it("throws PLAN_QUOTA_EXCEEDED with admin guidance when consumed >= limit for Admin (CA-21.04)", async () => {
@@ -263,9 +254,7 @@ describe("HU-21 TenantPlanMeteringService — Consultar plan contratado, capacid
         plan: mockPlanEnterprise, // evaluationsPerMonth: null
       });
 
-      await expect(
-        service.checkQuotaAvailable(mockTenant.id, "ANALYST")
-      ).resolves.toBeUndefined();
+      await expect(service.checkQuotaAvailable(mockTenant.id, "ANALYST")).resolves.toBeUndefined();
       expect(mockDb.client.usageRecord.count).not.toHaveBeenCalled();
     });
   });

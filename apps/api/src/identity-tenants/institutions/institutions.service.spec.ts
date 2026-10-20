@@ -51,6 +51,7 @@ describe("HU-22 InstitutionsService", () => {
           currency: "BOB",
           billingPeriod: "MONTHLY",
           evaluationsPerMonth: 50,
+          evaluationLimitMode: "LIMITADO",
           maxUsers: 3,
         },
       },
@@ -75,9 +76,9 @@ describe("HU-22 InstitutionsService", () => {
         findUnique: jest.fn().mockImplementation(() => Promise.resolve(mockTenant)),
       },
       usageRecord: {
-        groupBy: jest.fn().mockImplementation(() =>
-          Promise.resolve([{ tenantId: "tenant-uuid-1", _count: { _all: 15 } }]),
-        ),
+        groupBy: jest
+          .fn()
+          .mockImplementation(() => Promise.resolve([{ tenantId: "tenant-uuid-1", _count: { _all: 15 } }])),
         count: jest.fn().mockImplementation(() => Promise.resolve(15)),
       },
       ...overrides,
@@ -97,14 +98,22 @@ describe("HU-22 InstitutionsService", () => {
               code: "BANK_MOCK",
               name: "Banco Central Mock",
               globallyEnabled: true,
-              health: { state: "OPERATIVO_OBSERVADO", lastSignalAt: "2026-10-20T12:00:00Z", confidence: "HIGH" },
+              health: {
+                state: "OPERATIVO_OBSERVADO",
+                lastSignalAt: "2026-10-20T12:00:00Z",
+                confidence: "HIGH",
+              },
               tenants: { enabled: 1, affected: { known: true, count: 0 } },
             },
             {
               code: "BUREAU_MOCK",
               name: "Buró de Crédito Mock",
               globallyEnabled: true,
-              health: { state: "OPERATIVO_OBSERVADO", lastSignalAt: "2026-10-20T12:00:00Z", confidence: "HIGH" },
+              health: {
+                state: "OPERATIVO_OBSERVADO",
+                lastSignalAt: "2026-10-20T12:00:00Z",
+                confidence: "HIGH",
+              },
               tenants: { enabled: 1, affected: { known: true, count: 0 } },
             },
           ],

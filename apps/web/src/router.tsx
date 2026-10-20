@@ -25,6 +25,7 @@ import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
 import { AdminActivityLogPage } from "./features/admin/ActivityLogPage";
 import { PasswordRecoveryPage } from "./features/password-recovery/PasswordRecoveryPage";
 import { PlatformTeamPage } from "./features/admin/PlatformTeamPage";
+import { PlatformPlansPage } from "./features/admin/PlatformPlansPage";
 import { OperatorActivationPage } from "./features/activation/OperatorActivationPage";
 
 export const router = createBrowserRouter([
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { path: "bandeja-pruebas", element: <TestInboxPage /> },
       { path: "proveedores", element: <ProvidersPage /> },
       { path: "equipo-interno", element: <PlatformTeamPage /> },
+      { path: "planes", element: <PlatformPlansPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
       { path: "integraciones", element: <IntegrationsPage /> },
       { path: "integraciones/:code", element: <IntegrationDetailPage /> },

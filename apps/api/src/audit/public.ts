@@ -110,6 +110,14 @@ export abstract class AuditWriter {
     action: "PRODUCT_CREATED" | "PRODUCT_UPDATED" | "PRODUCT_ACTIVATED" | "PRODUCT_DEACTIVATED";
     metadata?: Record<string, unknown>;
   }): Promise<void>;
+  abstract recordPlanCatalogAction(event: {
+    actorUserId: string;
+    planId: string;
+    action: "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_ACTIVATED" | "PLAN_DEACTIVATED";
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown>;
+    effectiveFrom: Date;
+  }): Promise<void>;
 }
 
 export abstract class AuditReader {

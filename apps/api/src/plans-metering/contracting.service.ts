@@ -17,16 +17,7 @@ import { PaymentProvider, type DemoResult } from "../infrastructure/payments/pay
 import { ContractingAccessService } from "./contracting-access.service.js";
 import { PaymentEventProcessor } from "./payment-event-processor.js";
 import type { Payment } from "../generated/prisma/client.js";
-const planSelect = {
-  id: true,
-  code: true,
-  name: true,
-  price: true,
-  currency: true,
-  billingPeriod: true,
-  requiresPayment: true,
-  features: true,
-} as const;
+import { isOfferEligible, planTerms } from "./plan-terms.js";
 @Injectable()
 export class ContractingService {
   private readonly logger = new Logger(ContractingService.name);
@@ -56,15 +47,7 @@ export class ContractingService {
   async context(requestId: string) {
     const institution = await this.requests.approved(requestId);
     const plans = await this.db.client.plan.findMany({
-      where: {
-        active: true,
-        isPublic: true,
-        price: { not: null },
-        currency: "BOB",
-        billingPeriod: "MONTHLY",
-        requiresPayment: { not: null },
-      },
-      select: planSelect,
+      where: { active: true, isPublic: true },
       orderBy: [{ displayOrder: "asc" }, { code: "asc" }],
     });
     const contract = await this.db.client.contracting.findUnique({
@@ -75,7 +58,16 @@ export class ContractingService {
       contract?.status === "CONFIRMED" ? await this.provisioning.progress(contract.id) : null;
     return {
       institution,
-      plans: plans.map((plan) => ({ ...plan, price: plan.price!.toFixed(2) })),
+      plans: plans.filter(isOfferEligible).map((plan) => ({
+        id: plan.id,
+        code: plan.code,
+        name: plan.name,
+        price: plan.price!.toFixed(2),
+        currency: plan.currency!,
+        billingPeriod: plan.billingPeriod!,
+        requiresPayment: plan.requiresPayment!,
+        features: plan.features,
+      })),
       paymentProvider: this.config.get("PAYMENT_PROVIDER"),
       provisioning,
       contracting: contract
@@ -103,23 +95,11 @@ export class ContractingService {
         if (existing.confirmedPlanId === planId) return;
         throw new ConflictException("El plan ya fue confirmado. No se puede cambiar dentro de este flujo.");
       }
+      await this.db.client.$queryRaw`SELECT "id" FROM "Plan" WHERE "id" = ${planId}::uuid FOR UPDATE`;
       const plan = await this.db.client.plan.findUnique({ where: { id: planId } });
-      if (
-        !plan ||
-        !plan.active ||
-        !plan.isPublic ||
-        plan.price === null ||
-        plan.currency !== "BOB" ||
-        plan.billingPeriod !== "MONTHLY" ||
-        plan.requiresPayment === null
-      )
+      if (!plan || !isOfferEligible(plan)) throw new NotFoundException("Plan no disponible.");
+      if (plan.price === null || !plan.currency || !plan.billingPeriod || plan.requiresPayment === null)
         throw new NotFoundException("Plan no disponible.");
-      if (
-        plan.price.isNegative() ||
-        (plan.requiresPayment && !plan.price.greaterThan(0)) ||
-        (!plan.requiresPayment && !plan.price.isZero())
-      )
-        throw new ConflictException("El plan tiene condiciones comerciales inconsistentes.");
       const contract = await this.db.client.contracting.create({
         data: {
           requestId,
@@ -130,6 +110,7 @@ export class ContractingService {
           currencySnapshot: plan.currency,
           billingPeriodSnapshot: plan.billingPeriod,
           requiresPaymentSnapshot: plan.requiresPayment,
+          termsSnapshot: planTerms(plan),
           status: plan.requiresPayment ? "PENDING_PAYMENT" : "CONFIRMED",
           confirmedAt: plan.requiresPayment ? null : new Date(),
         },

@@ -55,6 +55,10 @@ const CATEGORY_ACTIONS: Record<AuditCategory, string[]> = {
     "PROVISIONING_RETRY_REQUESTED",
   ],
   PLATFORM: [
+    "PLAN_CREATED",
+    "PLAN_UPDATED",
+    "PLAN_ACTIVATED",
+    "PLAN_DEACTIVATED",
     "PROVIDER_GLOBALLY_ENABLED",
     "PROVIDER_GLOBALLY_DISABLED",
     "PROVIDER_DEGRADED",
@@ -286,7 +290,8 @@ const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
     category: "OPERATIONS",
     entityLabel: "Contratación",
     defaultOutcome: "SUCCESS",
-    summary: (meta) => `Se confirmó la selección del plan comercial${meta?.planId ? ` (${meta.planId})` : ""}.`,
+    summary: (meta) =>
+      `Se confirmó la selección del plan comercial${meta?.planId ? ` (${meta.planId})` : ""}.`,
   },
   CONTRACTING_CONFIRMED: {
     label: "Contratación completada",
@@ -314,7 +319,8 @@ const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
     category: "OPERATIONS",
     entityLabel: "Institución",
     defaultOutcome: "SUCCESS",
-    summary: (meta) => `Aprovisionamiento automático exitoso${meta?.planId ? ` con plan ${meta.planId}` : ""}.`,
+    summary: (meta) =>
+      `Aprovisionamiento automático exitoso${meta?.planId ? ` con plan ${meta.planId}` : ""}.`,
   },
   PROVISIONING_RETRY_REQUESTED: {
     label: "Reintento de aprovisionamiento solicitado",
@@ -350,53 +356,135 @@ const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
     category: "PLATFORM",
     entityLabel: "Proveedor externo",
     defaultOutcome: "SUCCESS",
-    summary: (meta) => `Disponibilidad operativa restablecida en ${meta?.providerCode ?? "el proveedor externo"}.`,
+    summary: (meta) =>
+      `Disponibilidad operativa restablecida en ${meta?.providerCode ?? "el proveedor externo"}.`,
   },
   OPERATOR_INVITATION_CREATED: {
-    label: "Invitación de operador creada", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "INFO", summary: () => "Se creó una invitación para un operador interno.",
+    label: "Invitación de operador creada",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "INFO",
+    summary: () => "Se creó una invitación para un operador interno.",
   },
   OPERATOR_INVITATION_RESENT: {
-    label: "Invitación de operador reenviada", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "INFO", summary: () => "Se reenvió una invitación para un operador interno.",
+    label: "Invitación de operador reenviada",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "INFO",
+    summary: () => "Se reenvió una invitación para un operador interno.",
   },
   OPERATOR_INVITATION_SENT: {
-    label: "Invitación de operador enviada", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "SUCCESS", summary: () => "Se entregó una invitación para un operador interno.",
+    label: "Invitación de operador enviada",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se entregó una invitación para un operador interno.",
   },
   OPERATOR_INVITATION_FAILED: {
-    label: "Fallo de entrega de invitación", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "FAILURE", summary: () => "No se pudo entregar una invitación para un operador interno.",
+    label: "Fallo de entrega de invitación",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "FAILURE",
+    summary: () => "No se pudo entregar una invitación para un operador interno.",
   },
   OPERATOR_INVITATION_REJECTED: {
-    label: "Invitación de operador rechazada", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "FAILURE", summary: () => "Se rechazó un intento de activar una invitación interna.",
+    label: "Invitación de operador rechazada",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "FAILURE",
+    summary: () => "Se rechazó un intento de activar una invitación interna.",
   },
   OPERATOR_INVITATION_ACCEPTED: {
-    label: "Invitación de operador aceptada", category: "PLATFORM", entityLabel: "Invitación interna",
-    defaultOutcome: "SUCCESS", summary: () => "Se activó el acceso de un operador interno.",
+    label: "Invitación de operador aceptada",
+    category: "PLATFORM",
+    entityLabel: "Invitación interna",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se activó el acceso de un operador interno.",
   },
   OPERATOR_SUSPENDED: {
-    label: "Operador suspendido", category: "PLATFORM", entityLabel: "Operador interno",
-    defaultOutcome: "INFO", summary: () => "Se suspendió el acceso de un operador interno.",
+    label: "Operador suspendido",
+    category: "PLATFORM",
+    entityLabel: "Operador interno",
+    defaultOutcome: "INFO",
+    summary: () => "Se suspendió el acceso de un operador interno.",
   },
   OPERATOR_REACTIVATED: {
-    label: "Operador reactivado", category: "PLATFORM", entityLabel: "Operador interno",
-    defaultOutcome: "SUCCESS", summary: () => "Se reactivó el acceso de un operador interno.",
+    label: "Operador reactivado",
+    category: "PLATFORM",
+    entityLabel: "Operador interno",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se reactivó el acceso de un operador interno.",
   },
   OPERATOR_REVOKED: {
-    label: "Acceso de operador revocado", category: "PLATFORM", entityLabel: "Operador interno",
-    defaultOutcome: "INFO", summary: () => "Se revocó el acceso de un operador interno.",
+    label: "Acceso de operador revocado",
+    category: "PLATFORM",
+    entityLabel: "Operador interno",
+    defaultOutcome: "INFO",
+    summary: () => "Se revocó el acceso de un operador interno.",
   },
   OPERATOR_ACCESS_CHANGE_REJECTED: {
-    label: "Cambio de acceso rechazado", category: "PLATFORM", entityLabel: "Operador interno",
-    defaultOutcome: "FAILURE", summary: () => "Se rechazó un cambio de acceso de un operador interno.",
+    label: "Cambio de acceso rechazado",
+    category: "PLATFORM",
+    entityLabel: "Operador interno",
+    defaultOutcome: "FAILURE",
+    summary: () => "Se rechazó un cambio de acceso de un operador interno.",
+  },
+  PLAN_CREATED: {
+    label: "Plan creado",
+    category: "PLATFORM",
+    entityLabel: "Plan SaaS",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se creó un plan del catálogo.",
+  },
+  PLAN_UPDATED: {
+    label: "Plan actualizado",
+    category: "PLATFORM",
+    entityLabel: "Plan SaaS",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se actualizaron las condiciones futuras de un plan.",
+  },
+  PLAN_ACTIVATED: {
+    label: "Plan activado",
+    category: "PLATFORM",
+    entityLabel: "Plan SaaS",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se habilitó un plan para nuevas contrataciones.",
+  },
+  PLAN_DEACTIVATED: {
+    label: "Plan desactivado",
+    category: "PLATFORM",
+    entityLabel: "Plan SaaS",
+    defaultOutcome: "INFO",
+    summary: () => "Se retiró un plan de nuevas contrataciones.",
   },
 };
 
 @Injectable()
 export class AuditService implements AuditWriter, AuditReader {
   constructor(private readonly database: DatabaseUnitOfWork) {}
+
+  async recordPlanCatalogAction(event: {
+    actorUserId: string;
+    planId: string;
+    action: "PLAN_CREATED" | "PLAN_UPDATED" | "PLAN_ACTIVATED" | "PLAN_DEACTIVATED";
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown>;
+    effectiveFrom: Date;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        actorUserId: event.actorUserId,
+        action: event.action,
+        entityType: "Plan",
+        entityId: event.planId,
+        metadata: {
+          before: event.before,
+          after: event.after,
+          effectiveFrom: event.effectiveFrom.toISOString(),
+        } as Prisma.InputJsonValue,
+      },
+    });
+  }
 
   async recordPlatformTeamEvent(event: {
     actorUserId?: string;
@@ -405,16 +493,24 @@ export class AuditService implements AuditWriter, AuditReader {
     entityId: string;
     metadata: Record<string, string>;
   }): Promise<void> {
-    await this.database.client.auditLog.create({ data: {
-      actorUserId: event.actorUserId, action: event.action,
-      entityType: event.entityType, entityId: event.entityId, metadata: event.metadata,
-    } });
+    await this.database.client.auditLog.create({
+      data: {
+        actorUserId: event.actorUserId,
+        action: event.action,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        metadata: event.metadata,
+      },
+    });
   }
   async countRecentPlatformInvitations(actorUserId: string, since: Date): Promise<number> {
-    return this.database.client.auditLog.count({ where: {
-      actorUserId, action: { in: ["OPERATOR_INVITATION_CREATED", "OPERATOR_INVITATION_RESENT"] },
-      createdAt: { gte: since },
-    } });
+    return this.database.client.auditLog.count({
+      where: {
+        actorUserId,
+        action: { in: ["OPERATOR_INVITATION_CREATED", "OPERATOR_INVITATION_RESENT"] },
+        createdAt: { gte: since },
+      },
+    });
   }
   async recordTeamInvitation(event: {
     tenantId: string;
@@ -530,9 +626,7 @@ export class AuditService implements AuditWriter, AuditReader {
     });
   }
 
-  async findOpenProviderEpisode(
-    providerId: string,
-  ): Promise<{ episodeId: string; startedAt: Date } | null> {
+  async findOpenProviderEpisode(providerId: string): Promise<{ episodeId: string; startedAt: Date } | null> {
     const last = await this.database.client.auditLog.findFirst({
       where: {
         entityType: "IntegrationProvider",
@@ -841,11 +935,17 @@ export class AuditService implements AuditWriter, AuditReader {
     const def = ACTION_DEFINITIONS[record.action];
 
     const actionLabel = def?.label ?? record.action.replace(/_/g, " ").toLowerCase();
-    const category = def?.category ?? (record.entityType === "IntegrationProvider" ? "PLATFORM" : "OPERATIONS");
+    const category =
+      def?.category ?? (record.entityType === "IntegrationProvider" ? "PLATFORM" : "OPERATIONS");
     const entityLabel = def?.entityLabel ?? record.entityType;
 
     let outcome: AuditOutcome = def?.defaultOutcome ?? "SUCCESS";
-    if (record.action.includes("FAILED") || record.action.includes("REJECTED") || record.action.includes("DISABLED") || record.action.includes("REVOKED")) {
+    if (
+      record.action.includes("FAILED") ||
+      record.action.includes("REJECTED") ||
+      record.action.includes("DISABLED") ||
+      record.action.includes("REVOKED")
+    ) {
       outcome = "FAILURE";
     } else if (rawMetadata?.finalStatus === "FAILED") {
       outcome = "FAILURE";
@@ -909,9 +1009,7 @@ export class AuditService implements AuditWriter, AuditReader {
    * CA-24.08 / CA-24.12: Sanitización de metadatos.
    * Filtra estrictamente contraseñas, tokens completos, secretos, números de cuenta y respuestas de buró.
    */
-  private sanitizeMetadata(
-    meta: Record<string, unknown> | null,
-  ): Record<string, unknown> | null {
+  private sanitizeMetadata(meta: Record<string, unknown> | null): Record<string, unknown> | null {
     if (!meta) return null;
     const sanitized: Record<string, unknown> = {};
 

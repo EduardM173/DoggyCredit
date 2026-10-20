@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
+import { contractedTerms } from "./plan-terms.js";
 
 export type CapacityState = "LIMITADO" | "ILIMITADO" | "NO_CONFIGURADO" | "NO_DISPONIBLE";
 
@@ -117,26 +118,22 @@ export class TenantPlanMeteringService {
       endsAt = activeSub.endsAt ? activeSub.endsAt.toISOString() : null;
 
       const p = activeSub.plan;
+      const terms = contractedTerms(activeSub.termsSnapshot, p);
       planData = {
         id: p.id,
-        code: p.code,
-        name: p.name,
+        code: terms.code,
+        name: terms.name,
         description: p.description,
-        price: p.price ? Number(p.price) : 0,
-        currency: p.currency ?? "BOB",
-        billingPeriod: p.billingPeriod ?? "MONTHLY",
-        requiresPayment: Boolean(p.requiresPayment),
-        features: p.features,
-        maxUsers: p.maxUsers,
+        price: Number(terms.price),
+        currency: terms.currency,
+        billingPeriod: terms.billingPeriod,
+        requiresPayment: terms.requiresPayment,
+        features: terms.features,
+        maxUsers: terms.maxUsers,
       };
 
-      if (p.evaluationsPerMonth === null) {
-        state = "ILIMITADO";
-        limit = null;
-      } else {
-        state = "LIMITADO";
-        limit = p.evaluationsPerMonth;
-      }
+      state = terms.evaluationLimitMode;
+      limit = state === "LIMITADO" ? terms.evaluationsPerMonth : null;
 
       // Count UsageRecord in cycle
       consumed = await this.db.client.usageRecord.count({
@@ -171,12 +168,10 @@ export class TenantPlanMeteringService {
 
     const remaining = limit !== null ? Math.max(0, limit - consumed) : null;
     const percentage =
-      limit !== null && limit > 0
-        ? Math.min(100, Math.round((consumed / limit) * 100))
-        : null;
+      limit !== null && limit > 0 ? Math.min(100, Math.round((consumed / limit) * 100)) : null;
 
     const isAdmin = role === "INSTITUTION_ADMIN";
-    const canEvaluate = state !== "NO_CONFIGURADO" && state !== "NO_DISPONIBLE" && !isExceeded;
+    const canEvaluate = subStatus === "ACTIVE" && !isExceeded;
 
     return {
       tenant: {
@@ -239,11 +234,13 @@ export class TenantPlanMeteringService {
       throw new ForbiddenException({
         statusCode: 403,
         code: "SUBSCRIPTION_NOT_ACTIVE",
-        message: "La suscripción institucional no se encuentra activa o configurada para procesar evaluaciones.",
+        message:
+          "La suscripción institucional no se encuentra activa o configurada para procesar evaluaciones.",
       });
     }
 
-    const limit = activeSub.plan.evaluationsPerMonth;
+    const terms = contractedTerms(activeSub.termsSnapshot, activeSub.plan);
+    const limit = terms.evaluationLimitMode === "LIMITADO" ? terms.evaluationsPerMonth : null;
     if (limit === null) {
       // Unlimited evaluations
       return;
@@ -294,7 +291,10 @@ export class TenantPlanMeteringService {
     } catch (err: unknown) {
       // Prisma unique constraint violation code is P2002
       const isUniqueViolation =
-        (typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002") ||
+        (typeof err === "object" &&
+          err !== null &&
+          "code" in err &&
+          (err as { code: string }).code === "P2002") ||
         (err instanceof Error && err.message.includes("Unique constraint"));
 
       if (isUniqueViolation) {
