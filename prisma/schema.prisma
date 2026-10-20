@@ -132,12 +132,19 @@ enum UsageMetric {
   SCORING
 }
 
+enum EvaluationLimitMode {
+  NO_CONFIGURADO
+  LIMITADO
+  ILIMITADO
+}
+
 model Plan {
   id                  String   @id @default(uuid()) @db.Uuid
   code                String   @unique @db.VarChar(50)
   name                String   @db.VarChar(100)
   description         String?  @db.VarChar(500)
   evaluationsPerMonth Int?
+  evaluationLimitMode EvaluationLimitMode @default(NO_CONFIGURADO)
   maxUsers            Int?
   scoringEnabled      Boolean  @default(false)
   active              Boolean  @default(true)
@@ -148,6 +155,8 @@ model Plan {
   billingPeriod       String?  @db.VarChar(20)
   requiresPayment     Boolean?
   features            String[] @default([])
+  revision            Int      @default(1)
+  effectiveFrom       DateTime @default(now()) @db.Timestamptz(6)
   createdAt           DateTime @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @db.Timestamptz(6)
 
@@ -244,6 +253,7 @@ model Contracting {
   currencySnapshot        String              @db.VarChar(3)
   billingPeriodSnapshot   String              @db.VarChar(20)
   requiresPaymentSnapshot Boolean
+  termsSnapshot           Json?
   status                  ContractingStatus
   createdAt               DateTime            @default(now()) @db.Timestamptz(6)
   updatedAt               DateTime            @updatedAt @db.Timestamptz(6)
@@ -529,6 +539,7 @@ model TenantSubscription {
   tenantId            String             @db.Uuid
   planId              String             @db.Uuid
   sourceContractingId String?            @unique @db.Uuid
+  termsSnapshot       Json?
   status              SubscriptionStatus @default(ACTIVE)
   startsAt            DateTime           @default(now()) @db.Timestamptz(6)
   endsAt              DateTime?          @db.Timestamptz(6)
@@ -669,6 +680,7 @@ model Evaluation {
 
   @@unique([tenantId, id])
   @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, createdAt])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, clientId, createdAt])
   @@index([tenantId, createdByMembershipId, createdAt])

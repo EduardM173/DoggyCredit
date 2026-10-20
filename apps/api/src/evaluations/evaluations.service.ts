@@ -18,8 +18,11 @@ import {
   type NormalizedBureauData,
   type SourceSubjectType,
 } from "../financial-integrations/public.js";
-import { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
-import { FinancialProfileCalculator, type ProfileIndicatorProvenance } from "../financial-profile/public.js";
+import { ResilientSources } from "../financial-integrations/public.js";
+import {
+  FinancialProfileCalculator,
+  type ProfileIndicatorProvenance,
+} from "../financial-profile/public.js";
 import { EvaluationRecommender } from "../recommendations/public.js";
 import {
   ClientTypeDto,

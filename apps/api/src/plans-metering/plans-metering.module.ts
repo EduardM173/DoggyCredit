@@ -15,9 +15,20 @@ import {
   AdminContractingController,
   MockPaymentController,
 } from "./contracting.controller.js";
+import { TenantPlanMeteringController } from "./tenant-plan-metering.controller.js";
+import { TenantPlanMeteringService } from "./tenant-plan-metering.service.js";
+import { PlatformPlansController } from "./platform-plans.controller.js";
+import { PlatformPlansService } from "./platform-plans.service.js";
+
 @Module({
   imports: [PrismaModule, PaymentsModule, AuditModule, IdentityTenantsModule, PlanCatalogModule],
-  controllers: [ContractingController, AdminContractingController, MockPaymentController],
+  controllers: [
+    ContractingController,
+    AdminContractingController,
+    MockPaymentController,
+    TenantPlanMeteringController,
+    PlatformPlansController,
+  ],
   providers: [
     { provide: ProvisioningPlans, useClass: ProvisioningPlansService },
     ContractingAccessService,
@@ -25,7 +36,9 @@ import {
     PaymentEventProcessor,
     ContractingGuard,
     PaymentPublicRateGuard,
+    TenantPlanMeteringService,
+    PlatformPlansService,
   ],
-  exports: [ProvisioningPlans, ContractingAccessService],
+  exports: [ProvisioningPlans, ContractingAccessService, TenantPlanMeteringService],
 })
 export class PlansMeteringModule {}

@@ -58,7 +58,19 @@ export class ProvisioningPlansService extends ProvisioningPlans {
       throw new ProvisioningEligibilityError("ACTIVE_SUBSCRIPTION_CONFLICT");
     return (
       await this.db.client.tenantSubscription.create({
-        data: { tenantId, planId: c.confirmedPlanId, sourceContractingId: contractingId, status: "ACTIVE" },
+        data: {
+          tenantId,
+          planId: c.confirmedPlanId,
+          sourceContractingId: contractingId,
+          status: "ACTIVE",
+          termsSnapshot:
+            (
+              await this.db.client.contracting.findUniqueOrThrow({
+                where: { id: contractingId },
+                select: { termsSnapshot: true },
+              })
+            ).termsSnapshot ?? undefined,
+        },
       })
     ).id;
   }

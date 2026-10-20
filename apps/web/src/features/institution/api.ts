@@ -447,3 +447,203 @@ export function destination(me: InstitutionMe, returnTo: string | null) {
   if (me.activeMemberships.length === 1) return `/${me.activeMemberships[0].tenant.slug}`;
   return "/elegir-institucion";
 }
+
+
+export type DashboardPeriod = "today" | "last_7_days" | "last_30_days" | "month_to_date";
+
+export interface PendingAttentionItem {
+  id: string;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "FAILED";
+  applicantName: string;
+  applicantType: "PERSON" | "COMPANY";
+  requestedAmount: number;
+  updatedAt: string;
+  reasonText: string;
+  actionableType: "RETRY" | "REVIEW" | "MONITOR";
+  actionUrl: string;
+}
+
+export interface DashboardMetricsDto {
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  role: "INSTITUTION_ADMIN" | "ANALYST" | string;
+  period: {
+    code: DashboardPeriod;
+    label: string;
+    from: string;
+    to: string;
+  };
+  asOf: string;
+  hasEvaluations: boolean;
+  hasPeriodActivity: boolean;
+  isSmallSample: boolean;
+  attentionRequiredCount: number;
+  pendingAttention: PendingAttentionItem[];
+  metrics: {
+    totalEvaluations: number;
+    completionRate: number | null;
+    byStatus: {
+      COMPLETED: number;
+      IN_PROGRESS: number;
+      INCOMPLETE: number;
+      FAILED: number;
+      DRAFT: number;
+    };
+    byScope: {
+      PERSON: number;
+      COMPANY: number;
+    };
+    catalogCompatibility: {
+      rate: number | null;
+      compatibleCount: number;
+      incompatibleCount: number;
+    };
+  };
+  readiness: {
+    ready: boolean;
+    completedSteps: number;
+    totalSteps: number;
+    canEvaluate: boolean;
+  };
+  permissions: {
+    canManageTeam: boolean;
+    canManageProducts: boolean;
+    canManageSources: boolean;
+    canEvaluate: boolean;
+  };
+}
+
+export function fetchDashboard(slug: string, period?: DashboardPeriod, signal?: AbortSignal) {
+  const query = period ? `?period=${encodeURIComponent(period)}` : "";
+  return institutionApi<DashboardMetricsDto>(`/tenants/${encodeURIComponent(slug)}/dashboard${query}`, { signal });
+}
+
+
+export type CapacityState = "LIMITADO" | "ILIMITADO" | "NO_CONFIGURADO" | "NO_DISPONIBLE";
+
+export interface TenantPlanMeteringDto {
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  subscription: {
+    id: string | null;
+    status: "ACTIVE" | "SUSPENDED" | "ENDED" | "NO_SUBSCRIPTION";
+    startsAt: string | null;
+    endsAt: string | null;
+  };
+  plan: {
+    id: string | null;
+    code: string;
+    name: string;
+    description: string | null;
+    price: number;
+    currency: string;
+    billingPeriod: string;
+    requiresPayment: boolean;
+    features: string[];
+    maxUsers: number | null;
+  } | null;
+  capacity: {
+    state: CapacityState;
+    unit: string;
+    limit: number | null;
+    consumed: number;
+    remaining: number | null;
+    percentage: number | null;
+    isExceeded: boolean;
+  };
+  cycle: {
+    startDate: string;
+    endDate: string;
+    timezone: "America/La_Paz";
+    renewalDate: string;
+  };
+  scoring: {
+    enabled: boolean;
+    type: "RULES_BASED";
+    description: string;
+  };
+  asOf: string;
+  permissions: {
+    canViewCommercialTerms: boolean;
+    canEvaluate: boolean;
+    role: string;
+  };
+  environment: {
+    isSimulation: boolean;
+    disclaimer: string;
+  };
+}
+
+export function fetchTenantPlanMetering(slug: string, signal?: AbortSignal) {
+  return institutionApi<TenantPlanMeteringDto>(`/tenants/${encodeURIComponent(slug)}/plan-metering`, { signal });
+}
+
+export type AuditCategory =
+  | "EVALUATION"
+  | "CATALOG"
+  | "TEAM"
+  | "INSTITUTION"
+  | "OPERATIONS"
+  | "PLATFORM";
+
+export type AuditOutcome = "SUCCESS" | "FAILURE" | "INFO";
+
+export interface AuditActor {
+  type: "USER" | "SYSTEM" | "OPERATOR";
+  name: string;
+  email?: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  occurredAt: string;
+  action: string;
+  actionLabel: string;
+  category: AuditCategory;
+  outcome: AuditOutcome;
+  entityType: string;
+  entityLabel: string;
+  entityId?: string | null;
+  resourceLink?: string | null;
+  actor: AuditActor;
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface AuditPage {
+  items: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface AuditQuery {
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  category?: AuditCategory;
+  action?: string;
+  outcome?: AuditOutcome;
+}
+
+export function fetchInstitutionAudit(slug: string, query?: AuditQuery, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", String(query.page));
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query?.from) params.set("from", query.from);
+  if (query?.to) params.set("to", query.to);
+  if (query?.category) params.set("category", query.category);
+  if (query?.action) params.set("action", query.action);
+  if (query?.outcome) params.set("outcome", query.outcome);
+
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return institutionApi<AuditPage>(`/tenants/${encodeURIComponent(slug)}/audit${qs}`, { signal });
+}

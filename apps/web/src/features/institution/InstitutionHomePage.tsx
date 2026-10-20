@@ -7,6 +7,7 @@ import {
   Check,
   Database,
   House,
+  History,
   Info,
   ListChecks,
   LockKeyhole,
@@ -17,12 +18,15 @@ import {
 } from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
-import { AnalystHome } from "./AnalystHome";
+
+import { InstitutionDashboard } from "./InstitutionDashboard";
+import { PlanAndUsagePage } from "./PlanAndUsagePage";
 import { EvaluationWizard } from "./EvaluationWizard";
 import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
 import { ClientDossier } from "./ClientDossier";
 import { ProductsCatalogPanel } from "./ProductsCatalogPanel";
+import { ActivityLogPage } from "./ActivityLogPage";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
@@ -36,7 +40,9 @@ type Step =
   | "evaluations"
   | "new-evaluation"
   | "evaluation-detail"
-  | "client-dossier";
+  | "client-dossier"
+  | "plan"
+  | "activity";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -227,6 +233,20 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                 Equipo
               </Link>
               <Link
+                className={step === "plan" ? "institution-nav-active" : ""}
+                to={`${base}/plan`}
+              >
+                <Database size={20} />
+                Plan y consumo
+              </Link>
+              <Link
+                className={step === "activity" ? "institution-nav-active" : ""}
+                to={`${base}/actividad`}
+              >
+                <History size={20} />
+                Actividad
+              </Link>
+              <Link
                 className={
                   ["settings", "institution", "source", "products"].includes(step)
                     ? "institution-nav-active"
@@ -251,6 +271,12 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
               >
                 <ListChecks size={20} /> Evaluaciones
               </Link>
+              <Link
+                className={step === "plan" ? "institution-nav-active" : ""}
+                to={`${base}/plan`}
+              >
+                <Database size={20} /> Plan y consumo
+              </Link>
             </>
           )}
         </nav>
@@ -272,7 +298,32 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             </small>
           </div>
         </header>
-        {step === "team" ? (
+        {step === "activity" ? (
+          !admin ? (
+            <main className="institution-dashboard" aria-label="Acceso denegado">
+              <div className="institution-breadcrumb">
+                <Link to={base}>Inicio</Link>
+                <ArrowRight size={16} /> <span>Actividad</span>
+              </div>
+              <p className="institution-eyebrow">ACCESO DENEGADO</p>
+              <h1>Acceso no autorizado</h1>
+              <p className="institution-lead">
+                Solo los administradores institucionales tienen permiso para consultar el registro de auditoría institucional.
+              </p>
+              <Link to={`${base}/evaluaciones`} className="activity-button-primary">
+                Ir a Evaluaciones
+              </Link>
+            </main>
+          ) : (
+            <ActivityLogPage slug={home.tenant.slug} tenantName={home.tenant.name} />
+          )
+        ) : step === "plan" ? (
+          <PlanAndUsagePage
+            slug={home.tenant.slug}
+            role={home.membership.role}
+            tenantName={home.tenant.name}
+          />
+        ) : step === "team" ? (
           <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
         ) : step === "new-evaluation" ? (
           <EvaluationWizard slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
@@ -283,30 +334,19 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
         ) : step === "client-dossier" ? (
           <ClientDossier slug={home.tenant.slug} ready={home.ready} />
         ) : !admin ? (
-          <AnalystHome
+          <InstitutionDashboard
             slug={home.tenant.slug}
-            tenantName={home.tenant.name}
-            userName={home.user.name}
+            role={home.membership.role}
             ready={home.ready}
-            evaluations={false}
+            userName={home.user.name}
           />
         ) : step === "home" && home.ready ? (
-          <main className="institution-dashboard">
-            <p className="institution-eyebrow">INICIO</p>
-            <h1>{home.tenant.name} está listo para evaluar solicitudes</h1>
-            <p className="institution-lead">La preparación inicial está completa.</p>
-            <section className="institution-ready">
-              <Check size={28} aria-hidden="true" />
-              <div>
-                <h2>Tu institución está lista</h2>
-                <p>Invita a un analista para comenzar a trabajar en {home.tenant.name}.</p>
-                <Link className="institution-primary" to={`${base}/equipo`}>
-                  <Users size={20} />
-                  Invitar analista
-                </Link>
-              </div>
-            </section>
-          </main>
+          <InstitutionDashboard
+            slug={home.tenant.slug}
+            role={home.membership.role}
+            ready={home.ready}
+            userName={home.user.name}
+          />
         ) : step === "settings" ? (
           <main className="institution-dashboard">
             <div className="institution-breadcrumb">

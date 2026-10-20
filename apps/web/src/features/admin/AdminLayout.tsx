@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap, Users } from "lucide-react";
+import {
+  Activity,
+  ArrowLeft,
+  Building2,
+  CreditCard,
+  FileText,
+  History,
+  Inbox,
+  Layers3,
+  LogOut,
+  PlugZap,
+  Users,
+} from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { adminApi, AdminError, type IntegrationListItem, type Session } from "./api";
 
@@ -25,7 +37,12 @@ export function AdminLayout() {
   }, [navigate, attempt]);
   const isPlatformAdmin = session?.user.platformRole === "PLATFORM_ADMIN";
   useEffect(() => {
-    if (isPlatformAdmin && !["/admin/proveedores", "/admin/equipo-interno"].some((path) => location.pathname.startsWith(path)))
+    if (
+      isPlatformAdmin &&
+      !["/admin/proveedores", "/admin/equipo-interno", "/admin/planes"].some((path) =>
+        location.pathname.startsWith(path),
+      )
+    )
       navigate("/admin/proveedores", { replace: true });
   }, [isPlatformAdmin, location.pathname, navigate]);
   useEffect(() => {
@@ -88,8 +105,18 @@ export function AdminLayout() {
         <nav aria-label="Administración">
           {isPlatformAdmin ? (
             <>
-              <NavLink to="/admin/proveedores"><PlugZap size={21} />Proveedores</NavLink>
-              <NavLink to="/admin/equipo-interno"><Users size={21} />Equipo interno</NavLink>
+              <NavLink to="/admin/proveedores">
+                <PlugZap size={21} />
+                Proveedores
+              </NavLink>
+              <NavLink to="/admin/planes">
+                <Layers3 size={21} />
+                Planes
+              </NavLink>
+              <NavLink to="/admin/equipo-interno">
+                <Users size={21} />
+                Equipo interno
+              </NavLink>
             </>
           ) : (
             <>
@@ -108,6 +135,10 @@ export function AdminLayout() {
               <NavLink to="/admin/bandeja-pruebas">
                 <Inbox size={21} />
                 Bandeja de pruebas
+              </NavLink>
+              <NavLink to="/admin/actividad">
+                <History size={21} />
+                Actividad
               </NavLink>
               <NavLink to="/admin/integraciones">
                 <Activity size={21} />

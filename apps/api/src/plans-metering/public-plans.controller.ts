@@ -8,7 +8,7 @@ export class PublicPlansController {
   constructor(private readonly plans: PublicPlansService) {}
 
   @Get()
-  @Header("Cache-Control", "public, max-age=60")
+  @Header("Cache-Control", "no-store")
   list() {
     return this.plans.list();
   }

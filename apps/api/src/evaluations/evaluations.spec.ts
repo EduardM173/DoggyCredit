@@ -13,7 +13,7 @@ import type { ClientsService } from "../clients/public.js";
 import type { TenantPreparationService, TenantContext } from "../identity-tenants/public.js";
 import type { AuditWriter } from "../audit/public.js";
 import type { BankMockSource } from "../financial-integrations/public.js";
-import type { ResilientSources } from "../financial-integrations/resilience/resilient-sources.js";
+import type { ResilientSources } from "../financial-integrations/public.js";
 import type { FinancialProfileCalculator } from "../financial-profile/public.js";
 import type { EvaluationRecommender } from "../recommendations/public.js";
 

@@ -1,23 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search } from "lucide-react";
-import { adminApi, AdminError, displayDate } from "./api";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Search } from "lucide-react";
+import { adminApi, AdminError, displayDate, type InstitutionList } from "./api";
 import { InstitutionName } from "./InstitutionName";
-interface InstitutionList {
-  items: {
-    tenantId: string;
-    institutionName: string;
-    nit: string;
-    initialAdmin: { name: string; email: string };
-    activationStatus: "INVITED" | "ACTIVE" | "SUSPENDED";
-    approvedAt: string | null;
-  }[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+
 export function InstitutionsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState<InstitutionList | null>(null);
   const [error, setError] = useState("");
@@ -25,11 +14,14 @@ export function InstitutionsPage() {
   const [version, setVersion] = useState(0);
   const search = params.get("search") || "";
   const activationStatus = params.get("activationStatus") || "";
+  const plan = params.get("plan") || "";
   const page = Math.max(1, Number(params.get("page")) || 1);
   const query = new URLSearchParams({ page: String(page), pageSize: "10" });
   if (search) query.set("search", search);
   if (activationStatus) query.set("activationStatus", activationStatus);
+  if (plan) query.set("plan", plan);
   const queryString = query.toString();
+
   useEffect(() => {
     const controller = new AbortController();
     adminApi<InstitutionList>(`/institutions?${queryString}`, { signal: controller.signal })
@@ -47,22 +39,39 @@ export function InstitutionsPage() {
       });
     return () => controller.abort();
   }, [queryString, version, navigate]);
+
   function update(values: Record<string, string>) {
     setError("");
     setLoading(true);
     setVersion((v) => v + 1);
-    setParams({ search, activationStatus, page: "1", ...values });
+    setParams({ search, activationStatus, plan, page: "1", ...values });
   }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     update({ search: String(new FormData(event.currentTarget).get("search") || "").trim() });
   }
+
+  const degradedTenants = data?.items.filter((item) => item.integrationsHealth?.hasDegraded) ?? [];
+
   return (
     <>
       <div className="admin-page-heading">
         <h1>Instituciones</h1>
-        <p>Revisa las instituciones aprobadas y la activación de su administrador inicial.</p>
+        <p>Supervisa las instituciones activas, su plan, consumo de cuota y salud de integraciones.</p>
       </div>
+
+      {degradedTenants.length > 0 && (
+        <div className="admin-alert admin-alert-warning" role="alert">
+          <AlertTriangle size={18} />
+          <div>
+            <strong>Atención requerida en integraciones:</strong>{" "}
+            {degradedTenants.map((t) => t.institutionName).join(", ")}{" "}
+            {degradedTenants.length === 1 ? "tiene" : "tienen"} fuentes financieras degradadas.
+          </div>
+        </div>
+      )}
+
       <section className="admin-filters institutions-filters" aria-label="Filtros de instituciones">
         <form className="admin-search" onSubmit={submit}>
           <label className="sr-only" htmlFor="institution-search">
@@ -90,9 +99,24 @@ export function InstitutionsPage() {
             <option value="">Todas</option>
             <option value="INVITED">Invitación pendiente</option>
             <option value="ACTIVE">Cuenta activa</option>
+            <option value="SUSPENDED">Acceso suspendido</option>
+          </select>
+        </label>
+        <label>
+          Plan
+          <select
+            aria-label="Plan"
+            value={plan}
+            onChange={(e) => update({ plan: e.target.value })}
+          >
+            <option value="">Todos los planes</option>
+            <option value="BASIC">Plan Básico</option>
+            <option value="PROFESSIONAL">Profesional</option>
+            <option value="ENTERPRISE">Empresarial</option>
           </select>
         </label>
       </section>
+
       {error ? (
         <div className="admin-empty">
           <p role="alert">{error}</p>
@@ -113,9 +137,12 @@ export function InstitutionsPage() {
                   <tr>
                     <th>Institución</th>
                     <th>NIT</th>
+                    <th>Plan y Consumo</th>
+                    <th>Integraciones</th>
                     <th>Administrador inicial</th>
                     <th>Activación</th>
                     <th aria-sort="descending">Fecha de aprobación (UTC) ↓</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -125,6 +152,49 @@ export function InstitutionsPage() {
                         <InstitutionName name={row.institutionName} />
                       </td>
                       <td>{row.nit}</td>
+                      <td>
+                        {row.plan ? (
+                          <div className="institution-plan-cell">
+                            <strong>{row.plan.name}</strong>
+                            {row.capacity && (
+                              <div className="capacity-mini-badge">
+                                <span>
+                                  {row.capacity.consumed} /{" "}
+                                  {row.capacity.limit !== null ? row.capacity.limit : "Ilimitado"}
+                                </span>
+                                {row.capacity.percentage !== null && (
+                                  <small className={row.capacity.percentage >= 100 ? "text-danger" : ""}>
+                                    {" "}({row.capacity.percentage}%)
+                                  </small>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted">Sin plan</span>
+                        )}
+                      </td>
+                      <td>
+                        {row.integrationsHealth ? (
+                          <div className="integration-health-cell">
+                            <span className={`admin-status health-${row.integrationsHealth.state}`}>
+                              {row.integrationsHealth.label}
+                            </span>
+                            {row.integrationsHealth.hasDegraded && row.integrationsHealth.degradedProviderCode && (
+                              <div>
+                                <Link
+                                  to={`/admin/integraciones/${row.integrationsHealth.degradedProviderCode}`}
+                                  className="degraded-quick-link"
+                                >
+                                  Ver problema
+                                </Link>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
                       <td>
                         <span>{row.initialAdmin.name}</span>
                         <small className="institution-email">{row.initialAdmin.email}</small>
@@ -144,6 +214,14 @@ export function InstitutionsPage() {
                         </span>
                       </td>
                       <td>{row.approvedAt ? displayDate(row.approvedAt) : "No registrada"}</td>
+                      <td>
+                        <Link
+                          to={`/admin/instituciones/${row.tenantId}${location.search}`}
+                          className="button admin-secondary button-sm"
+                        >
+                          Ver detalle
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

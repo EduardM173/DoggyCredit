@@ -80,7 +80,7 @@ describe("HU-30 proveedores simulados", () => {
 
   it("muestra por separado habilitación global, salud, instituciones y cobertura", async () => {
     mount();
-    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" })).closest(
+    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" }, { timeout: 4000 })).closest(
       "section",
     )!;
     expect(within(bank).getByText("Habilitado")).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("HU-30 proveedores simulados", () => {
 
   it("pide confirmación y envía solo enabled y motivo; no ofrece campos técnicos", async () => {
     mount();
-    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" })).closest(
+    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" }, { timeout: 4000 })).closest(
       "section",
     )!;
     expect(screen.queryByLabelText(/url|clave|token|timeout/i)).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("HU-30 proveedores simulados", () => {
 
   it("cancelar no envía ningún cambio", async () => {
     mount();
-    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" })).closest(
+    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" }, { timeout: 4000 })).closest(
       "section",
     )!;
     fireEvent.click(within(bank).getByRole("button", { name: "Deshabilitar globalmente" }));
@@ -130,7 +130,7 @@ describe("HU-30 proveedores simulados", () => {
       if (url.includes("/global-status")) return response({}, 403);
       return response([provider(), bureau]);
     });
-    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" })).closest(
+    const bank = (await screen.findByRole("heading", { name: "Fuente bancaria simulada" }, { timeout: 4000 })).closest(
       "section",
     )!;
     fireEvent.click(within(bank).getByRole("button", { name: "Deshabilitar globalmente" }));

@@ -53,7 +53,7 @@ import { PlatformTeamService } from "./platform-team/platform-team.service.js";
   imports: [
     PrismaModule,
     EmailModule,
-    AuditModule,
+    forwardRef(() => AuditModule),
     PlanCatalogModule,
     FinancialIntegrationsModule,
     forwardRef(() => RecommendationsModule),
