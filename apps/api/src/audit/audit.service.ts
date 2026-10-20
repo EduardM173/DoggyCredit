@@ -92,6 +92,48 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+    async recordProviderHealthTransition(event: {
+    providerId: string;
+    providerCode: string;
+    action: "PROVIDER_DEGRADED" | "PROVIDER_RECOVERED";
+    from: string;
+    to: string;
+    episodeId: string;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: null,
+        actorUserId: null,
+        action: event.action,
+        entityType: "IntegrationProvider",
+        entityId: event.providerId,
+        // Lista blanca: sin PII, URLs, secretos ni payloads.
+        metadata: {
+          providerCode: event.providerCode,
+          from: event.from,
+          to: event.to,
+          episodeId: event.episodeId,
+        },
+      },
+    });
+  }
+
+  async findOpenProviderEpisode(
+    providerId: string,
+  ): Promise<{ episodeId: string; startedAt: Date } | null> {
+    const last = await this.database.client.auditLog.findFirst({
+      where: {
+        entityType: "IntegrationProvider",
+        entityId: providerId,
+        action: { in: ["PROVIDER_DEGRADED", "PROVIDER_RECOVERED"] },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { action: true, createdAt: true, metadata: true },
+    });
+    if (!last || last.action !== "PROVIDER_DEGRADED") return null;
+    const episodeId = (last.metadata as { episodeId?: unknown } | null)?.episodeId;
+    return typeof episodeId === "string" ? { episodeId, startedAt: last.createdAt } : null;
+  }
   async recordMembershipActivation(event: {
     userId: string;
     tenantId: string;

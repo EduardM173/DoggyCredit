@@ -1,10 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { BankMockSource, BureauMockSource } from "../public.js";
 import { resilienceConfig } from "./resilience.config.js";
 import { CircuitBreaker } from "./circuit-breaker.js";
 import { ResilientExecutor, type ProviderResultLike } from "./resilient-executor.js";
 import { ProviderMetrics } from "./provider-metrics.js";
-
+import { ProviderEpisodeService } from "../health/provider-episode.service.js";
 /**
  * Única capa que reintenta (S4-OPS-03 / T09).
  * Un breaker por proveedor, en memoria y por instancia (limitación C1 de DC-148).
@@ -17,9 +17,10 @@ export class ResilientSources {
   private readonly cfg = resilienceConfig();
   private readonly executors = new Map<string, ResilientExecutor>();
 
-  constructor(
+    constructor(
     private readonly bank: BankMockSource,
     private readonly bureau: BureauMockSource,
+    @Optional() private readonly episodes?: ProviderEpisodeService,
   ) {}
 
   /** providerId se usa solo para armar el resultado UNAVAILABLE cuando el proveedor no respondió. */
@@ -59,6 +60,7 @@ export class ResilientSources {
         (from, to) => {
           this.metrics.onBreakerChange(providerCode, from, to);
           this.logger.warn(`[${providerCode}] breaker ${from} -> ${to}`);
+          this.episodes?.onBreakerChange(providerCode, from, to);
         },
       );
       ex = new ResilientExecutor(providerCode, breaker, this.cfg.executor, {
