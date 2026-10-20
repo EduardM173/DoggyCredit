@@ -119,6 +119,12 @@
 .institution-login-panel form {
   margin-top: 28px;
 }
+.institution-forgot-password {
+  display: block;
+  margin-top: 12px;
+  color: #005bbd;
+  text-align: right;
+}
 .institution-login-panel label {
   display: block;
   font-weight: 700;

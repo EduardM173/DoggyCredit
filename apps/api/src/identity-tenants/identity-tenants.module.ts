@@ -44,6 +44,8 @@ import { TeamController } from "./institution-auth/team.controller.js";
 import { TeamService } from "./institution-auth/team.service.js";
 import { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
 import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recovery.service.js";
+import { PasswordRecoveryController } from "./password-recovery/password-recovery.controller.js";
+import { PasswordRecoveryService } from "./password-recovery/password-recovery.service.js";
 
 @Module({
   imports: [
@@ -65,6 +67,7 @@ import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recove
     AdminAuthController,
     TestInboxController,
     RequestReviewController,
+    PasswordRecoveryController,
   ],
   providers: [
     TenantPreparationService,
@@ -90,6 +93,7 @@ import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recove
     AdminLoginRateGuard,
     RequestReviewService,
     RequestDecisionDeliveryService,
+    PasswordRecoveryService,
   ],
   exports: [
     ProvisioningQueue,
