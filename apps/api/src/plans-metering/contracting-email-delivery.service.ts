@@ -3,7 +3,7 @@ import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { EmailDeliveryError, EmailSender } from "../infrastructure/email/email-sender.js";
-import { RequestContextReader } from "../identity-tenants/public.js";
+import { RequestContextReader } from "../identity-tenants/request-context.js";
 import { contractingEmail } from "./contracting-email.js";
 
 const digest = (token: string) => createHash("sha256").update(token).digest("hex");

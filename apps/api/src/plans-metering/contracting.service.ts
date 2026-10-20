@@ -8,7 +8,8 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { RequestContextReader, ProvisioningQueue } from "../identity-tenants/public.js";
+import { RequestContextReader } from "../identity-tenants/request-context.js";
+import { ProvisioningQueue } from "../identity-tenants/provisioning/provisioning-queue.js";
 import { AuditWriter } from "../audit/public.js";
 import { PaymentProvider, type DemoResult } from "../infrastructure/payments/payment-provider.js";
 import { ContractingAccessService } from "./contracting-access.service.js";

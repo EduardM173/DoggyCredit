@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { RequestContextReader, ProvisioningQueue } from "../identity-tenants/public.js";
+import { RequestContextReader } from "../identity-tenants/request-context.js";
+import { ProvisioningQueue } from "../identity-tenants/provisioning/provisioning-queue.js";
 import { AuditWriter } from "../audit/public.js";
 import type { ProviderPaymentEvent } from "../infrastructure/payments/payment-provider.js";
 @Injectable()
