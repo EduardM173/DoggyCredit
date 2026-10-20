@@ -48,6 +48,11 @@ export abstract class AuditWriter {
       | "INSTITUTION_PRODUCTS_CONFIRMED"
       | "INSTITUTION_PREPARED";
   }): Promise<void>;
+  abstract recordInstitutionDataUpdate(event: {
+    tenantId: string;
+    actorUserId: string;
+    changedFields: string[];
+  }): Promise<void>;
   abstract recordMembershipActivation(event: {
     userId: string;
     tenantId: string;

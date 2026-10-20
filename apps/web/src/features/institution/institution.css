@@ -190,6 +190,10 @@
   color: #a12e36;
   margin-top: 14px;
 }
+.institution-success {
+  color: #2f7a4d;
+  margin-top: 14px;
+}
 .institution-login-footer {
   display: flex;
   justify-content: space-between;

@@ -26,6 +26,7 @@ import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
 import { ClientDossier } from "./ClientDossier";
 import { ProductsCatalogPanel } from "./ProductsCatalogPanel";
+import { InstitutionDataPanel } from "./InstitutionDataPanel";
 import { ActivityLogPage } from "./ActivityLogPage";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
@@ -34,6 +35,7 @@ type Step =
   | "home"
   | "settings"
   | "institution"
+  | "institution-data"
   | "source"
   | "products"
   | "team"
@@ -198,7 +200,7 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
         <Link to={base}>Volver al inicio</Link>
       </main>
     );
-  if (!admin && ["settings", "institution", "source", "products", "team"].includes(step))
+  if (!admin && ["settings", "institution", "institution-data", "source", "products", "team"].includes(step))
     return (
       <main className="institution-gate">
         <p role="alert">No tienes permiso para administrar la institución.</p>
@@ -245,6 +247,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
               >
                 <History size={20} />
                 Actividad
+              </Link>
+              <Link
+                className={step === "institution-data" ? "institution-nav-active" : ""}
+                to={`${base}/datos-institucionales`}
+              >
+                <Building2 size={20} />
+                Datos institucionales
               </Link>
               <Link
                 className={
@@ -325,6 +334,12 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
           />
         ) : step === "team" ? (
           <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
+        ) : step === "institution-data" ? (
+          <InstitutionDataPanel
+            slug={home.tenant.slug}
+            admin={admin}
+            tenantName={home.tenant.name}
+          />
         ) : step === "new-evaluation" ? (
           <EvaluationWizard slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />
         ) : step === "evaluations" ? (
@@ -382,6 +397,14 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                   <small>Productos disponibles para recomendaciones</small>
                 </span>
                 <em>{home.steps?.products ? "Confirmados" : "Por completar"}</em>
+                <ArrowRight size={20} />
+              </Link>
+              <Link to={`${base}/datos-institucionales`}>
+                <Building2 size={25} />
+                <span>
+                  <strong>Datos institucionales</strong>
+                  <small>Datos de contacto editables y datos legales de solo lectura</small>
+                </span>
                 <ArrowRight size={20} />
               </Link>
             </section>

@@ -36,6 +36,7 @@ const CATEGORY_ACTIONS: Record<AuditCategory, string[]> = {
   ],
   INSTITUTION: [
     "INSTITUTION_INFORMATION_CONFIRMED",
+    "INSTITUTION_DATA_UPDATED",
     "BANK_MOCK_ENABLED",
     "BUREAU_MOCK_ENABLED",
     "BUREAU_MOCK_DISABLED",
@@ -89,6 +90,7 @@ const ACTION_METADATA_WHITELIST = new Set([
   "from",
   "to",
   "episodeId",
+  "changedFields",
 ]);
 
 interface ActionInfo {
@@ -214,6 +216,13 @@ const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
     entityLabel: "Institución",
     defaultOutcome: "SUCCESS",
     summary: () => "Se revisaron y confirmaron los datos legales de la institución.",
+  },
+  INSTITUTION_DATA_UPDATED: {
+    label: "Datos institucionales actualizados",
+    category: "INSTITUTION",
+    entityLabel: "Institución",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se actualizaron los datos de contacto autorizados de la institución.",
   },
   BANK_MOCK_ENABLED: {
     label: "Fuente bancaria habilitada",
@@ -571,6 +580,24 @@ export class AuditService implements AuditWriter, AuditReader {
         action: event.action,
         entityType: "Tenant",
         entityId: event.tenantId,
+      },
+    });
+  }
+
+  async recordInstitutionDataUpdate(event: {
+    tenantId: string;
+    actorUserId: string;
+    changedFields: string[];
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: "INSTITUTION_DATA_UPDATED",
+        entityType: "Tenant",
+        entityId: event.tenantId,
+        // Sin secretos ni datos sensibles: solo los nombres de campos modificados.
+        metadata: { changedFields: event.changedFields },
       },
     });
   }

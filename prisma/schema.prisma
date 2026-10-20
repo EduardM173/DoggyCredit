@@ -466,6 +466,12 @@ model Tenant {
   taxId                  String          @unique @db.VarChar(40)
   institutionType        InstitutionType
   status                 TenantStatus    @default(ACTIVE)
+  /// HU-34: datos institucionales editables por el administrador de la instituci��n.
+  publicAddress          String?         @db.VarChar(240)
+  supportPhone           String?         @db.VarChar(40)
+  supportEmail           String?         @db.VarChar(254)
+  contactPhone           String?         @db.VarChar(40)
+  contactEmail           String?         @db.VarChar(254)
   informationConfirmedAt DateTime?       @db.Timestamptz(6)
   productsConfirmedAt    DateTime?       @db.Timestamptz(6)
   createdFromRequestId   String?         @unique @db.Uuid

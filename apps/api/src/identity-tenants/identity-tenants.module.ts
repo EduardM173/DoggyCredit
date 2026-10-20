@@ -40,6 +40,8 @@ import { PlanCatalogModule } from "../plans-metering/public.js";
 import { FinancialIntegrationsModule } from "../financial-integrations/financial-integrations.module.js";
 import { RecommendationsModule } from "../recommendations/recommendations.module.js";
 import { TenantPreparationService } from "./institution-auth/tenant-preparation.service.js";
+import { InstitutionDataController } from "./institution-data/institution-data.controller.js";
+import { InstitutionDataService } from "./institution-data/institution-data.service.js";
 import { TeamController } from "./institution-auth/team.controller.js";
 import { TeamService } from "./institution-auth/team.service.js";
 import { InvitationDeliveryService } from "./provisioning/invitation-delivery.service.js";
@@ -61,6 +63,7 @@ import { PlatformTeamService } from "./platform-team/platform-team.service.js";
   controllers: [
     InstitutionAuthController,
     InstitutionTenantController,
+    InstitutionDataController,
     TeamController,
     ActivationController,
     InstitutionsController,
@@ -75,6 +78,7 @@ import { PlatformTeamService } from "./platform-team/platform-team.service.js";
   ],
   providers: [
     TenantPreparationService,
+    InstitutionDataService,
     TeamService,
     InvitationDeliveryService,
     InitialAdminRecoveryService,
