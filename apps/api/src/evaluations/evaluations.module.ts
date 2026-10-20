@@ -8,6 +8,8 @@ import { FinancialProfileModule } from "../financial-profile/financial-profile.m
 import { RecommendationsModule } from "../recommendations/recommendations.module.js";
 import { EvaluationsController } from "./evaluations.controller.js";
 import { EvaluationsService } from "./evaluations.service.js";
+import { InstitutionDashboardController } from "./institution-dashboard.controller.js";
+import { InstitutionDashboardService } from "./institution-dashboard.service.js";
 
 @Module({
   imports: [
@@ -19,8 +21,8 @@ import { EvaluationsService } from "./evaluations.service.js";
     FinancialProfileModule,
     RecommendationsModule,
   ],
-  controllers: [EvaluationsController],
-  providers: [EvaluationsService],
-  exports: [EvaluationsService],
+  controllers: [EvaluationsController, InstitutionDashboardController],
+  providers: [EvaluationsService, InstitutionDashboardService],
+  exports: [EvaluationsService, InstitutionDashboardService],
 })
 export class EvaluationsModule {}

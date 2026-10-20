@@ -402,3 +402,76 @@ export function destination(me: InstitutionMe, returnTo: string | null) {
   if (me.activeMemberships.length === 1) return `/${me.activeMemberships[0].tenant.slug}`;
   return "/elegir-institucion";
 }
+
+
+export type DashboardPeriod = "today" | "last_7_days" | "last_30_days" | "month_to_date";
+
+export interface PendingAttentionItem {
+  id: string;
+  status: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "FAILED";
+  applicantName: string;
+  applicantType: "PERSON" | "COMPANY";
+  requestedAmount: number;
+  updatedAt: string;
+  reasonText: string;
+  actionableType: "RETRY" | "REVIEW" | "MONITOR";
+  actionUrl: string;
+}
+
+export interface DashboardMetricsDto {
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  role: "INSTITUTION_ADMIN" | "ANALYST" | string;
+  period: {
+    code: DashboardPeriod;
+    label: string;
+    from: string;
+    to: string;
+  };
+  asOf: string;
+  hasEvaluations: boolean;
+  hasPeriodActivity: boolean;
+  isSmallSample: boolean;
+  attentionRequiredCount: number;
+  pendingAttention: PendingAttentionItem[];
+  metrics: {
+    totalEvaluations: number;
+    completionRate: number | null;
+    byStatus: {
+      COMPLETED: number;
+      IN_PROGRESS: number;
+      INCOMPLETE: number;
+      FAILED: number;
+      DRAFT: number;
+    };
+    byScope: {
+      PERSON: number;
+      COMPANY: number;
+    };
+    catalogCompatibility: {
+      rate: number | null;
+      compatibleCount: number;
+      incompatibleCount: number;
+    };
+  };
+  readiness: {
+    ready: boolean;
+    completedSteps: number;
+    totalSteps: number;
+    canEvaluate: boolean;
+  };
+  permissions: {
+    canManageTeam: boolean;
+    canManageProducts: boolean;
+    canManageSources: boolean;
+    canEvaluate: boolean;
+  };
+}
+
+export function fetchDashboard(slug: string, period?: DashboardPeriod, signal?: AbortSignal) {
+  const query = period ? `?period=${encodeURIComponent(period)}` : "";
+  return institutionApi<DashboardMetricsDto>(`/tenants/${encodeURIComponent(slug)}/dashboard${query}`, { signal });
+}

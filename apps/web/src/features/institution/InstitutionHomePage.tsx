@@ -18,6 +18,7 @@ import {
 import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
 import { AnalystHome } from "./AnalystHome";
+import { InstitutionDashboard } from "./InstitutionDashboard";
 import { EvaluationWizard } from "./EvaluationWizard";
 import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
@@ -283,30 +284,19 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
         ) : step === "client-dossier" ? (
           <ClientDossier slug={home.tenant.slug} ready={home.ready} />
         ) : !admin ? (
-          <AnalystHome
+          <InstitutionDashboard
             slug={home.tenant.slug}
-            tenantName={home.tenant.name}
-            userName={home.user.name}
+            role={home.membership.role}
             ready={home.ready}
-            evaluations={false}
+            userName={home.user.name}
           />
         ) : step === "home" && home.ready ? (
-          <main className="institution-dashboard">
-            <p className="institution-eyebrow">INICIO</p>
-            <h1>{home.tenant.name} está listo para evaluar solicitudes</h1>
-            <p className="institution-lead">La preparación inicial está completa.</p>
-            <section className="institution-ready">
-              <Check size={28} aria-hidden="true" />
-              <div>
-                <h2>Tu institución está lista</h2>
-                <p>Invita a un analista para comenzar a trabajar en {home.tenant.name}.</p>
-                <Link className="institution-primary" to={`${base}/equipo`}>
-                  <Users size={20} />
-                  Invitar analista
-                </Link>
-              </div>
-            </section>
-          </main>
+          <InstitutionDashboard
+            slug={home.tenant.slug}
+            role={home.membership.role}
+            ready={home.ready}
+            userName={home.user.name}
+          />
         ) : step === "settings" ? (
           <main className="institution-dashboard">
             <div className="institution-breadcrumb">
