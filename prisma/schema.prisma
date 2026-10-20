@@ -669,6 +669,7 @@ model Evaluation {
 
   @@unique([tenantId, id])
   @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, createdAt])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, clientId, createdAt])
   @@index([tenantId, createdByMembershipId, createdAt])

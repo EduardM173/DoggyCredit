@@ -3,7 +3,7 @@ import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-wo
 import {
   ProviderHealthReadService,
   type IntegrationHealthSummary,
-} from "../financial-integrations/health/provider-health-read.service.js";
+} from "../financial-integrations/public.js";
 
 export type IntegrationAvailability = "AVAILABLE" | "TEMPORARILY_UNAVAILABLE" | "UNKNOWN";
 

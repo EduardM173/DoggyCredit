@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
-import { BankMockSource, BureauMockSource } from "../public.js";
+import { BankMockSource } from "../source-contracts.js";
+import { BureauMockSource } from "../bureau-mock-source.service.js";
 import { resilienceConfig } from "./resilience.config.js";
 import { CircuitBreaker } from "./circuit-breaker.js";
 import { ResilientExecutor, type ProviderResultLike } from "./resilient-executor.js";

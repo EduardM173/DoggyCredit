@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   evaluateProviderHealth,
   PROPOSED_HEALTH_CONFIG as config,

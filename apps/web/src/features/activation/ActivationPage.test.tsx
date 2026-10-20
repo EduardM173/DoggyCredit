@@ -153,4 +153,19 @@ describe("HU-06 activation page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("entre 15 y 128 caracteres");
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/activate"))).toHaveLength(0);
   });
+  it("displays expired invitation guidance and allows returning home without SQL support (S4-HF-08)", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: "El enlace de activación venció." }),
+      }),
+    );
+    mount();
+    expect(await screen.findByRole("heading", { name: "Enlace no disponible" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/El enlace de activación venció\. Solicita una nueva invitación al administrador\./),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Volver al inicio" }).length).toBeGreaterThan(0);
+  });
 });

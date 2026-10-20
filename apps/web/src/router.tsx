@@ -13,6 +13,7 @@ import { ContractingPage } from "./features/contracting/ContractingPage";
 import { DoggyPayPage } from "./features/contracting/DoggyPayPage";
 import { AdminContractingsPage } from "./features/contracting/AdminContractingsPage";
 import { InstitutionsPage } from "./features/admin/InstitutionsPage";
+import { InstitutionDetailPage } from "./features/admin/InstitutionDetailPage";
 import { TestInboxPage } from "./features/admin/TestInboxPage";
 import { ProvidersPage } from "./features/admin/ProvidersPage";
 import { ActivationPage } from "./features/activation/ActivationPage";
@@ -21,6 +22,7 @@ import { InstitutionSelectPage } from "./features/institution/InstitutionSelectP
 import { InstitutionHomePage } from "./features/institution/InstitutionHomePage";
 import { IntegrationsPage } from "./features/admin/IntegrationsPage";
 import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
+import { AdminActivityLogPage } from "./features/admin/ActivityLogPage";
 import { PasswordRecoveryPage } from "./features/password-recovery/PasswordRecoveryPage";
 import { PlatformTeamPage } from "./features/admin/PlatformTeamPage";
 import { OperatorActivationPage } from "./features/activation/OperatorActivationPage";
@@ -43,12 +45,14 @@ export const router = createBrowserRouter([
       { path: "solicitudes", element: <ReviewListPage /> },
       { path: "contrataciones", element: <AdminContractingsPage /> },
       { path: "instituciones", element: <InstitutionsPage /> },
+      { path: "instituciones/:id", element: <InstitutionDetailPage /> },
       { path: "bandeja-pruebas", element: <TestInboxPage /> },
       { path: "proveedores", element: <ProvidersPage /> },
       { path: "equipo-interno", element: <PlatformTeamPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
       { path: "integraciones", element: <IntegrationsPage /> },
       { path: "integraciones/:code", element: <IntegrationDetailPage /> },
+      { path: "actividad", element: <AdminActivityLogPage /> },
     ],
   },
   {
@@ -67,6 +71,8 @@ export const router = createBrowserRouter([
   { path: "/:tenantSlug/fuentes-financieras", element: <InstitutionHomePage step="source" /> },
   { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },
   { path: "/:tenantSlug/equipo", element: <InstitutionHomePage step="team" /> },
+  { path: "/:tenantSlug/plan", element: <InstitutionHomePage step="plan" /> },
+  { path: "/:tenantSlug/actividad", element: <InstitutionHomePage step="activity" /> },
   { path: "/:tenantSlug/evaluaciones", element: <InstitutionHomePage step="evaluations" /> },
   { path: "/:tenantSlug/evaluaciones/nueva", element: <InstitutionHomePage step="new-evaluation" /> },
   { path: "/:tenantSlug/evaluaciones/:id", element: <InstitutionHomePage step="evaluation-detail" /> },

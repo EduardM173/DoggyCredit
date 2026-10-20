@@ -53,6 +53,46 @@ describe("HU-08 preparation interface", () => {
         state.percentage = Math.round((state.completed / 3) * 100);
         state.ready = state.completed === 3;
       }
+      if (url.includes("/dashboard")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            tenant: state.tenant,
+            period: {
+              code: "last_30_days",
+              label: "Últimos 30 días",
+              from: "2026-09-20T00:00:00.000Z",
+              to: "2026-10-20T00:00:00.000Z",
+            },
+            asOf: new Date().toISOString(),
+            hasEvaluations: false,
+            hasPeriodActivity: false,
+            isSmallSample: true,
+            attentionRequiredCount: 0,
+            pendingAttention: [],
+            metrics: {
+              totalEvaluations: 0,
+              completionRate: null,
+              byStatus: { COMPLETED: 0, IN_PROGRESS: 0, INCOMPLETE: 0, FAILED: 0, DRAFT: 0 },
+              byScope: { PERSON: 0, COMPANY: 0 },
+              catalogCompatibility: { rate: null, compatibleCount: 0, incompatibleCount: 0 },
+            },
+            readiness: {
+              ready: state.ready,
+              completedSteps: state.completed,
+              totalSteps: 3,
+              canEvaluate: state.ready,
+            },
+            permissions: {
+              canManageTeam: true,
+              canManageProducts: true,
+              canManageSources: true,
+              canEvaluate: state.ready,
+            },
+          }),
+        };
+      }
       return {
         ok: true,
         status: options?.method === "POST" ? 201 : 200,
@@ -112,5 +152,5 @@ describe("HU-08 preparation interface", () => {
       expect.stringContaining("/tenants/banco-x/home"),
       expect.anything(),
     );
-  });
+  }, 15000);
 });

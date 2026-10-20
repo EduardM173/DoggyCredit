@@ -6,8 +6,11 @@ import { IdentityTenantsModule } from "../identity-tenants/identity-tenants.modu
 import { FinancialIntegrationsModule } from "../financial-integrations/financial-integrations.module.js";
 import { FinancialProfileModule } from "../financial-profile/financial-profile.module.js";
 import { RecommendationsModule } from "../recommendations/recommendations.module.js";
+import { PlansMeteringModule } from "../plans-metering/plans-metering.module.js";
 import { EvaluationsController } from "./evaluations.controller.js";
 import { EvaluationsService } from "./evaluations.service.js";
+import { InstitutionDashboardController } from "./institution-dashboard.controller.js";
+import { InstitutionDashboardService } from "./institution-dashboard.service.js";
 import { IntegrationStatusController } from "./integration-status.controller.js";
 import { IntegrationStatusService } from "./integration-status.service.js";
 
@@ -20,9 +23,18 @@ import { IntegrationStatusService } from "./integration-status.service.js";
     FinancialIntegrationsModule,
     FinancialProfileModule,
     RecommendationsModule,
+    PlansMeteringModule,
   ],
-  controllers: [EvaluationsController, IntegrationStatusController],
-  providers: [EvaluationsService, IntegrationStatusService],
-  exports: [EvaluationsService],
+  controllers: [
+    EvaluationsController,
+    InstitutionDashboardController,
+    IntegrationStatusController,
+  ],
+  providers: [
+    EvaluationsService,
+    InstitutionDashboardService,
+    IntegrationStatusService,
+  ],
+  exports: [EvaluationsService, InstitutionDashboardService],
 })
 export class EvaluationsModule {}

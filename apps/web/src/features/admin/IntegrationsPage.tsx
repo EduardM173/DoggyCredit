@@ -35,7 +35,6 @@ export function IntegrationsPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setError("");
     adminApi<IntegrationListItem[]>("/platform/integrations", { signal: controller.signal })
       .then((result) => !controller.signal.aborted && setItems(result))
       .catch((e: unknown) => !controller.signal.aborted && fail(e));

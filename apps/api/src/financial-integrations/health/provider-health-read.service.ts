@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AuditWriter } from "../../audit/public.js";
 import { DatabaseUnitOfWork } from "../../infrastructure/prisma/database-unit-of-work.js";
-import { PROVIDER_CATALOG, SOURCE_PROVIDER_CODES, isSourceProviderCode, type SourceProviderCode } from "../public.js";
+import { PROVIDER_CATALOG, SOURCE_PROVIDER_CODES, isSourceProviderCode, type SourceProviderCode } from "../source-contracts.js";
 import { ResilientSources } from "../resilience/resilient-sources.js";
 import type { BreakerState } from "../resilience/circuit-breaker.js";
 import { healthConfig } from "./health.config.js";

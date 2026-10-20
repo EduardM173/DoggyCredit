@@ -6,7 +6,7 @@ import {
   type SourceQueryResult,
   type NormalizedFinancialData,
   type SourceSubjectType,
-} from "./public.js";
+} from "./source-contracts.js";
 
 @Injectable()
 export class BankMockSourceService extends BankMockSource {

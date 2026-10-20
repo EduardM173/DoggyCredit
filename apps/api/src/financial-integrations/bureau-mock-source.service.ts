@@ -1,6 +1,6 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { providerAcceptsQueries, type SourceStatus, type BureauQueryResult } from "./public.js";
+import { providerAcceptsQueries, type SourceStatus, type BureauQueryResult } from "./source-contracts.js";
 
 export abstract class BureauMockSource {
   abstract status(tenantId: string): Promise<SourceStatus>;
