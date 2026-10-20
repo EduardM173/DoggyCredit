@@ -5,6 +5,14 @@ export interface RequestDecisionEvent {
 }
 
 export abstract class AuditWriter {
+  abstract recordPlatformTeamEvent(event: {
+    actorUserId?: string;
+    action: string;
+    entityType: "PlatformInvitation" | "User";
+    entityId: string;
+    metadata: Record<string, string>;
+  }): Promise<void>;
+  abstract countRecentPlatformInvitations(actorUserId: string, since: Date): Promise<number>;
   abstract recordTeamInvitation(event: {
     tenantId: string;
     actorUserId: string;

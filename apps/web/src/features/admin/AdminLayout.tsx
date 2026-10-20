@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap } from "lucide-react";
+import { Activity, ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap, Users } from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { adminApi, AdminError, type IntegrationListItem, type Session } from "./api";
 
@@ -25,8 +25,7 @@ export function AdminLayout() {
   }, [navigate, attempt]);
   const isPlatformAdmin = session?.user.platformRole === "PLATFORM_ADMIN";
   useEffect(() => {
-    // HU-30: el administrador de plataforma solo trabaja en Proveedores; las pantallas de operador le darían 403.
-    if (isPlatformAdmin && !location.pathname.startsWith("/admin/proveedores"))
+    if (isPlatformAdmin && !["/admin/proveedores", "/admin/equipo-interno"].some((path) => location.pathname.startsWith(path)))
       navigate("/admin/proveedores", { replace: true });
   }, [isPlatformAdmin, location.pathname, navigate]);
   useEffect(() => {
@@ -88,10 +87,10 @@ export function AdminLayout() {
         <p className="admin-brand-caption">Administración</p>
         <nav aria-label="Administración">
           {isPlatformAdmin ? (
-            <NavLink to="/admin/proveedores">
-              <PlugZap size={21} />
-              Proveedores
-            </NavLink>
+            <>
+              <NavLink to="/admin/proveedores"><PlugZap size={21} />Proveedores</NavLink>
+              <NavLink to="/admin/equipo-interno"><Users size={21} />Equipo interno</NavLink>
+            </>
           ) : (
             <>
               <NavLink to="/admin/solicitudes">

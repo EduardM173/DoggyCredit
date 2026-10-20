@@ -152,6 +152,7 @@ async function seedPlatformAdminFromEnv() {
       "Configure PLATFORM_ADMIN_SEED_NAME, PLATFORM_ADMIN_SEED_EMAIL and a 12-128 character PLATFORM_ADMIN_SEED_PASSWORD.",
     );
   }
+  if (await prisma.user.count({ where: { platformRole: PlatformRole.PLATFORM_ADMIN } })) return;
   await seedOperator(email, fullName, password, PlatformRole.PLATFORM_ADMIN);
 }
 

@@ -151,9 +151,11 @@ export async function adminApi<T>(
       message =
         path === "/auth/login" ? "Credenciales incorrectas." : "Tu sesión terminó. Inicia sesión nuevamente.";
     if (response.status === 403) message = "No tienes autorización para esta operación.";
-    if (response.status === 404) message = "La solicitud no existe.";
+    if (response.status === 404) message = path.startsWith("/platform/team") ? "El operador no existe." : "La solicitud no existe.";
     if (response.status === 409)
-      message = path.startsWith("/contractings/")
+      message = path.startsWith("/platform/team")
+        ? "El estado del operador cambió. Actualiza el equipo y vuelve a intentar."
+        : path.startsWith("/contractings/")
         ? "El estado de esta contratación cambió. Actualiza la lista antes de reintentar."
         : "La solicitud cambió o ya fue resuelta. Se ha actualizado el detalle.";
     if (response.status === 429) message = "Demasiados intentos. Intenta nuevamente en unos minutos.";
@@ -167,4 +169,3 @@ export const displayDate = (value: string | null) =>
         new Date(value),
       )
     : "No registrada";
-    

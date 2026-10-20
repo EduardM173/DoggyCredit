@@ -22,6 +22,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset",
     "prisma:seed": "prisma db seed",
+    "bootstrap:platform-admin": "tsx tools/bootstrap-platform-admin.ts",
     "prisma:validate": "prisma validate"
   },
   "devDependencies": {
