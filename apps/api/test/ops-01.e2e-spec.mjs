@@ -20,6 +20,7 @@ describe("S4-OPS-01 PostgreSQL concurrency", () => {
   let db;
   let services;
   let bankHasData = true;
+  let bankCalls = 0;
 
   before(async () => {
     const profile = {
@@ -62,23 +63,26 @@ describe("S4-OPS-01 PostgreSQL concurrency", () => {
         .useValue({ status: async () => ({ enabled: false, available: false }) })
         .overrideProvider(ResilientSources)
         .useValue({
-          queryBank: async (providerId, _tenantId, documentNumber) => ({
-            status: bankHasData ? "SUCCESS" : "NO_DATA",
-            providerId,
-            ...(bankHasData
-              ? {
-                  data: {
-                    documentNumber,
-                    averageMonthlyIncome: 6000,
-                    averageMonthlyExpenses: 2500,
-                    totalDebt: 0,
-                    activeCredits: 0,
-                    hasRecentArrears: false,
-                  },
-                }
-              : {}),
-            externalReference: "ops-01-test",
-          }),
+          queryBank: async (providerId, _tenantId, documentNumber) => {
+            bankCalls += 1;
+            return {
+              status: bankHasData ? "SUCCESS" : "NO_DATA",
+              providerId,
+              ...(bankHasData
+                ? {
+                    data: {
+                      documentNumber,
+                      averageMonthlyIncome: 6000,
+                      averageMonthlyExpenses: 2500,
+                      totalDebt: 0,
+                      activeCredits: 0,
+                      hasRecentArrears: false,
+                    },
+                  }
+                : {}),
+              externalReference: "ops-01-test",
+            };
+          },
         })
         .overrideProvider(FinancialProfileCalculator)
         .useValue({
@@ -181,7 +185,7 @@ describe("S4-OPS-01 PostgreSQL concurrency", () => {
       userName: user.fullName,
       role: "ANALYST",
     };
-    return { context, bank };
+    return { context, bank, plan };
   }
 
   it("isolates same keys by tenant and commits one usage record under concurrent processing", async () => {
@@ -277,5 +281,150 @@ describe("S4-OPS-01 PostgreSQL concurrency", () => {
     assert.equal(completed.status, "COMPLETED");
     assert.equal(await db.evaluation.count({ where: { tenantId: context.tenantId } }), 1);
     assert.equal(await db.usageRecord.count({ where: { tenantId: context.tenantId } }), 1);
+  });
+
+  it("blocks a membership revoked after readiness but before the processing claim", async () => {
+    const { context } = await fixture();
+    const evaluation = await services[0].createDraft(context, {
+      idempotencyKey: `ops01-${randomUUID()}`,
+      clientType: "PERSON",
+      documentType: "CI",
+      documentNumber: "40000001",
+      name: "Evaluación con revocación concurrente",
+      purpose: "WORKING_CAPITAL",
+      requestedAmount: 1000,
+      consentGiven: true,
+    });
+
+    const preparation = apps[0].get(TenantPreparationService);
+    const originalRead = preparation.read.bind(preparation);
+    let signalReady;
+    let continueRead;
+    const readyReached = new Promise((resolve) => (signalReady = resolve));
+    const releaseReadiness = new Promise((resolve) => (continueRead = resolve));
+    preparation.read = async (...args) => {
+      const result = await originalRead(...args);
+      signalReady();
+      await releaseReadiness;
+      return result;
+    };
+
+    const callsBefore = bankCalls;
+    const processing = services[0].processEvaluation(context, evaluation.id);
+    try {
+      await readyReached;
+      await db.tenantMembership.update({
+        where: { id: context.membershipId },
+        data: { status: "SUSPENDED" },
+      });
+      continueRead();
+      await assert.rejects(processing, (error) => error.status === 403);
+    } finally {
+      continueRead();
+      preparation.read = originalRead;
+    }
+
+    const stored = await db.evaluation.findFirstOrThrow({
+      where: { id: evaluation.id, tenantId: context.tenantId },
+    });
+    assert.equal(stored.status, "DRAFT");
+    assert.equal(bankCalls, callsBefore);
+    assert.equal(await db.usageRecord.count({ where: { referenceId: evaluation.id } }), 0);
+    assert.equal(
+      await db.auditLog.count({
+        where: {
+          tenantId: context.tenantId,
+          entityId: evaluation.id,
+          action: "EVALUATION_EXECUTION_BLOCKED",
+          metadata: { path: ["executionBlockReason"], equals: "MEMBERSHIP_INACTIVE" },
+        },
+      }),
+      1,
+    );
+  });
+
+  it("blocks a subscription suspended after readiness but before the processing claim", async () => {
+    const { context } = await fixture();
+    const evaluation = await services[0].createDraft(context, {
+      idempotencyKey: `ops01-${randomUUID()}`,
+      clientType: "PERSON",
+      documentType: "CI",
+      documentNumber: "40000002",
+      name: "Evaluación con suscripción suspendida",
+      purpose: "WORKING_CAPITAL",
+      requestedAmount: 1000,
+      consentGiven: true,
+    });
+    const subscription = await db.tenantSubscription.findFirstOrThrow({
+      where: { tenantId: context.tenantId },
+    });
+
+    const preparation = apps[0].get(TenantPreparationService);
+    const originalRead = preparation.read.bind(preparation);
+    let signalReady;
+    let continueRead;
+    const readyReached = new Promise((resolve) => (signalReady = resolve));
+    const releaseReadiness = new Promise((resolve) => (continueRead = resolve));
+    preparation.read = async (...args) => {
+      const result = await originalRead(...args);
+      signalReady();
+      await releaseReadiness;
+      return result;
+    };
+
+    const callsBefore = bankCalls;
+    const processing = services[0].processEvaluation(context, evaluation.id);
+    try {
+      await readyReached;
+      await db.tenantSubscription.update({
+        where: { id: subscription.id },
+        data: { status: "SUSPENDED" },
+      });
+      continueRead();
+      await assert.rejects(processing, (error) => error.status === 403);
+    } finally {
+      continueRead();
+      preparation.read = originalRead;
+    }
+
+    const stored = await db.evaluation.findFirstOrThrow({
+      where: { id: evaluation.id, tenantId: context.tenantId },
+    });
+    assert.equal(stored.status, "DRAFT");
+    assert.equal(bankCalls, callsBefore);
+    assert.equal(await db.usageRecord.count({ where: { referenceId: evaluation.id } }), 0);
+    assert.equal(
+      await db.auditLog.count({
+        where: {
+          tenantId: context.tenantId,
+          entityId: evaluation.id,
+          action: "EVALUATION_EXECUTION_BLOCKED",
+          metadata: { path: ["executionBlockReason"], equals: "SUBSCRIPTION_INACTIVE" },
+        },
+      }),
+      1,
+    );
+  });
+
+  it("honors the active subscription when the global catalog plan is deactivated", async () => {
+    const { context, plan } = await fixture();
+    const evaluation = await services[0].createDraft(context, {
+      idempotencyKey: `ops01-${randomUUID()}`,
+      clientType: "PERSON",
+      documentType: "CI",
+      documentNumber: "50000001",
+      name: "Plan contratado vigente",
+      purpose: "WORKING_CAPITAL",
+      requestedAmount: 1000,
+      consentGiven: true,
+    });
+
+    await db.plan.update({ where: { id: plan.id }, data: { active: false } });
+    const result = await services[0].processEvaluation(context, evaluation.id);
+    assert.equal(result.status, "COMPLETED");
+    assert.equal(
+      await db.usageRecord.count({ where: { tenantId: context.tenantId, referenceId: evaluation.id } }),
+      1,
+    );
   });
 });

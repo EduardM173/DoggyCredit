@@ -133,7 +133,6 @@ export class EvaluationsService {
         status: "ACTIVE",
         startsAt: { lte: now },
         OR: [{ endsAt: null }, { endsAt: { gt: now } }],
-        plan: { active: true },
       },
       select: { id: true },
     });
@@ -142,6 +141,96 @@ export class EvaluationsService {
         "La institución no tiene una suscripción activa para iniciar evaluaciones.",
       );
     }
+  }
+
+  private async claimAuthorizedEvaluation(
+    ctx: TenantContext,
+    evaluation: {
+      id: string;
+      status: EvaluationStatus;
+      clientId: string;
+      createdByMembershipId: string;
+      applicantSnapshot: unknown;
+    },
+  ): Promise<
+    | {
+        reason:
+          | "MEMBERSHIP_INACTIVE"
+          | "TENANT_INACTIVE"
+          | "USER_INACTIVE"
+          | "SUBSCRIPTION_INACTIVE"
+          | "SUBJECT_MISMATCH";
+        claimed?: never;
+      }
+    | { claimed: boolean; reason?: never }
+  > {
+    return this.db.run(async () => {
+      const access = await this.db.client.$queryRaw<
+        Array<{ membershipStatus: string; tenantStatus: string; userStatus: string }>
+      >`SELECT m."status" AS "membershipStatus", t."status" AS "tenantStatus", u."status" AS "userStatus"
+        FROM "TenantMembership" m
+        JOIN "Tenant" t ON t."id" = m."tenantId"
+        JOIN "User" u ON u."id" = m."userId"
+        WHERE m."id" = ${ctx.membershipId}::uuid
+          AND m."tenantId" = ${ctx.tenantId}::uuid
+          AND m."userId" = ${ctx.userId}::uuid
+        FOR SHARE OF m, t, u`;
+
+      if (!access.length) return { reason: "MEMBERSHIP_INACTIVE" as const };
+      if (access[0].tenantStatus !== "ACTIVE") return { reason: "TENANT_INACTIVE" as const };
+      if (access[0].userStatus !== "ACTIVE") return { reason: "USER_INACTIVE" as const };
+      if (access[0].membershipStatus !== "ACTIVE") return { reason: "MEMBERSHIP_INACTIVE" as const };
+
+      const subscription = await this.db.client.tenantSubscription.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          status: "ACTIVE",
+          startsAt: { lte: new Date() },
+          OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+        },
+        orderBy: { startsAt: "desc" },
+        select: { id: true },
+      });
+      if (!subscription) return { reason: "SUBSCRIPTION_INACTIVE" as const };
+      const lockedSubscription = await this.db.client.$queryRaw<
+        Array<{ status: string; startsAt: Date; endsAt: Date | null }>
+      >`SELECT "status", "startsAt", "endsAt" FROM "TenantSubscription"
+        WHERE "id" = ${subscription.id}::uuid FOR SHARE`;
+      const now = new Date();
+      if (
+        !lockedSubscription.length ||
+        lockedSubscription[0].status !== "ACTIVE" ||
+        lockedSubscription[0].startsAt > now ||
+        (lockedSubscription[0].endsAt !== null && lockedSubscription[0].endsAt <= now)
+      ) {
+        return { reason: "SUBSCRIPTION_INACTIVE" as const };
+      }
+
+      const snapshot = evaluation.applicantSnapshot as Record<string, unknown> | null;
+      const consent = snapshot?.consent as Record<string, unknown> | undefined;
+      if (consent?.given !== true || consent.actorMembershipId !== evaluation.createdByMembershipId) {
+        return { reason: "SUBJECT_MISMATCH" as const };
+      }
+      const clients = await this.db.client.$queryRaw<
+        Array<{ id: string }>
+      >`SELECT "id" FROM "Client"
+        WHERE "id" = ${evaluation.clientId}::uuid AND "tenantId" = ${ctx.tenantId}::uuid
+          AND "id"::text = ${String(snapshot?.id ?? "")}
+          AND "type"::text = ${String(snapshot?.type ?? "")}
+          AND "documentType"::text = ${String(snapshot?.documentType ?? "")}
+          AND "documentNumber" = ${String(snapshot?.documentNumber ?? "")}
+        FOR SHARE`;
+      const client = clients[0];
+      if (!client || snapshot?.id !== client.id) {
+        return { reason: "SUBJECT_MISMATCH" as const };
+      }
+
+      const claim = await this.db.client.evaluation.updateMany({
+        where: { id: evaluation.id, tenantId: ctx.tenantId, status: evaluation.status },
+        data: { status: "IN_PROGRESS", startedAt: new Date() },
+      });
+      return { claimed: claim.count === 1 };
+    });
   }
 
   async checkReadiness(ctx: TenantContext) {
@@ -536,18 +625,19 @@ export class EvaluationsService {
     }
 
     // A conditional write is the cross-instance claim; only one request may process this attempt.
-    const claim = await this.db.client.evaluation.updateMany({
-      where: {
-        id: evaluation.id,
+    const claimResult = await this.claimAuthorizedEvaluation(ctx, evaluation);
+    if (claimResult.reason !== undefined) {
+      await this.audit.recordEvaluationExecutionBlocked({
         tenantId: ctx.tenantId,
-        status: evaluation.status,
-      },
-      data: {
-        status: "IN_PROGRESS",
-        startedAt: evaluation.startedAt ?? new Date(),
-      },
-    });
-    if (claim.count !== 1) {
+        actorUserId: ctx.userId,
+        evaluationId: evaluation.id,
+        reason: claimResult.reason,
+      });
+      throw new ForbiddenException(
+        "No se pudo iniciar la evaluación porque el acceso institucional o sus condiciones vigentes cambiaron.",
+      );
+    }
+    if (!claimResult.claimed) {
       const current = await this.db.client.evaluation.findFirst({
         where: { id: evaluation.id, tenantId: ctx.tenantId },
         include: {
