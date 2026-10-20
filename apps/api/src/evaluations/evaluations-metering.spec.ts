@@ -36,6 +36,15 @@ describe("HU-21 and OPS-01: evaluation usage metering", () => {
     mockDb = {
       run: jest.fn<any>().mockImplementation(async (cb: any) => cb()),
       client: {
+        $queryRaw: jest.fn<any>().mockImplementation((query: TemplateStringsArray, ...values: any[]) => {
+          const sql = query.join("");
+          if (sql.includes('FROM "TenantMembership"'))
+            return Promise.resolve([{ membershipStatus: "ACTIVE", tenantStatus: "ACTIVE", userStatus: "ACTIVE" }]);
+          if (sql.includes('FROM "TenantSubscription"'))
+            return Promise.resolve([{ status: "ACTIVE", startsAt: new Date("2026-01-01"), endsAt: null }]);
+          if (sql.includes('FROM "Client"')) return Promise.resolve([{ id: values[0] }]);
+          return Promise.resolve([]);
+        }),
         evaluation: {
           findFirst: jest.fn(),
           findUniqueOrThrow: jest.fn(),
@@ -98,9 +107,11 @@ describe("HU-21 and OPS-01: evaluation usage metering", () => {
     mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
       id: "eval-quota-1",
       tenantId: "tenant-a",
+      clientId: "client-1",
+      createdByMembershipId: "membership-1",
       status: "DRAFT",
       consentGivenAt: new Date(),
-      applicantSnapshot: { type: "PERSON", documentType: "CI", documentNumber: "1234567" },
+      applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234567", consent: { given: true, actorMembershipId: "membership-1" } },
       client: { documentNumber: "1234567", type: "PERSON", documentType: "CI" },
     });
     mockPreparation.read.mockResolvedValueOnce({ ready: true, steps: { source: true, products: true } });
@@ -120,9 +131,11 @@ describe("HU-21 and OPS-01: evaluation usage metering", () => {
     mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
       id: "eval-success-usage",
       tenantId: "tenant-a",
+      clientId: "client-1",
+      createdByMembershipId: "membership-1",
       status: "DRAFT",
       consentGivenAt: new Date(),
-      applicantSnapshot: { type: "PERSON", documentType: "CI", documentNumber: "1234567" },
+      applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234567", consent: { given: true, actorMembershipId: "membership-1" } },
       client: { documentNumber: "1234567", type: "PERSON", documentType: "CI" },
       sourceResults: [],
       recommendations: [],

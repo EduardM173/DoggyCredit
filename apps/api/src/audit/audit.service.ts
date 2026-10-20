@@ -15,7 +15,7 @@ import {
 } from "./public.js";
 
 const CATEGORY_ACTIONS: Record<AuditCategory, string[]> = {
-  EVALUATION: ["EVALUATION_DRAFT_CREATED", "EVALUATION_PROCESSED"],
+  EVALUATION: ["EVALUATION_DRAFT_CREATED", "EVALUATION_PROCESSED", "EVALUATION_EXECUTION_BLOCKED"],
   CATALOG: [
     "PRODUCT_CREATED",
     "PRODUCT_UPDATED",
@@ -84,6 +84,7 @@ const ACTION_METADATA_WHITELIST = new Set([
   "fromStatus",
   "toStatus",
   "finalStatus",
+  "executionBlockReason",
   "planId",
   "actorKind",
   "from",
@@ -115,6 +116,16 @@ const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
     summary: (meta) => {
       const status = typeof meta?.finalStatus === "string" ? meta.finalStatus : "procesada";
       return `Evaluación crediticia completada con dictamen final: ${status}.`;
+    },
+  },
+  EVALUATION_EXECUTION_BLOCKED: {
+    label: "Ejecución de evaluación bloqueada",
+    category: "EVALUATION",
+    entityLabel: "Evaluación crediticia",
+    defaultOutcome: "FAILURE",
+    summary: (meta) => {
+      const reason = typeof meta?.executionBlockReason === "string" ? meta.executionBlockReason : "autorización";
+      return `No se inició la evaluación porque falló la validación vigente (${reason}).`;
     },
   },
   PRODUCT_CREATED: {
@@ -756,6 +767,24 @@ export class AuditService implements AuditWriter, AuditReader {
         entityType: "Evaluation",
         entityId: event.evaluationId,
         metadata: { finalStatus: event.status },
+      },
+    });
+  }
+
+  async recordEvaluationExecutionBlocked(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    reason: "MEMBERSHIP_INACTIVE" | "TENANT_INACTIVE" | "USER_INACTIVE" | "SUBSCRIPTION_INACTIVE" | "SUBJECT_MISMATCH";
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: "EVALUATION_EXECUTION_BLOCKED",
+        entityType: "Evaluation",
+        entityId: event.evaluationId,
+        metadata: { executionBlockReason: event.reason },
       },
     });
   }

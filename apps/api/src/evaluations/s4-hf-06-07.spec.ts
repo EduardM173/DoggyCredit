@@ -47,6 +47,7 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
   let writesOutsideUnitOfWork: string[];
   let mockDb: {
     client: {
+      $queryRaw: MockFn;
       evaluation: {
         findUnique: MockFn;
         findFirst: MockFn;
@@ -63,7 +64,11 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
   };
   let mockClients: { findByDocument: MockFn; findOrCreate: MockFn };
   let mockPreparation: { read: MockFn };
-  let mockAudit: { recordEvaluationDraft: MockFn; recordEvaluationProcessed: MockFn };
+  let mockAudit: {
+    recordEvaluationDraft: MockFn;
+    recordEvaluationProcessed: MockFn;
+    recordEvaluationExecutionBlocked: MockFn;
+  };
   let mockBank: { query: MockFn; status: MockFn; enable: MockFn };
   let mockBureau: { query: MockFn; status: MockFn; enable: MockFn };
   let mockProfileCalculator: { calculate: MockFn; consolidate: MockFn; saveProfile: MockFn };
@@ -75,6 +80,15 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
 
     mockDb = {
       client: {
+        $queryRaw: jest.fn<any>().mockImplementation((query: TemplateStringsArray, ...values: any[]) => {
+          const sql = query.join("");
+          if (sql.includes('FROM "TenantMembership"'))
+            return Promise.resolve([{ membershipStatus: "ACTIVE", tenantStatus: "ACTIVE", userStatus: "ACTIVE" }]);
+          if (sql.includes('FROM "TenantSubscription"'))
+            return Promise.resolve([{ status: "ACTIVE", startsAt: new Date("2026-01-01"), endsAt: null }]);
+          if (sql.includes('FROM "Client"')) return Promise.resolve([{ id: values[0] }]);
+          return Promise.resolve([]);
+        }),
         evaluation: {
           findUnique: jest.fn<any>().mockResolvedValue(null),
           findFirst: jest.fn(),
@@ -153,7 +167,11 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
       }),
     };
     mockPreparation = { read: jest.fn() };
-    mockAudit = { recordEvaluationDraft: jest.fn(), recordEvaluationProcessed: jest.fn() };
+    mockAudit = {
+      recordEvaluationDraft: jest.fn(),
+      recordEvaluationProcessed: jest.fn(),
+      recordEvaluationExecutionBlocked: jest.fn(),
+    };
     mockBank = {
       query: jest.fn<any>().mockResolvedValue({
         status: "SUCCESS",
@@ -235,12 +253,16 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
     id: "eval-1",
     tenantId: "tenant-a",
     clientId: "client-1",
+    createdByMembershipId: "membership-1",
     status: "DRAFT",
     purpose: "WORKING_CAPITAL",
     requestedAmount: 60000,
     consentGivenAt: new Date("2026-10-18T10:00:00Z"),
     startedAt: null,
-    applicantSnapshot: { type: "COMPANY", documentType: "NIT", documentNumber: "1020304050" },
+    applicantSnapshot: {
+      id: "client-1", type: "COMPANY", documentType: "NIT", documentNumber: "1020304050",
+      consent: { given: true, actorMembershipId: "membership-1" },
+    },
     client: {
       id: "client-1",
       type: "COMPANY",
@@ -339,7 +361,7 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
 
       await service.processEvaluation(ctx, "eval-1");
 
-      expect(mockDb.run).toHaveBeenCalledTimes(1);
+      expect(mockDb.run).toHaveBeenCalledTimes(2);
       expect(mockRecommender.evaluate).toHaveBeenCalledTimes(1);
       expect(mockDb.client.usageRecord.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -374,7 +396,11 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
       mockBureau.status.mockResolvedValue({ available: true, enabled: true, healthStatus: "ACTIVE" });
       mockDb.client.evaluation.findFirst.mockResolvedValueOnce(
         companyDraft({
-          applicantSnapshot: { type: "PERSON", documentType: "CI", documentNumber: "4892019" },
+          clientId: "client-2",
+          applicantSnapshot: {
+            id: "client-2", type: "PERSON", documentType: "CI", documentNumber: "4892019",
+            consent: { given: true, actorMembershipId: "membership-1" },
+          },
           client: {
             id: "client-2",
             type: "PERSON",

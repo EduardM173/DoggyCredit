@@ -37,6 +37,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
   let service: EvaluationsService;
   let mockDb: {
     client: {
+      $queryRaw: MockFn;
       evaluation: {
         findUnique: MockFn;
         findFirst: MockFn;
@@ -68,6 +69,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
   let mockAudit: {
     recordEvaluationDraft: MockFn;
     recordEvaluationProcessed: MockFn;
+    recordEvaluationExecutionBlocked: MockFn;
   };
   let mockBank: {
     query: MockFn;
@@ -91,6 +93,15 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
   beforeEach(() => {
     mockDb = {
       client: {
+        $queryRaw: jest.fn<any>().mockImplementation((query: TemplateStringsArray, ...values: any[]) => {
+          const sql = query.join("");
+          if (sql.includes('FROM "TenantMembership"'))
+            return Promise.resolve([{ membershipStatus: "ACTIVE", tenantStatus: "ACTIVE", userStatus: "ACTIVE" }]);
+          if (sql.includes('FROM "TenantSubscription"'))
+            return Promise.resolve([{ status: "ACTIVE", startsAt: new Date("2026-01-01"), endsAt: null }]);
+          if (sql.includes('FROM "Client"')) return Promise.resolve([{ id: values[0] }]);
+          return Promise.resolve([]);
+        }),
         evaluation: {
           findUnique: jest.fn(),
           findFirst: jest.fn(),
@@ -137,6 +148,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
     mockAudit = {
       recordEvaluationDraft: jest.fn(),
       recordEvaluationProcessed: jest.fn(),
+      recordEvaluationExecutionBlocked: jest.fn(),
     };
 
     mockBank = {
@@ -407,13 +419,17 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       id: "eval-1",
       tenantId: "tenant-a",
       clientId: "client-1",
+      createdByMembershipId: "membership-1",
       documentNumber: "1234567",
       purpose: "WORKING_CAPITAL",
       requestedAmount: 15000,
       status: "DRAFT",
       consentGivenAt: new Date("2026-10-10T20:00:00Z"),
       startedAt: null,
-      applicantSnapshot: { name: "Juan Perez", documentNumber: "1234567" },
+      applicantSnapshot: {
+        id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234567",
+        name: "Juan Perez", consent: { given: true, actorMembershipId: "membership-1" },
+      },
       client: { name: "Juan Perez", documentType: "CI", documentNumber: "1234567" },
     };
 
@@ -900,11 +916,16 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       mockDb.client.evaluation.findFirst.mockResolvedValueOnce({
         id: "eval-comp-2",
         tenantId: "tenant-a",
+        clientId: "client-comp-2",
+        createdByMembershipId: "membership-1",
         status: "DRAFT",
         purpose: "WORKING_CAPITAL",
         requestedAmount: 60000,
         consentGivenAt: new Date(),
-        applicantSnapshot: { type: "COMPANY" },
+        applicantSnapshot: {
+          id: "client-comp-2", type: "COMPANY", documentType: "NIT", documentNumber: "1020304050",
+          consent: { given: true, actorMembershipId: "membership-1" },
+        },
         client: {
           id: "client-comp-2",
           type: "COMPANY",
@@ -982,11 +1003,12 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         id: "eval-multi-1",
         tenantId: "tenant-a",
         clientId: "client-1",
+        createdByMembershipId: "membership-1",
         purpose: "HOME_IMPROVEMENT",
         requestedAmount: "25000",
         status: "PREPARED",
         consentGivenAt: new Date(),
-        applicantSnapshot: { type: "PERSON", documentNumber: "1234567" },
+        applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234567", consent: { given: true, actorMembershipId: "membership-1" } },
         client: { documentNumber: "1234567", type: "PERSON" },
         sourceResults: [],
         recommendations: [],
@@ -1062,11 +1084,12 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         id: "eval-retry-1",
         tenantId: "tenant-a",
         clientId: "client-1",
+        createdByMembershipId: "membership-1",
         purpose: "CONSUMER",
         requestedAmount: "10000",
         status: "FAILED",
         consentGivenAt: new Date(),
-        applicantSnapshot: { type: "PERSON", documentNumber: "1234567" },
+        applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234567", consent: { given: true, actorMembershipId: "membership-1" } },
         client: { documentNumber: "1234567", type: "PERSON" },
         sourceResults: [
           {
@@ -1140,11 +1163,12 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         id: "eval-fail-1",
         tenantId: "tenant-a",
         clientId: "client-1",
+        createdByMembershipId: "membership-1",
         purpose: "CONSUMER",
         requestedAmount: "10000",
         status: "PREPARED",
         consentGivenAt: new Date(),
-        applicantSnapshot: { type: "PERSON", documentNumber: "1234999" },
+        applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234999", consent: { given: true, actorMembershipId: "membership-1" } },
         client: { documentNumber: "1234999", type: "PERSON" },
         sourceResults: [],
         recommendations: [],
@@ -1205,11 +1229,12 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
         id: "eval-nodata-1",
         tenantId: "tenant-a",
         clientId: "client-1",
+        createdByMembershipId: "membership-1",
         purpose: "CONSUMER",
         requestedAmount: "10000",
         status: "PREPARED",
         consentGivenAt: new Date(),
-        applicantSnapshot: { type: "PERSON", documentNumber: "1234000" },
+        applicantSnapshot: { id: "client-1", type: "PERSON", documentType: "CI", documentNumber: "1234000", consent: { given: true, actorMembershipId: "membership-1" } },
         client: { documentNumber: "1234000", type: "PERSON" },
         sourceResults: [],
         recommendations: [],
