@@ -599,7 +599,7 @@ model Evaluation {
   tenantId              String           @db.Uuid
   clientId              String           @db.Uuid
   createdByMembershipId String           @db.Uuid
-  idempotencyKey        String           @unique @db.VarChar(80)
+  idempotencyKey        String           @db.VarChar(80)
   requestFingerprint    String?          @db.VarChar(64)
   purpose               CreditPurpose
   requestedAmount       Decimal          @db.Decimal(14, 2)
@@ -611,6 +611,11 @@ model Evaluation {
   failureCode           String?          @db.VarChar(100)
   failureMessage        String?          @db.VarChar(500)
   ruleVersion           String?          @db.VarChar(60)
+  retryCount            Int              @default(0)
+  lastRetryAt           DateTime?        @db.Timestamptz(6)
+  leaseToken            String?          @db.Uuid
+  leaseExpiresAt        DateTime?        @db.Timestamptz(6)
+  heartbeatAt           DateTime?        @db.Timestamptz(6)
   createdAt             DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime         @updatedAt @db.Timestamptz(6)
 
@@ -621,7 +626,9 @@ model Evaluation {
   profile         FinancialProfile?
   recommendations EvaluationRecommendation[]
 
+  @@unique([tenantId, idempotencyKey])
   @@unique([tenantId, id])
+  @@index([status, leaseExpiresAt])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, clientId, createdAt])
   @@index([tenantId, createdByMembershipId, createdAt])

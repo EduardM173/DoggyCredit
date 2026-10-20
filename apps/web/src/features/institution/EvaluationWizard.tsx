@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IntegrationNotice } from "./IntegrationNotice";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -24,6 +24,7 @@ import {
   type EvaluationItem,
   type EvaluationReadiness,
 } from "./api";
+import { newIdempotencyKey } from "./evaluationRecovery";
 import "./evaluations.css";
 
 const PURPOSE_LABELS: Record<string, string> = {
@@ -79,6 +80,9 @@ export function EvaluationWizard({
 
   const [consentGiven, setConsentGiven] = useState(false);
   const [busy, setBusy] = useState(false);
+  // CA-25.01: una clave por intento lógico de creación; el doble clic no crea dos casos.
+  const submittingRef = useRef(false);
+  const idempotencyKeyRef = useRef<string | null>(null);
   const [error, setError] = useState("");
   const [createdEvaluation, setCreatedEvaluation] = useState<EvaluationItem | null>(null);
 
@@ -194,9 +198,12 @@ export function EvaluationWizard({
       );
       return;
     }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setBusy(true);
     setError("");
     try {
+      if (!idempotencyKeyRef.current) idempotencyKeyRef.current = newIdempotencyKey();
       const payload: CreateEvaluationPayload = {
         clientType: applicantType,
         documentType: applicantType === "COMPANY" ? "NIT" : "CI",
@@ -213,21 +220,28 @@ export function EvaluationWizard({
 
       const result = await institutionApi<EvaluationItem>(
         `/tenants/${encodeURIComponent(slug)}/evaluations`,
-        { body: payload },
+        { body: { ...payload, idempotencyKey: idempotencyKeyRef.current } as unknown as CreateEvaluationPayload },
       );
       setCreatedEvaluation(result);
+      idempotencyKeyRef.current = null;
     } catch (err) {
-      if (err instanceof InstitutionError) {
+      if ((err as { status?: number } | null)?.status === 409) {
+        // Misma solicitud con datos distintos: el siguiente intento es un caso nuevo.
+        idempotencyKeyRef.current = null;
+        setError("Ya existe una solicitud con otros datos. Revisa el formulario e inténtalo de nuevo.");
+      } else if (err instanceof InstitutionError) {
         setError(err.message);
       } else {
         setError("No se pudo iniciar la evaluación. Intenta nuevamente.");
       }
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
 
   function resetForm() {
+    idempotencyKeyRef.current = null;
     setStep(1);
     setApplicantType("PERSON");
     setDocumentNumber("");
@@ -651,7 +665,11 @@ export function EvaluationWizard({
             </div>
 
             <div className="eval-actions">
-              <button type="button" className="eval-btn-secondary" onClick={() => setStep(2)}>
+              <button type="button" className="eval-btn-secondary" onClick={() => {
+                  idempotencyKeyRef.current = null;
+                  setStep(2);
+                }}
+              >
                 <ArrowLeft size={16} /> Volver a Solicitud
               </button>
               <button

@@ -206,10 +206,10 @@ describe("HU-11 EvaluationDetail", () => {
 
     await waitFor(() => {
       expect(screen.getByText("NO COMPLETADA")).toBeInTheDocument();
-      expect(screen.getByText("Reintentar evaluación")).toBeInTheDocument();
+      expect(screen.getByText("Reintentar consulta")).toBeInTheDocument();
     });
 
-    const retryBtn = screen.getByText("Reintentar evaluación");
+    const retryBtn = screen.getByText("Reintentar consulta");
     fireEvent.click(retryBtn);
 
     await waitFor(() => {
@@ -656,7 +656,7 @@ describe("HU-11 EvaluationDetail", () => {
       await waitFor(() => {
         expect(screen.getByText("NO COMPLETADA")).toBeInTheDocument();
         expect(screen.getByText("Buró de Crédito no está disponible temporalmente.")).toBeInTheDocument();
-        expect(screen.getByRole("button", { name: /Reintentar evaluación/i })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /Reintentar consulta/i })).toBeInTheDocument();
       });
     });
   });

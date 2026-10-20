@@ -364,3 +364,65 @@
     gap: 12px;
   }
 }
+
+/* ===== HU-25: recuperación y accesibilidad ===== */
+.eval-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.eval-btn-fixed {
+  min-width: 210px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.eval-retry-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 20px;
+}
+
+.eval-retry-hint {
+  font-size: 13px;
+  color: #51627d;
+}
+
+.eval-retry-reason {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+  color: #712f06;
+}
+
+.eval-source-date {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.eval-processing-stalled {
+  background: #fffaeb;
+  border-color: #fedf89;
+}
+
+.eval-btn-primary:focus-visible,
+.eval-btn-secondary:focus-visible,
+.results-identity h1:focus-visible {
+  outline: 3px solid #1267e8;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eval-spinner {
+    animation: none;
+  }
+}

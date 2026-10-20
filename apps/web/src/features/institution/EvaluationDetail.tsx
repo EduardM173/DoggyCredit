@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IntegrationNotice } from "./IntegrationNotice";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
@@ -25,6 +25,13 @@ import {
   type EvaluationDetailItem,
   type ProfileIndicatorProvenanceDto,
 } from "./api";
+import {
+  formatAsOf,
+  nextPollDelay,
+  retryEvaluation,
+  statusAnnouncement,
+  type RecoveryFields,
+} from "./evaluationRecovery";
 import "./evaluations.css";
 import "./EvaluationDetail.css";
 
@@ -51,6 +58,14 @@ export function EvaluationDetail({ slug }: { slug: string }) {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [showIncompatible, setShowIncompatible] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const retryingRef = useRef(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const pollAttempt = useRef(0);
+  // Campos HU-25: pueden no venir en respuestas antiguas; no se asume su existencia.
+  const recovery = evaluation as (EvaluationDetailItem & Partial<RecoveryFields>) | null;
+  const persistedStatus = evaluation?.status;
 
   useEffect(() => {
     let active = true;
@@ -69,6 +84,107 @@ export function EvaluationDetail({ slug }: { slug: string }) {
       active = false;
     };
   }, [slug, id]);
+
+  // CA-25.02 / CA-25.17: mientras el estado persistido sea IN_PROGRESS, consulta con espera creciente
+  // y se detiene en cualquier estado final o al salir de la pantalla.
+  useEffect(() => {
+    if (!id || persistedStatus !== "IN_PROGRESS" || processing) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    pollAttempt.current = 0;
+
+    function schedule() {
+      timer = setTimeout(tick, nextPollDelay(pollAttempt.current));
+    }
+    async function tick() {
+      if (!active || !id) return;
+      if (typeof document !== "undefined" && document.hidden) {
+        schedule();
+        return;
+      }
+      pollAttempt.current += 1;
+      try {
+        const data = await fetchEvaluation(slug, id);
+        if (!active) return;
+        setEvaluation(data);
+        if (data.status !== "IN_PROGRESS") return;
+      } catch {
+        // Un fallo de consulta no cambia el estado guardado; se vuelve a intentar con espera mayor.
+      }
+      if (active) schedule();
+    }
+    schedule();
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [slug, id, persistedStatus, processing]);
+
+  function focusResultHeading() {
+    setTimeout(() => headingRef.current?.focus(), 0);
+  }
+
+  async function handleRetry() {
+    if (!id || retryingRef.current) return;
+    retryingRef.current = true;
+    setRetrying(true);
+    setError("");
+    try {
+      const updated = recovery?.retry
+        ? await retryEvaluation<EvaluationDetailItem>(slug, id)
+        : await processEvaluation(slug, id);
+      setEvaluation(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo reintentar la consulta. Intenta nuevamente.");
+    } finally {
+      retryingRef.current = false;
+      setRetrying(false);
+      focusResultHeading();
+    }
+  }
+
+  async function handleRefresh() {
+    if (!id || refreshing) return;
+    setRefreshing(true);
+    setError("");
+    try {
+      setEvaluation(await fetchEvaluation(slug, id));
+    } catch {
+      setError("No se pudo actualizar el estado. Intenta de nuevo.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  function renderRetryControls() {
+    const info = recovery?.retry;
+    const allowed = info ? info.allowed : true;
+    return (
+      <div className="eval-retry-box">
+        <button
+          type="button"
+          className="eval-btn-primary eval-btn-fixed"
+          onClick={handleRetry}
+          disabled={!allowed || retrying}
+          aria-describedby={!allowed ? "eval-retry-reason" : undefined}
+        >
+          <RefreshCw size={18} /> {retrying ? "Reintentando…" : "Reintentar consulta"}
+        </button>
+        {info && allowed && (
+          <span className="eval-retry-hint">
+            {info.remainingAttempts === 1
+              ? "Te queda 1 reintento"
+              : `Te quedan ${info.remainingAttempts} reintentos`}
+          </span>
+        )}
+        {info && !allowed && (
+          <p id="eval-retry-reason" className="eval-retry-reason">
+            {info.reason}
+          </p>
+        )}
+      </div>
+    );
+  }
 
   async function handleStartProcessing() {
     if (!id) return;
@@ -171,7 +287,9 @@ export function EvaluationDetail({ slug }: { slug: string }) {
         <div className="results-header">
           <div className="results-identity">
             <div className="eval-eyebrow">Evaluación crediticia</div>
-            <h1>{evaluation.clientName}</h1>
+            <h1 ref={headingRef} tabIndex={-1}>
+              {evaluation.clientName}
+            </h1>
             <p style={{ margin: 0, fontSize: 14, color: "#51627d" }}>
               {evaluation.documentType}: <strong>{evaluation.documentNumber}</strong> · Finalidad:{" "}
               <strong>{PURPOSE_LABELS[evaluation.purpose] || evaluation.purpose}</strong>
@@ -215,6 +333,11 @@ export function EvaluationDetail({ slug }: { slug: string }) {
           </div>
         </div>
 
+        {/* CA-25.11: aviso accesible de cambios de estado, sin robar el foco */}
+        <div className="eval-sr-only" aria-live="polite" aria-atomic="true">
+          {statusAnnouncement(evaluation.status, recovery?.tracking)}
+        </div>
+
         {/* Multi-source coverage badges (HU-15) */}
         {evaluation.sourceResults && evaluation.sourceResults.length > 0 && (
           <div className="eval-sources-container results-sources" aria-label="Fuentes consultadas">
@@ -236,6 +359,14 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                     : sr.status === "UNAVAILABLE"
                       ? "No disponible"
                       : "Error de conexión"}
+                {(() => {
+                  const asOf = formatAsOf(
+                    recovery?.sourceStatuses?.find(
+                      (item) => item.providerCode === sr.providerCode && item.status === sr.status,
+                    )?.asOf,
+                  );
+                  return asOf ? <span className="eval-source-date"> · consultada el {asOf}</span> : null;
+                })()}
               </span>
             ))}
           </div>
@@ -258,11 +389,46 @@ export function EvaluationDetail({ slug }: { slug: string }) {
         {error && (
           <div
             className="eval-client-badge"
+            role="alert"
             style={{ borderColor: "#fda29b", background: "#fef3f2", marginTop: 16 }}
           >
             <AlertCircle size={20} color="#b42318" />
             <p style={{ margin: 0, color: "#7a271a", fontSize: 14 }}>{error}</p>
           </div>
+        )}
+
+        {/* Estado persistido IN_PROGRESS (recarga o consulta desde otra pantalla): CA-25.02 / CA-25.17 */}
+        {!processing && evaluation.status === "IN_PROGRESS" && (
+          recovery?.tracking === "PROGRESS_STALLED" ? (
+            <div className="eval-processing-box eval-processing-stalled">
+              <AlertTriangle size={32} color="#b54708" />
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: "8px 0 6px" }}>
+                La consulta se está demorando
+              </h3>
+              <p style={{ margin: "0 0 16px", color: "#51627d", fontSize: 14 }}>
+                Todavía no recibimos novedades de esta consulta. Tu caso sigue guardado; actualiza el estado
+                para ver si avanzó.
+              </p>
+              <button
+                type="button"
+                className="eval-btn-secondary eval-btn-fixed"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw size={16} /> {refreshing ? "Actualizando…" : "Actualizar estado"}
+              </button>
+            </div>
+          ) : (
+            <div className="eval-processing-box">
+              <div className="eval-spinner" aria-hidden="true" />
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", margin: "0 0 6px" }}>
+                Consultando fuentes
+              </h3>
+              <p style={{ margin: 0, color: "#51627d", fontSize: 14 }}>
+                Puedes salir de esta pantalla y volver: el estado de la consulta queda guardado.
+              </p>
+            </div>
+          )
         )}
 
         {/* Status DRAFT view */}
@@ -817,7 +983,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
           </div>
         )}
 
-        {/* Status INCOMPLETE (NO_DATA) */}
+        {/* Status INCOMPLETE: sin antecedentes (final) o fuente caída (reintentable) */}
         {!processing && evaluation.status === "INCOMPLETE" && (
           <div style={{ marginTop: 24 }}>
             <div
@@ -827,18 +993,29 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               <AlertCircle size={28} color="#b54708" />
               <div>
                 <h3 style={{ color: "#b54708", margin: "0 0 6px", fontSize: 16 }}>
-                  Fuente sin antecedentes disponibles
+                  {recovery?.tracking === "PROVIDER_ISSUE"
+                    ? "Resultado parcial: faltó una fuente"
+                    : "Fuente sin antecedentes disponibles"}
                 </h3>
                 <p style={{ color: "#712f06", margin: 0, fontSize: 14 }}>
-                  {evaluation.failureMessage ||
-                    "La fuente bancaria consultada no dispone de información financiera para este solicitante."}
+                  {recovery?.tracking === "PROVIDER_ISSUE" && recovery.coverage
+                    ? `${recovery.coverage.achieved} ${recovery.coverage.missing}`
+                    : evaluation.failureMessage ||
+                      "La fuente bancaria consultada no dispone de información financiera para este solicitante."}
                 </p>
               </div>
             </div>
             <p style={{ fontSize: 14, color: "#51627d", marginTop: 12 }}>
-              La evaluación se cerró con información parcial debido a la ausencia de registros previos en la
-              entidad bancaria consultada.
+              {recovery?.tracking === "PROVIDER_ISSUE" && recovery.coverage
+                ? `${recovery.coverage.nextAction} Mientras falte esa fuente, el resultado es provisional y no debe usarse como definitivo.`
+                : "La evaluación se cerró con información parcial debido a la ausencia de registros previos en la entidad bancaria consultada."}
             </p>
+            {(recovery?.tracking === "PROVIDER_ISSUE" || (recovery?.retry && !recovery.retry.allowed)) && (
+              <>
+                {recovery?.tracking === "PROVIDER_ISSUE" && <IntegrationNotice slug={slug} refreshKey={evaluation.status} />}
+                {renderRetryControls()}
+              </>
+            )}
             <div className="eval-actions" style={{ marginTop: 24 }}>
               <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
                 <Plus size={18} /> Nueva evaluación
@@ -860,23 +1037,31 @@ export function EvaluationDetail({ slug }: { slug: string }) {
               <AlertTriangle size={28} color="#b42318" />
               <div>
                 <h3 style={{ color: "#b42318", margin: "0 0 6px", fontSize: 16 }}>
-                  Servicio no disponible temporalmente
+                  {recovery?.tracking === "FAILED"
+                    ? "No se pudo completar la consulta"
+                    : "Servicio no disponible temporalmente"}
                 </h3>
                 <p style={{ color: "#7a271a", margin: 0, fontSize: 14 }}>
-                  {evaluation.failureMessage ||
-                    "Ocurrió una interrupción al consultar la fuente bancaria externa. Esta situación es reintentable."}
+                  {recovery?.coverage
+                    ? `${recovery.coverage.achieved} ${recovery.coverage.missing}`
+                    : evaluation.failureMessage ||
+                      "Ocurrió una interrupción al consultar la fuente bancaria externa. Esta situación es reintentable."}
                 </p>
               </div>
             </div>
             <p style={{ fontSize: 14, color: "#51627d", marginTop: 12 }}>
-              Puedes reintentar la operación sobre este mismo caso sin necesidad de volver a crear o capturar
-              la información del solicitante.
+              {recovery?.coverage
+                ? recovery.coverage.nextAction
+                : "Puedes reintentar la operación sobre este mismo caso sin necesidad de volver a crear o capturar la información del solicitante."}
             </p>
             <IntegrationNotice slug={slug} refreshKey={evaluation.status} />
+            {renderRetryControls()}
             <div className="eval-actions" style={{ marginTop: 24 }}>
-              <button className="eval-btn-primary" onClick={handleStartProcessing}>
-                <RefreshCw size={18} /> Reintentar evaluación
-              </button>
+              {recovery?.retry && !recovery.retry.allowed && (
+                <Link className="eval-btn-primary" to={`/${slug}/evaluaciones/nueva`}>
+                  <Plus size={18} /> Iniciar estudio nuevo
+                </Link>
+              )}
               <Link className="eval-btn-secondary" to={backUrl}>
                 <FileText size={18} /> Ver evaluaciones
               </Link>

@@ -257,6 +257,7 @@ describe("HU-10 EvaluationWizard", () => {
         purpose: "WORKING_CAPITAL",
         requestedAmount: 50000,
         consentGiven: true,
+        idempotencyKey: expect.any(String),
       });
     });
 

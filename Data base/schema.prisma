@@ -384,6 +384,12 @@ model Evaluation {
   ruleVersion            String?          @db.VarChar(60)
   createdAt              DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime         @updatedAt @db.Timestamptz(6)
+  retryCount     Int       @default(0)
+  requestFingerprint String? @db.VarChar(64)
+  lastRetryAt    DateTime? @db.Timestamptz(6)
+  leaseToken     String?   @db.Uuid
+  leaseExpiresAt DateTime? @db.Timestamptz(6)
+  heartbeatAt    DateTime? @db.Timestamptz(6)
 
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   client    Client           @relation(fields: [tenantId, clientId], references: [tenantId, id], onDelete: Restrict)
@@ -392,6 +398,8 @@ model Evaluation {
   profile       FinancialProfile?
   recommendations EvaluationRecommendation[]
 
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, leaseExpiresAt])
   @@unique([tenantId, id])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, clientId, createdAt])

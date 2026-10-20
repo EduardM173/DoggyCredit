@@ -67,6 +67,12 @@ export abstract class AuditWriter {
     evaluationId: string;
     status: string;
   }): Promise<void>;
+  abstract recordEvaluationRetry(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    attempt: number;
+  }): Promise<void>;
   /** HU-30 (CA-30.07): cambios autorizados de la habilitación global de un proveedor. */
   abstract recordProviderAdministration(event: {
     actorUserId: string;

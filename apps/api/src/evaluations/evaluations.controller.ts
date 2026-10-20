@@ -83,4 +83,12 @@ export class EvaluationsController {
   process(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
     return this.evaluations.processEvaluation(request.tenantContext, evaluationId);
   }
+
+  @Post(":evaluationId/retry")
+  @UseGuards(InstitutionOriginGuard)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: "Reconsultar fuentes faltantes de la misma evaluación (HU-25)" })
+  retry(@Req() request: TenantRequest, @Param("evaluationId") evaluationId: string) {
+    return this.evaluations.retryEvaluation(request.tenantContext, evaluationId);
+  }
 }

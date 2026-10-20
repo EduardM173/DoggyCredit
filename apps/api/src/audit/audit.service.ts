@@ -232,6 +232,24 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+  async recordEvaluationRetry(event: {
+    tenantId: string;
+    actorUserId: string;
+    evaluationId: string;
+    attempt: number;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({
+      data: {
+        tenantId: event.tenantId,
+        actorUserId: event.actorUserId,
+        action: "EVALUATION_RETRY_REQUESTED",
+        entityType: "Evaluation",
+        entityId: event.evaluationId,
+        metadata: { attempt: event.attempt },
+      },
+    });
+  }
+
   async recordEvaluationProcessed(event: {
     tenantId: string;
     actorUserId: string;

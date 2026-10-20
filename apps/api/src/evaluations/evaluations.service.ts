@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { ClientsService } from "../clients/public.js";
 import { TenantPreparationService, type TenantContext } from "../identity-tenants/public.js";
@@ -25,6 +20,19 @@ import {
 import { EvaluationRecommender } from "../recommendations/public.js";
 import type { CreateEvaluationDto, DocumentTypeDto, ClientTypeDto } from "./dto/create-evaluation.dto.js";
 import type { DocumentType, CreditPurpose, ClientType, EvaluationStatus } from "../generated/prisma/client.js";
+import {
+  EVALUATION_LEASE_MS,
+  buildCoverageCopy,
+  computeTracking,
+  effectiveIdempotencyKey,
+  evaluateRetryPolicy,
+  fingerprintEvaluationRequest,
+  MAX_EVALUATION_RETRIES,
+  isPrismaUniqueConflict,
+  isRecordNotFound,
+  sourceShouldBeRequeried,
+  usageKeyForEvaluation,
+} from "./evaluation.lifecycle.js";
 
 export interface ListEvaluationsQuery {
   search?: string;
@@ -216,17 +224,22 @@ export class EvaluationsService {
       );
     }
 
-    const idempotencyKey = dto.idempotencyKey?.trim() || randomUUID();
-
-    const existing = await this.db.client.evaluation.findUnique({
-      where: { idempotencyKey },
-      include: { client: true, profile: true, sourceResults: true },
+    const idempotencyKey = effectiveIdempotencyKey(
+      ctx.tenantId,
+      dto.idempotencyKey?.trim() || randomUUID(),
+    );
+    const requestFingerprint = fingerprintEvaluationRequest({
+      clientType: clientType,
+      documentType: dto.documentType,
+      documentNumber: dto.documentNumber,
+      name: dto.name,
+      purpose: dto.purpose,
+      requestedAmount: dto.requestedAmount,
     });
+
+    const existing = await this.findByIdempotency(ctx.tenantId, idempotencyKey);
     if (existing) {
-      if (existing.tenantId !== ctx.tenantId) {
-        throw new ForbiddenException("No tienes acceso a esta evaluación.");
-      }
-      return this.serializeEvaluation(existing);
+      return this.resolveIdempotentDraft(existing, requestFingerprint);
     }
 
     return this.db.run(async () => {
@@ -261,29 +274,39 @@ export class EvaluationsService {
         },
       };
 
-      const evaluation = await this.db.client.evaluation.create({
-        data: {
+      try {
+        const evaluation = await this.db.client.evaluation.create({
+          data: {
+            tenantId: ctx.tenantId,
+            clientId: client.id,
+            createdByMembershipId: ctx.membershipId,
+            idempotencyKey,
+            requestFingerprint,
+            purpose: dto.purpose as unknown as CreditPurpose,
+            requestedAmount: dto.requestedAmount,
+            status: "DRAFT",
+            consentGivenAt: now,
+            applicantSnapshot,
+            ruleVersion: "1.0.0",
+          },
+          include: { client: true, profile: true, sourceResults: true },
+        });
+
+        await this.audit.recordEvaluationDraft({
           tenantId: ctx.tenantId,
-          clientId: client.id,
-          createdByMembershipId: ctx.membershipId,
-          idempotencyKey,
-          purpose: dto.purpose as unknown as CreditPurpose,
-          requestedAmount: dto.requestedAmount,
-          status: "DRAFT",
-          consentGivenAt: now,
-          applicantSnapshot,
-          ruleVersion: "1.0.0",
-        },
-        include: { client: true, profile: true, sourceResults: true },
-      });
+          actorUserId: ctx.userId,
+          evaluationId: evaluation.id,
+        });
 
-      await this.audit.recordEvaluationDraft({
-        tenantId: ctx.tenantId,
-        actorUserId: ctx.userId,
-        evaluationId: evaluation.id,
-      });
-
-      return this.serializeEvaluation(evaluation);
+        return this.serializeEvaluation(evaluation);
+      } catch (error) {
+        if (!isPrismaUniqueConflict(error)) throw error;
+        const raced = await this.findByIdempotency(ctx.tenantId, idempotencyKey);
+        if (!raced) {
+          throw new ConflictException("No se puede registrar esta solicitud.");
+        }
+        return this.resolveIdempotentDraft(raced, requestFingerprint);
+      }
     });
   }
 
@@ -392,9 +415,37 @@ export class EvaluationsService {
       throw new NotFoundException("Evaluación no encontrada.");
     }
 
-    // CA-11.19 / CA-15.09: If already COMPLETED, return current state without creating a duplicate
+    // CA-11.19 / CA-15.09 / CA-25.12: COMPLETED never reconsults providers nor recalculates
     if (evaluation.status === "COMPLETED") {
       return this.serializeEvaluation(evaluation);
+    }
+
+    const now = new Date();
+    const leaseActive =
+      evaluation.status === "IN_PROGRESS" &&
+      evaluation.leaseExpiresAt &&
+      evaluation.leaseExpiresAt.getTime() > now.getTime();
+    if (leaseActive) {
+      return this.serializeEvaluation(evaluation);
+    }
+
+    const retryPolicy = evaluateRetryPolicy({
+      status: evaluation.status,
+      retryCount: evaluation.retryCount ?? 0,
+      failureCode: evaluation.failureCode,
+      sources: (evaluation.sourceResults ?? []).map((sr) => ({
+        status: sr.status,
+        errorCode: sr.errorCode,
+      })),
+    });
+    if (evaluation.status === "FAILED" || evaluation.status === "INCOMPLETE") {
+      if (!retryPolicy.allowed) {
+        throw new BadRequestException(retryPolicy.reason);
+      }
+    }
+
+    if (!evaluation.startedAt) {
+      await this.consumeEvaluationUsage(ctx.tenantId, evaluation.id);
     }
 
     const { readiness, isBureauEnabled: isBureauOperational } = await this.assessReadiness(ctx);
@@ -429,14 +480,43 @@ export class EvaluationsService {
       );
     }
 
-    // CA-11.01: Transition to IN_PROGRESS
-    await this.db.client.evaluation.update({
-      where: { id: evaluation.id },
-      data: {
-        status: "IN_PROGRESS",
-        startedAt: evaluation.startedAt ?? new Date(),
-      },
-    });
+    const leaseToken = randomUUID();
+    const leaseExpiresAt = new Date(Date.now() + EVALUATION_LEASE_MS);
+
+    // CA-11.01 / CA-25.16 / OPS-04: transición condicional a IN_PROGRESS con lease.
+    // Solo una réplica gana la carrera; la otra devuelve el estado persistido.
+    const isRetryAttempt = evaluation.status === "FAILED" || evaluation.status === "INCOMPLETE";
+    try {
+      await this.db.client.evaluation.update({
+        where: {
+          id: evaluation.id,
+          tenantId: ctx.tenantId,
+          status: evaluation.status,
+          leaseToken: evaluation.leaseToken ?? null,
+        },
+        data: {
+          status: "IN_PROGRESS",
+          startedAt: evaluation.startedAt ?? now,
+          leaseToken,
+          leaseExpiresAt,
+          heartbeatAt: now,
+          ...(isRetryAttempt
+            ? { retryCount: { increment: 1 }, lastRetryAt: now, failureCode: null, failureMessage: null }
+            : {}),
+        },
+      });
+    } catch (error) {
+      if (isRecordNotFound(error)) return this.getById(ctx, evaluation.id);
+      throw error;
+    }
+    if (isRetryAttempt) {
+      await this.audit.recordEvaluationRetry({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        evaluationId: evaluation.id,
+        attempt: (evaluation.retryCount ?? 0) + 1,
+      });
+    }
 
     const documentNumber =
       evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
@@ -475,8 +555,8 @@ export class EvaluationsService {
     let bankErrorMessage: string | null = null;
     let bankErrorCode: string | null = null;
 
-    if (existingBank && existingBank.status === "SUCCESS") {
-      bankStatus = "SUCCESS";
+    if (existingBank && !sourceShouldBeRequeried(existingBank.status, existingBank.errorCode)) {
+      bankStatus = existingBank.status as typeof bankStatus;
       bankResultId = existingBank.id;
       bankPayload = existingBank.normalizedPayload as unknown as NormalizedFinancialData;
     } else {
@@ -539,8 +619,8 @@ export class EvaluationsService {
     let bureauErrorCode: string | null = null;
 
     if (isBureauEnabled) {
-      if (existingBureau && existingBureau.status === "SUCCESS") {
-        bureauStatusVal = "SUCCESS";
+      if (existingBureau && !sourceShouldBeRequeried(existingBureau.status, existingBureau.errorCode)) {
+        bureauStatusVal = existingBureau.status as "SUCCESS" | "NO_DATA" | "UNAVAILABLE" | "ERROR";
         bureauResultId = existingBureau.id;
         bureauPayload = existingBureau.normalizedPayload as unknown as NormalizedBureauData;
       } else {
@@ -610,70 +690,49 @@ export class EvaluationsService {
       (bureauStatusVal === "UNAVAILABLE" || bureauStatusVal === "ERROR");
 
     if (isBankFailure || isBureauFailure) {
-      const failingSource = isBureauFailure ? "Buró de Crédito" : "Banco Unión";
-      const failureCode =
-        (isBureauFailure ? bureauErrorCode : bankErrorCode) ?? "SOURCE_UNAVAILABLE";
-      const failureMessage =
-        (isBureauFailure ? bureauErrorMessage : bankErrorMessage) ??
-        `${failingSource} no está disponible temporalmente.`;
+      const hasSuccessfulSource = bankStatus === "SUCCESS" || bureauStatusVal === "SUCCESS";
+      const failingSource = isBureauFailure ? "Buró crediticio" : "Banco Mock";
+      const failureCode = hasSuccessfulSource
+        ? "PARTIAL_SOURCE_FAILURE"
+        : ((isBureauFailure ? bureauErrorCode : bankErrorCode) ?? "SOURCE_UNAVAILABLE");
+      const failureMessage = hasSuccessfulSource
+        ? `${failingSource} no respondió por ahora. Se conservan los datos ya obtenidos.`
+        : ((isBureauFailure ? bureauErrorMessage : bankErrorMessage) ??
+          `${failingSource} no está disponible temporalmente.`);
 
-      const failed = await this.db.client.evaluation.update({
-        where: { id: evaluation.id },
-        data: {
-          status: "FAILED",
-          failureCode,
-          failureMessage,
-        },
-        include: {
-          client: true,
-          profile: true,
-          sourceResults: {
-            include: { provider: true },
-            orderBy: { requestedAt: "asc" },
-          },
-          recommendations: {
-            include: { product: true, reasons: true },
-            orderBy: { evaluatedAt: "asc" },
-          },
-        },
+      const failed = await this.finalizeEvaluation(evaluation.id, leaseToken, {
+        status: hasSuccessfulSource ? "INCOMPLETE" : "FAILED",
+        failureCode,
+        failureMessage,
       });
+      if (!failed) {
+        return this.getById(ctx, evaluation.id);
+      }
 
+      const persisted = failed;
       await this.audit.recordEvaluationProcessed({
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
         evaluationId: evaluation.id,
-        status: "FAILED",
+        status: persisted.status,
       });
 
-      return this.serializeEvaluation(failed);
+      return this.serializeEvaluation(persisted);
     }
 
     const isBankNoData = bankStatus === "NO_DATA";
     const isBureauNoDataOrDisabled = !isBureauEnabled || bureauStatusVal === "NO_DATA";
 
     if (isBankNoData && isBureauNoDataOrDisabled) {
-      const incomplete = await this.db.client.evaluation.update({
-        where: { id: evaluation.id },
-        data: {
-          status: "INCOMPLETE",
-          completedAt: new Date(),
-          failureCode: "NO_FINANCIAL_DATA",
-          failureMessage:
-            "Sin antecedentes ni actividad financiera en las fuentes consultadas.",
-        },
-        include: {
-          client: true,
-          profile: true,
-          sourceResults: {
-            include: { provider: true },
-            orderBy: { requestedAt: "asc" },
-          },
-          recommendations: {
-            include: { product: true, reasons: true },
-            orderBy: { evaluatedAt: "asc" },
-          },
-        },
+      const incomplete = await this.finalizeEvaluation(evaluation.id, leaseToken, {
+        status: "INCOMPLETE",
+        completedAt: new Date(),
+        failureCode: "NO_FINANCIAL_DATA",
+        failureMessage: "Sin antecedentes ni actividad financiera en las fuentes consultadas.",
       });
+      if (!incomplete) {
+        return this.getById(ctx, evaluation.id);
+      }
 
       await this.audit.recordEvaluationProcessed({
         tenantId: ctx.tenantId,
@@ -715,28 +774,16 @@ export class EvaluationsService {
         profile: consolidated.indicators,
       });
 
-      const completed = await this.db.client.evaluation.update({
-        where: { id: evaluation.id },
-        data: {
-          status: "COMPLETED",
-          ruleVersion: "1.0.0",
-          completedAt: new Date(),
-          failureCode: null,
-          failureMessage: null,
-        },
-        include: {
-          client: true,
-          profile: true,
-          sourceResults: {
-            include: { provider: true },
-            orderBy: { requestedAt: "asc" },
-          },
-          recommendations: {
-            include: { product: true, reasons: true },
-            orderBy: { evaluatedAt: "asc" },
-          },
-        },
+      const completed = await this.finalizeEvaluation(evaluation.id, leaseToken, {
+        status: "COMPLETED",
+        ruleVersion: "1.0.0",
+        completedAt: new Date(),
+        failureCode: null,
+        failureMessage: null,
       });
+      if (!completed) {
+        return this.getById(ctx, evaluation.id);
+      }
 
       await this.audit.recordEvaluationProcessed({
         tenantId: ctx.tenantId,
@@ -747,6 +794,199 @@ export class EvaluationsService {
 
       return this.serializeEvaluation(completed);
     });
+  }
+
+  private evaluationInclude() {
+    return {
+      client: true,
+      profile: true,
+      sourceResults: { include: { provider: true }, orderBy: { requestedAt: "asc" as const } },
+      recommendations: {
+        include: { product: true, reasons: true },
+        orderBy: { evaluatedAt: "asc" as const },
+      },
+    };
+  }
+
+  private async findByIdempotency(tenantId: string, effectiveKey: string) {
+    return this.db.client.evaluation.findFirst({
+      where: { tenantId, idempotencyKey: effectiveKey },
+      include: this.evaluationInclude(),
+    });
+  }
+
+  /** CA-25.01 / CA-25.14: misma clave+payload => misma Evaluation; payload distinto => 409 genérico. */
+  private resolveIdempotentDraft(
+    existing: Parameters<EvaluationsService["serializeEvaluation"]>[0] & {
+      requestFingerprint?: string | null;
+    },
+    requestFingerprint: string,
+  ) {
+    if (existing.requestFingerprint && existing.requestFingerprint !== requestFingerprint) {
+      throw new ConflictException("No se puede registrar esta solicitud.");
+    }
+    return this.serializeEvaluation(existing);
+  }
+
+  /**
+   * CA-25.10: consumo exactamente una vez por Evaluation. Bloqueo advisory por tenant
+   * dentro de una transacción: la cuota estricta no se excede bajo carrera.
+   */
+  private async consumeEvaluationUsage(tenantId: string, evaluationId: string): Promise<void> {
+    await this.db.run(async () => {
+      const client = this.db.client;
+      await client.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
+
+      const key = usageKeyForEvaluation(tenantId, evaluationId);
+      const already = await client.usageRecord.findUnique({ where: { idempotencyKey: key } });
+      if (already) return;
+
+      const subscription = await client.tenantSubscription.findFirst({
+        where: { tenantId, status: "ACTIVE" },
+        include: { plan: true },
+        orderBy: { startsAt: "desc" },
+      });
+      const limit = subscription?.plan?.evaluationsPerMonth ?? null;
+      if (limit !== null) {
+        const nowUtc = new Date();
+        const monthStart = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), 1));
+        const used = await client.usageRecord.count({
+          where: { tenantId, metric: "EVALUATION", occurredAt: { gte: monthStart } },
+        });
+        if (used >= limit) {
+          throw new ForbiddenException(
+            "Tu institución alcanzó el límite mensual de evaluaciones de su plan.",
+          );
+        }
+      }
+
+      try {
+        await client.usageRecord.create({
+          data: {
+            tenantId,
+            metric: "EVALUATION",
+            quantity: 1,
+            referenceType: "Evaluation",
+            referenceId: evaluationId,
+            idempotencyKey: key,
+          },
+        });
+      } catch (error) {
+        if (!isPrismaUniqueConflict(error)) throw error;
+      }
+    });
+  }
+
+  /** CA-25.16: solo el dueño del lease y solo desde IN_PROGRESS puede cerrar. */
+  private async finalizeEvaluation(
+    evaluationId: string,
+    leaseToken: string,
+    data: {
+      status: EvaluationStatus;
+      failureCode?: string | null;
+      failureMessage?: string | null;
+      completedAt?: Date | null;
+      ruleVersion?: string | null;
+    },
+  ) {
+    try {
+      return await this.db.client.evaluation.update({
+        where: { id: evaluationId, leaseToken, status: "IN_PROGRESS" },
+        data: { ...data, leaseToken: null, leaseExpiresAt: null, heartbeatAt: null },
+        include: this.evaluationInclude(),
+      });
+    } catch (error) {
+      if (isRecordNotFound(error)) return null;
+      throw error;
+    }
+  }
+
+  /** CA-25.06 / CA-25.09 / CA-25.15: reintenta la misma Evaluation, sin nuevo consumo. */
+  async retryEvaluation(ctx: TenantContext, evaluationId: string) {
+    const evaluation = await this.db.client.evaluation.findFirst({
+      where: { id: evaluationId, tenantId: ctx.tenantId },
+      include: this.evaluationInclude(),
+    });
+    if (!evaluation) throw new NotFoundException("Evaluación no encontrada.");
+
+    const snapshot = evaluation.applicantSnapshot as {
+      id?: string;
+      documentNumber?: string;
+      consent?: { given?: boolean };
+    } | null;
+    const sameSubject =
+      !!snapshot &&
+      snapshot.consent?.given === true &&
+      !!evaluation.consentGivenAt &&
+      snapshot.id === evaluation.clientId &&
+      (!evaluation.client || snapshot.documentNumber === evaluation.client.documentNumber);
+    if (!sameSubject) {
+      throw new BadRequestException(
+        "El consentimiento original no corresponde al solicitante de esta evaluación.",
+      );
+    }
+
+    const policy = evaluateRetryPolicy({
+      status: evaluation.status,
+      retryCount: evaluation.retryCount ?? 0,
+      failureCode: evaluation.failureCode,
+      sources: (evaluation.sourceResults ?? []).map((sr) => ({
+        status: sr.status,
+        errorCode: sr.errorCode,
+      })),
+    });
+    if (!policy.allowed) throw new BadRequestException(policy.reason);
+
+    return this.processEvaluation(ctx, evaluationId);
+  }
+
+  /** CA-25.02/.11/.13/.17: estado persistido + seguimiento + qué se logró/qué faltó/qué hacer. */
+  private buildRecoveryView(ev: {
+    status: string;
+    failureCode?: string | null;
+    retryCount?: number;
+    leaseExpiresAt?: Date | null;
+    sourceResults?: Array<{
+      status: string;
+      errorCode: string | null;
+      respondedAt: Date | null;
+      requestedAt: Date;
+      provider?: { code: string; name: string } | null;
+    }>;
+  }) {
+    const sources = (ev.sourceResults ?? []).map((sr) => ({
+      providerCode: sr.provider?.code ?? null,
+      providerName: sr.provider?.name ?? null,
+      status: sr.status,
+      errorCode: sr.errorCode,
+    }));
+    const policy = evaluateRetryPolicy({
+      status: ev.status,
+      retryCount: ev.retryCount ?? 0,
+      failureCode: ev.failureCode,
+      sources,
+    });
+    return {
+      tracking: computeTracking({
+        status: ev.status,
+        leaseExpiresAt: ev.leaseExpiresAt,
+        retryable: policy.allowed,
+      }),
+      retry: {
+        allowed: policy.allowed,
+        reason: policy.reason,
+        remainingAttempts: policy.remainingAttempts,
+        maxAttempts: MAX_EVALUATION_RETRIES,
+      },
+      coverage: buildCoverageCopy(sources),
+      sourceStatuses: (ev.sourceResults ?? []).map((sr) => ({
+        providerCode: sr.provider?.code ?? null,
+        providerName: sr.provider?.name ?? null,
+        status: sr.status,
+        errorCode: sr.errorCode,
+        asOf: sr.respondedAt ?? sr.requestedAt,
+      })),
+    };
   }
 
   private serializeEvaluation(ev: {
@@ -764,6 +1004,8 @@ export class EvaluationsService {
     failureMessage?: string | null;
     startedAt?: Date | null;
     completedAt?: Date | null;
+    retryCount?: number;
+    leaseExpiresAt?: Date | null;
     createdAt: Date;
     updatedAt: Date;
     profile?: {
@@ -848,6 +1090,7 @@ export class EvaluationsService {
       completedAt: ev.completedAt ?? null,
       createdAt: ev.createdAt,
       updatedAt: ev.updatedAt,
+      ...this.buildRecoveryView(ev),
       profile: ev.profile
         ? {
             id: ev.profile.id,

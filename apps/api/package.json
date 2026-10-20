@@ -9,6 +9,7 @@
     "start": "node dist/main.js",
     "lint": "eslint src test --max-warnings=0",
     "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand",
+    "test:hu25": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand hu25 evaluations.spec s4-hf-06-07 resilient circuit-breaker",
     "test:hu23": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand hu23 provider-health provider-episode integration-status internal-staff",
     "test:e2e": "npm run build && node test/run-e2e.mjs"
   },

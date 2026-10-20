@@ -46,6 +46,9 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
       integrationProvider: {
         findUnique: MockFn;
       };
+      $queryRaw: MockFn;
+      usageRecord: { findUnique: MockFn; count: MockFn; create: MockFn };
+      tenantSubscription: { findFirst: MockFn };
     };
     run: MockFn;
   };
@@ -59,6 +62,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
   let mockAudit: {
     recordEvaluationDraft: MockFn;
     recordEvaluationProcessed: MockFn;
+    recordEvaluationRetry: MockFn;
   };
   let mockBank: {
     query: MockFn;
@@ -90,6 +94,13 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
           create: jest.fn(),
           update: jest.fn(),
         },
+        $queryRaw: jest.fn<any>().mockResolvedValue([]),
+        usageRecord: {
+          findUnique: jest.fn<any>().mockResolvedValue(null),
+          count: jest.fn<any>().mockResolvedValue(0),
+          create: jest.fn<any>().mockResolvedValue({}),
+        },
+        tenantSubscription: { findFirst: jest.fn<any>().mockResolvedValue(null) },
         evaluationSourceResult: {
           findFirst: jest.fn(),
           upsert: jest.fn(),
@@ -121,6 +132,7 @@ describe("EvaluationsService (HU-10 & HU-11)", () => {
     mockAudit = {
       recordEvaluationDraft: jest.fn(),
       recordEvaluationProcessed: jest.fn(),
+      recordEvaluationRetry: jest.fn(),
     };
 
     mockBank = {

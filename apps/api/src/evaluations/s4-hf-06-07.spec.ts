@@ -50,12 +50,15 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
       evaluation: { findUnique: MockFn; findFirst: MockFn; create: MockFn; update: MockFn };
       evaluationSourceResult: { upsert: MockFn };
       integrationProvider: { findUnique: MockFn };
+      $queryRaw: MockFn;
+      usageRecord: { findUnique: MockFn; count: MockFn; create: MockFn };
+      tenantSubscription: { findFirst: MockFn };
     };
     run: MockFn;
   };
   let mockClients: { findByDocument: MockFn; findOrCreate: MockFn };
   let mockPreparation: { read: MockFn };
-  let mockAudit: { recordEvaluationDraft: MockFn; recordEvaluationProcessed: MockFn };
+  let mockAudit: { recordEvaluationDraft: MockFn; recordEvaluationProcessed: MockFn; recordEvaluationRetry: MockFn };
   let mockBank: { query: MockFn; status: MockFn; enable: MockFn };
   let mockBureau: { query: MockFn; status: MockFn; enable: MockFn };
   let mockProfileCalculator: { calculate: MockFn; consolidate: MockFn; saveProfile: MockFn };
@@ -97,6 +100,13 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
             ...data,
           })),
         },
+        $queryRaw: jest.fn<any>().mockResolvedValue([]),
+        usageRecord: {
+          findUnique: jest.fn<any>().mockResolvedValue(null),
+          count: jest.fn<any>().mockResolvedValue(0),
+          create: jest.fn<any>().mockResolvedValue({}),
+        },
+        tenantSubscription: { findFirst: jest.fn<any>().mockResolvedValue(null) },
         evaluationSourceResult: {
           upsert: jest.fn<any>().mockImplementation(async ({ create }: any) => ({ ...create })),
         },
@@ -135,7 +145,7 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
       }),
     };
     mockPreparation = { read: jest.fn() };
-    mockAudit = { recordEvaluationDraft: jest.fn(), recordEvaluationProcessed: jest.fn() };
+    mockAudit = { recordEvaluationDraft: jest.fn(), recordEvaluationProcessed: jest.fn(), recordEvaluationRetry: jest.fn() };
     mockBank = {
       query: jest.fn<any>().mockResolvedValue({
         status: "SUCCESS",
@@ -321,7 +331,8 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
 
       await service.processEvaluation(ctx, "eval-1");
 
-      expect(mockDb.run).toHaveBeenCalledTimes(1);
+      // 1 unidad de trabajo para el consumo de cuota (HU-25) + 1 para perfil, recomendaciones y cierre.
+      expect(mockDb.run).toHaveBeenCalledTimes(2);
       expect(mockRecommender.evaluate).toHaveBeenCalledTimes(1);
       expect(writesOutsideUnitOfWork).toEqual([]);
     });
