@@ -107,6 +107,8 @@ Acceso: <http://localhost:5173/admin/login>. Ambas cuentas tienen el rol interno
 | `operador.demo@doggycredit.local` | `DoggyDemo2026!`     |
 | `revision.demo@doggycredit.local` | `DoggyRevision2026!` |
 
+Para probar **Equipo interno** y las acciones exclusivas del administrador de plataforma, usa la cuenta demo `admin.demo@doggycredit.local` con contraseña `DoggyAdminDemo2026!`. Actívala únicamente en una base local de desarrollo/pruebas con `NODE_ENV=development` y `SEED_DEMO_PLATFORM_ADMIN=true` en `.env`, y ejecuta `npm run prisma:seed`. Esta bandera es independiente de `SEED_DEMO_BACKOFFICE_USERS`. Nunca la habilites en producción ni en un entorno expuesto a Internet.
+
 Estas credenciales son públicas, exclusivamente para una base local de desarrollo/pruebas. No habilites estas cuentas en producción ni en un entorno expuesto a Internet. No son cuentas bancarias ni administradores de tenants.
 
 Para crearlas, configura `NODE_ENV=development` y `SEED_DEMO_BACKOFFICE_USERS=true` en `.env`, y ejecuta `npm run prisma:seed`. Repetirlo no duplica usuarios; si cambia su contraseña revoca sus sesiones anteriores. No cambia el operador personalizado salvo que también habilites `SEED_DEMO_OPERATOR`. El seed rechaza reutilizar una cuenta con otro rol o con memberships institucionales.
