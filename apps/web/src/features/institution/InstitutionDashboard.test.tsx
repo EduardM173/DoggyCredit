@@ -27,35 +27,40 @@ describe("HU-20 InstitutionDashboard — Consultar dashboard institucional orien
 
   const mockAdminDashboardData: DashboardMetricsDto = {
     tenant: { id: "tenant-sol", slug: "banco-sol", name: "Banco Sol" },
+    role: "INSTITUTION_ADMIN",
     period: {
-      key: "last_30_days",
+      code: "last_30_days",
       label: "Últimos 30 días",
-      startDate: "2026-09-20T00:00:00.000Z",
-      endDate: "2026-10-20T00:00:00.000Z",
-      timezone: "America/La_Paz",
+      from: "2026-09-20T00:00:00.000Z",
+      to: "2026-10-20T00:00:00.000Z",
     },
     asOf: "2026-10-20T10:00:00.000Z",
     hasEvaluations: true,
     hasPeriodActivity: true,
+    isSmallSample: false,
     attentionRequiredCount: 2,
     pendingAttention: [
       {
         id: "eval-f1",
         applicantName: "Juan Perez",
+        applicantType: "PERSON",
+        requestedAmount: 15000,
         status: "FAILED",
         reasonText: "Falla de conectividad al consultar fuente financiera",
         actionableType: "RETRY",
         actionUrl: "/banco-sol/evaluaciones/eval-f1",
-        createdAt: "2026-10-18T10:00:00.000Z",
+        updatedAt: "2026-10-18T10:00:00.000Z",
       },
       {
         id: "eval-i1",
         applicantName: "Comercializadora Illimani SRL",
+        applicantType: "COMPANY",
+        requestedAmount: 50000,
         status: "INCOMPLETE",
         reasonText: "Información tributaria insuficiente para emitir recomendación",
         actionableType: "REVIEW",
         actionUrl: "/banco-sol/evaluaciones/eval-i1",
-        createdAt: "2026-10-17T12:00:00.000Z",
+        updatedAt: "2026-10-17T12:00:00.000Z",
       },
     ],
     metrics: {
@@ -66,26 +71,29 @@ describe("HU-20 InstitutionDashboard — Consultar dashboard institucional orien
         COMPLETED: 12,
         FAILED: 1,
         INCOMPLETE: 1,
+        DRAFT: 0,
       },
       byScope: {
-        CONSUMER: 10,
-        COMMERCIAL: 5,
+        PERSON: 10,
+        COMPANY: 5,
       },
       catalogCompatibility: {
-        compatibleEvaluations: 9,
-        compatibleRate: 75,
-        noProductEvaluations: 3,
+        compatibleCount: 9,
+        rate: 75,
+        incompatibleCount: 3,
       },
     },
     readiness: {
-      isReady: true,
-      pendingSteps: [],
+      ready: true,
+      completedSteps: 3,
+      totalSteps: 3,
+      canEvaluate: true,
     },
     permissions: {
       canManageTeam: true,
       canManageProducts: true,
+      canManageSources: true,
       canEvaluate: true,
-      canViewEvaluations: true,
     },
   };
 
@@ -94,8 +102,8 @@ describe("HU-20 InstitutionDashboard — Consultar dashboard institucional orien
     permissions: {
       canManageTeam: false,
       canManageProducts: false,
+      canManageSources: false,
       canEvaluate: true,
-      canViewEvaluations: true,
     },
   };
 
@@ -177,9 +185,9 @@ describe("HU-20 InstitutionDashboard — Consultar dashboard institucional orien
       metrics: {
         totalEvaluations: 0,
         completionRate: null,
-        byStatus: { IN_PROGRESS: 0, COMPLETED: 0, FAILED: 0, INCOMPLETE: 0 },
-        byScope: { CONSUMER: 0, COMMERCIAL: 0 },
-        catalogCompatibility: { compatibleEvaluations: 0, compatibleRate: null, noProductEvaluations: 0 },
+        byStatus: { IN_PROGRESS: 0, COMPLETED: 0, FAILED: 0, INCOMPLETE: 0, DRAFT: 0 },
+        byScope: { PERSON: 0, COMPANY: 0 },
+        catalogCompatibility: { rate: null, compatibleCount: 0, incompatibleCount: 0 },
       },
     };
 
@@ -213,11 +221,10 @@ describe("HU-20 InstitutionDashboard — Consultar dashboard institucional orien
       hasEvaluations: true,
       hasPeriodActivity: false,
       period: {
-        key: "today",
+        code: "today",
         label: "Hoy",
-        startDate: "2026-10-20T00:00:00.000Z",
-        endDate: "2026-10-20T23:59:59.000Z",
-        timezone: "America/La_Paz",
+        from: "2026-10-20T00:00:00.000Z",
+        to: "2026-10-20T23:59:59.000Z",
       },
       attentionRequiredCount: 0,
       pendingAttention: [],

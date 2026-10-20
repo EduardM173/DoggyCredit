@@ -475,3 +475,66 @@ export function fetchDashboard(slug: string, period?: DashboardPeriod, signal?: 
   const query = period ? `?period=${encodeURIComponent(period)}` : "";
   return institutionApi<DashboardMetricsDto>(`/tenants/${encodeURIComponent(slug)}/dashboard${query}`, { signal });
 }
+
+
+export type CapacityState = "LIMITADO" | "ILIMITADO" | "NO_CONFIGURADO" | "NO_DISPONIBLE";
+
+export interface TenantPlanMeteringDto {
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  subscription: {
+    id: string | null;
+    status: "ACTIVE" | "SUSPENDED" | "ENDED" | "NO_SUBSCRIPTION";
+    startsAt: string | null;
+    endsAt: string | null;
+  };
+  plan: {
+    id: string | null;
+    code: string;
+    name: string;
+    description: string | null;
+    price: number;
+    currency: string;
+    billingPeriod: string;
+    requiresPayment: boolean;
+    features: string[];
+    maxUsers: number | null;
+  } | null;
+  capacity: {
+    state: CapacityState;
+    unit: string;
+    limit: number | null;
+    consumed: number;
+    remaining: number | null;
+    percentage: number | null;
+    isExceeded: boolean;
+  };
+  cycle: {
+    startDate: string;
+    endDate: string;
+    timezone: "America/La_Paz";
+    renewalDate: string;
+  };
+  scoring: {
+    enabled: boolean;
+    type: "RULES_BASED";
+    description: string;
+  };
+  asOf: string;
+  permissions: {
+    canViewCommercialTerms: boolean;
+    canEvaluate: boolean;
+    role: string;
+  };
+  environment: {
+    isSimulation: boolean;
+    disclaimer: string;
+  };
+}
+
+export function fetchTenantPlanMetering(slug: string, signal?: AbortSignal) {
+  return institutionApi<TenantPlanMeteringDto>(`/tenants/${encodeURIComponent(slug)}/plan-metering`, { signal });
+}

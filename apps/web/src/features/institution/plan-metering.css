@@ -1,0 +1,372 @@
+.plan-metering-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.plan-metering-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1.25rem;
+}
+
+.plan-metering-title-group h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.plan-metering-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.plan-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.plan-status-badge.active {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.plan-status-badge.suspended,
+.plan-status-badge.ended {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.plan-status-badge.unconfigured {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.plan-role-badge {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+  background-color: #f1f5f9;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.plan-metering-recency {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Quota Exceeded Alert */
+.quota-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  color: #9f1239;
+}
+
+.quota-alert-banner h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+
+.quota-alert-banner p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Grid Layout */
+.plan-metering-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .plan-metering-grid {
+    grid-template-columns: 3fr 2fr;
+  }
+}
+
+/* Main Capacity Card */
+.capacity-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.capacity-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.capacity-card-header h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.capacity-state-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.capacity-state-tag.limitado {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.capacity-state-tag.ilimitado {
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.capacity-state-tag.no_configurado,
+.capacity-state-tag.no_disponible {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+/* Progress Section */
+.capacity-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.capacity-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.capacity-numbers {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.capacity-unit {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #64748b;
+  margin-left: 0.35rem;
+}
+
+.capacity-percent {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.capacity-progress-bar-bg {
+  width: 100%;
+  height: 12px;
+  background-color: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.capacity-progress-bar-fill {
+  height: 100%;
+  background-color: #2563eb;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.capacity-progress-bar-fill.exceeded {
+  background-color: #e11d48;
+}
+
+.capacity-progress-bar-fill.warning {
+  background-color: #f59e0b;
+}
+
+.capacity-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1rem;
+}
+
+.capacity-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.capacity-detail-row strong {
+  color: #1e293b;
+}
+
+/* Side Card: Plan Details */
+.plan-summary-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.plan-summary-card h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.plan-commercial-terms {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.plan-price-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.plan-price-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.plan-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.plan-feature-item svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+/* Bottom Notices */
+.plan-notices-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.plan-info-box {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.plan-info-box h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.plan-analyst-notice {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.plan-simulation-notice {
+  background-color: #fafaf9;
+  border: 1px solid #e7e5e4;
+  color: #57534e;
+}
+
+/* Error & Loading States */
+.plan-loading-state,
+.plan-error-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.plan-error-state h2 {
+  color: #b91c1c;
+  margin: 0.5rem 0;
+}
+
+.plan-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.plan-retry-btn:hover {
+  background-color: #1e293b;
+}

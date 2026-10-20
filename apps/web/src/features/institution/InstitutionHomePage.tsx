@@ -19,6 +19,7 @@ import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
 import { AnalystHome } from "./AnalystHome";
 import { InstitutionDashboard } from "./InstitutionDashboard";
+import { PlanAndUsagePage } from "./PlanAndUsagePage";
 import { EvaluationWizard } from "./EvaluationWizard";
 import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
@@ -37,7 +38,8 @@ type Step =
   | "evaluations"
   | "new-evaluation"
   | "evaluation-detail"
-  | "client-dossier";
+  | "client-dossier"
+  | "plan";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -228,6 +230,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                 Equipo
               </Link>
               <Link
+                className={step === "plan" ? "institution-nav-active" : ""}
+                to={`${base}/plan`}
+              >
+                <Database size={20} />
+                Plan y consumo
+              </Link>
+              <Link
                 className={
                   ["settings", "institution", "source", "products"].includes(step)
                     ? "institution-nav-active"
@@ -252,6 +261,12 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
               >
                 <ListChecks size={20} /> Evaluaciones
               </Link>
+              <Link
+                className={step === "plan" ? "institution-nav-active" : ""}
+                to={`${base}/plan`}
+              >
+                <Database size={20} /> Plan y consumo
+              </Link>
             </>
           )}
         </nav>
@@ -273,7 +288,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             </small>
           </div>
         </header>
-        {step === "team" ? (
+        {step === "plan" ? (
+          <PlanAndUsagePage
+            slug={home.tenant.slug}
+            role={home.membership.role}
+            tenantName={home.tenant.name}
+          />
+        ) : step === "team" ? (
           <TeamPanel slug={home.tenant.slug} tenantName={home.tenant.name} />
         ) : step === "new-evaluation" ? (
           <EvaluationWizard slug={home.tenant.slug} tenantName={home.tenant.name} ready={home.ready} />

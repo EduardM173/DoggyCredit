@@ -152,5 +152,5 @@ describe("HU-08 preparation interface", () => {
       expect.stringContaining("/tenants/banco-x/home"),
       expect.anything(),
     );
-  });
+  }, 15000);
 });

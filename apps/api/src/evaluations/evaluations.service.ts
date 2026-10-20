@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
+import { TenantPlanMeteringService } from "../plans-metering/public.js";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
 import { ClientsService } from "../clients/public.js";
 import { TenantPreparationService, type TenantContext } from "../identity-tenants/public.js";
@@ -75,6 +77,7 @@ export class EvaluationsService {
     private readonly profileCalculator: FinancialProfileCalculator,
     private readonly recommender: EvaluationRecommender,
     private readonly resilient: ResilientSources,
+    @Optional() private readonly planMetering?: TenantPlanMeteringService,
   ) {}
 
 
@@ -397,6 +400,11 @@ export class EvaluationsService {
       return this.serializeEvaluation(evaluation);
     }
 
+    // CA-21.04 / CA-21.05: Validar cupo y estado del plan antes de iniciar procesamiento
+    if (this.planMetering) {
+      await this.planMetering.checkQuotaAvailable(ctx.tenantId, ctx.role);
+    }
+
     const { readiness, isBureauEnabled: isBureauOperational } = await this.assessReadiness(ctx);
     if (!readiness.ready) {
       throw new BadRequestException(
@@ -437,6 +445,11 @@ export class EvaluationsService {
         startedAt: evaluation.startedAt ?? new Date(),
       },
     });
+
+    // CA-21.03 / CA-21.13 / S4-RF-03: Contabilizar uso de evaluación de forma idempotente
+    if (this.planMetering) {
+      await this.planMetering.recordEvaluationUsage(ctx.tenantId, evaluation.id);
+    }
 
     const documentNumber =
       evaluation.client?.documentNumber ?? (snapshot?.documentNumber as string);
