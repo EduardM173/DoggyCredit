@@ -19,6 +19,7 @@ async function main() {
       process.env.SEED_DEMO_PLANS,
       process.env.SEED_DEMO_OPERATOR,
       process.env.SEED_DEMO_BACKOFFICE_USERS,
+      process.env.SEED_DEMO_PLATFORM_ADMIN,
       process.env.SEED_DEMO_PRODUCTS,
       process.env.SEED_DEMO_EVALUATIONS,
     ].includes("true") &&
@@ -41,6 +42,14 @@ async function main() {
       },
     ])
       await seedOperator(account.email, account.fullName, account.password);
+  }
+  if (process.env.SEED_DEMO_PLATFORM_ADMIN === "true") {
+    await seedOperator(
+      "admin.demo@doggycredit.local",
+      "Administrador Demo DoggyCredit",
+      "DoggyAdminDemo2026!",
+      PlatformRole.PLATFORM_ADMIN,
+    );
   }
   if (process.env.SEED_DEMO_PLANS === "true") {
     if (!["development", "test"].includes(process.env.NODE_ENV ?? ""))
@@ -152,6 +161,7 @@ async function seedPlatformAdminFromEnv() {
       "Configure PLATFORM_ADMIN_SEED_NAME, PLATFORM_ADMIN_SEED_EMAIL and a 12-128 character PLATFORM_ADMIN_SEED_PASSWORD.",
     );
   }
+  if (await prisma.user.count({ where: { platformRole: PlatformRole.PLATFORM_ADMIN } })) return;
   await seedOperator(email, fullName, password, PlatformRole.PLATFORM_ADMIN);
 }
 

@@ -46,6 +46,8 @@ import { InvitationDeliveryService } from "./provisioning/invitation-delivery.se
 import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recovery.service.js";
 import { PasswordRecoveryController } from "./password-recovery/password-recovery.controller.js";
 import { PasswordRecoveryService } from "./password-recovery/password-recovery.service.js";
+import { PlatformTeamController, PlatformInvitationController, PlatformTeamDeniedAuditGuard } from "./platform-team/platform-team.controller.js";
+import { PlatformTeamService } from "./platform-team/platform-team.service.js";
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { PasswordRecoveryService } from "./password-recovery/password-recovery.s
     TestInboxController,
     RequestReviewController,
     PasswordRecoveryController,
+    PlatformTeamController,
+    PlatformInvitationController,
   ],
   providers: [
     TenantPreparationService,
@@ -94,6 +98,8 @@ import { PasswordRecoveryService } from "./password-recovery/password-recovery.s
     RequestReviewService,
     RequestDecisionDeliveryService,
     PasswordRecoveryService,
+    PlatformTeamService,
+    PlatformTeamDeniedAuditGuard,
   ],
   exports: [
     ProvisioningQueue,

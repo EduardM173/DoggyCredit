@@ -22,9 +22,12 @@ import { InstitutionHomePage } from "./features/institution/InstitutionHomePage"
 import { IntegrationsPage } from "./features/admin/IntegrationsPage";
 import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
 import { PasswordRecoveryPage } from "./features/password-recovery/PasswordRecoveryPage";
+import { PlatformTeamPage } from "./features/admin/PlatformTeamPage";
+import { OperatorActivationPage } from "./features/activation/OperatorActivationPage";
 
 export const router = createBrowserRouter([
   { path: "/activar-cuenta", element: <ActivationPage /> },
+  { path: "/activar-operador", element: <OperatorActivationPage /> },
   { path: "/iniciar-sesion", element: <InstitutionLoginPage /> },
   { path: "/recuperar-contrasena", element: <PasswordRecoveryPage /> },
   { path: "/restablecer-contrasena", element: <PasswordRecoveryPage reset /> },
@@ -42,8 +45,8 @@ export const router = createBrowserRouter([
       { path: "instituciones", element: <InstitutionsPage /> },
       { path: "bandeja-pruebas", element: <TestInboxPage /> },
       { path: "proveedores", element: <ProvidersPage /> },
+      { path: "equipo-interno", element: <PlatformTeamPage /> },
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
-      { path: "proveedores", element: <ProvidersPage /> },
       { path: "integraciones", element: <IntegrationsPage /> },
       { path: "integraciones/:code", element: <IntegrationDetailPage /> },
     ],

@@ -92,6 +92,12 @@ npm run prisma:seed
 
 El seed es idempotente. El operador personalizado se configura con `SEED_DEMO_OPERATOR=true`, `OPERATOR_SEED_NAME`, `OPERATOR_SEED_EMAIL` y `OPERATOR_SEED_PASSWORD` en `.env` local. Para probar HU-30 (proveedores) puedes sembrar además un administrador de plataforma con `PLATFORM_ADMIN_SEED_NAME`, `PLATFORM_ADMIN_SEED_EMAIL` y `PLATFORM_ADMIN_SEED_PASSWORD` (12-128 caracteres), solo en development/test. No publiques sus credenciales reales. Todos los seeds demo están restringidos a `NODE_ENV=development` o `test`; en producción se rechazan antes de modificar datos.
 
+### Bootstrap de administración interna (HU-31)
+
+En una base nueva, después de `npm run prisma:deploy`, un responsable del despliegue configura `PLATFORM_ADMIN_BOOTSTRAP_EMAIL`, `PLATFORM_ADMIN_BOOTSTRAP_NAME` y `PLATFORM_ADMIN_BOOTSTRAP_PASSWORD` como secretos del entorno y ejecuta `npm run bootstrap:platform-admin`. La contraseña sigue la política de activación (15–128 caracteres). El comando es de instalación, no parte del arranque normal ni de la UI pública. No imprime secretos; si ya existe cualquier `PLATFORM_ADMIN`, termina sin crear otro ni cambiar credenciales. Después, retira el secreto del entorno y rota la contraseña mediante la recuperación normal si procede. No ejecutes el bootstrap sobre una base real sin autorización. Una pérdida excepcional del último administrador requiere recuperación operativa verificada fuera del portal público; nunca se resuelve con registro público ni reinstalando el bootstrap.
+
+El administrador entra en `/admin/login` y gestiona operadores en **Equipo interno**. La invitación solo otorga `OPERATOR` al aceptarse. Suspender cierra sesiones internas; reactivar exige una nueva sesión; revocar es definitivo desde esta interfaz. Ninguna de esas acciones elimina la cuenta global o sus membresías institucionales.
+
 ### Usuarios de prueba del backoffice
 
 Acceso: <http://localhost:5173/admin/login>. Ambas cuentas tienen el rol interno `OPERATOR` y permiten revisar solicitudes, consultar contrataciones e instituciones.
@@ -100,6 +106,8 @@ Acceso: <http://localhost:5173/admin/login>. Ambas cuentas tienen el rol interno
 | --------------------------------- | -------------------- |
 | `operador.demo@doggycredit.local` | `DoggyDemo2026!`     |
 | `revision.demo@doggycredit.local` | `DoggyRevision2026!` |
+
+Para probar **Equipo interno** y las acciones exclusivas del administrador de plataforma, usa la cuenta demo `admin.demo@doggycredit.local` con contraseña `DoggyAdminDemo2026!`. Actívala únicamente en una base local de desarrollo/pruebas con `NODE_ENV=development` y `SEED_DEMO_PLATFORM_ADMIN=true` en `.env`, y ejecuta `npm run prisma:seed`. Esta bandera es independiente de `SEED_DEMO_BACKOFFICE_USERS`. Nunca la habilites en producción ni en un entorno expuesto a Internet.
 
 Estas credenciales son públicas, exclusivamente para una base local de desarrollo/pruebas. No habilites estas cuentas en producción ni en un entorno expuesto a Internet. No son cuentas bancarias ni administradores de tenants.
 

@@ -13,6 +13,7 @@ describe("HU-30 inicio de sesión de PLATFORM_ADMIN", () => {
       email: "admin@doggycredit.local",
       platformRole,
       status: "ACTIVE",
+      platformAccessStatus: "ACTIVE",
       passwordHash: await hashPassword("clave-de-prueba-12345"),
     };
     const tx = {

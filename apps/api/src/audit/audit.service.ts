@@ -5,6 +5,24 @@ import { AuditWriter, type RequestDecisionEvent, type CommerceAuditEvent } from 
 
 @Injectable()
 export class AuditService extends AuditWriter {
+  async recordPlatformTeamEvent(event: {
+    actorUserId?: string;
+    action: string;
+    entityType: "PlatformInvitation" | "User";
+    entityId: string;
+    metadata: Record<string, string>;
+  }): Promise<void> {
+    await this.database.client.auditLog.create({ data: {
+      actorUserId: event.actorUserId, action: event.action,
+      entityType: event.entityType, entityId: event.entityId, metadata: event.metadata,
+    } });
+  }
+  async countRecentPlatformInvitations(actorUserId: string, since: Date): Promise<number> {
+    return this.database.client.auditLog.count({ where: {
+      actorUserId, action: { in: ["OPERATOR_INVITATION_CREATED", "OPERATOR_INVITATION_RESENT"] },
+      createdAt: { gte: since },
+    } });
+  }
   async recordTeamInvitation(event: {
     tenantId: string;
     actorUserId: string;

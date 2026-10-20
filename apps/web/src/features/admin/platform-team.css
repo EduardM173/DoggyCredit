@@ -1,0 +1,189 @@
+.platform-team {
+  color: #0b1f4d;
+}
+.platform-team-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.platform-team-heading h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+}
+.platform-team-heading p {
+  margin: 0;
+  color: #51627d;
+}
+.platform-team button {
+  cursor: pointer;
+}
+.platform-team .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  background: #008e62;
+  border: 1px solid #008e62;
+  color: white;
+  border-radius: 6px;
+  font-weight: 650;
+}
+.platform-team-scroll {
+  overflow-x: auto;
+  border: 1px solid #d9e4f0;
+  background: white;
+  border-radius: 6px;
+}
+.platform-team table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  text-align: left;
+}
+.platform-team th,
+.platform-team td {
+  padding: 15px 18px;
+  border-bottom: 1px solid #e4edf5;
+  vertical-align: middle;
+}
+.platform-team th {
+  background: #eff8ff;
+  color: #42557b;
+  font-size: 13px;
+}
+.platform-team td {
+  font-size: 14px;
+}
+.platform-team td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+.platform-team-status {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.platform-team-status.active {
+  color: #006845;
+  background: #e3f7ee;
+}
+.platform-team-status.invited {
+  color: #765000;
+  background: #fff3d5;
+}
+.platform-team-status.suspended,
+.platform-team-status.revoked,
+.platform-team-status.blocked {
+  color: #5a657b;
+  background: #edf1f5;
+}
+.platform-team-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.platform-team-actions button,
+.platform-team-dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #b8c5de;
+  border-radius: 6px;
+  color: #0b1f4d;
+}
+.platform-team-actions button.platform-team-danger {
+  color: #a52b33;
+  border-color: #dcb0b2;
+}
+.platform-team-empty {
+  padding: 40px 20px;
+  text-align: center;
+  border: 1px solid #d9e4f0;
+  background: white;
+}
+.platform-team-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #0b1f4d9c;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.platform-team-dialog {
+  width: min(100%, 500px);
+  max-height: min(90vh, 740px);
+  overflow: auto;
+  position: relative;
+  background: white;
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 15px 45px #091b3950;
+}
+.platform-team-dialog h2 {
+  margin: 0 0 20px;
+  font-size: 23px;
+}
+.platform-team-close {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  background: none;
+  border: 0;
+  color: #52627b;
+}
+.platform-team-dialog label {
+  display: block;
+  margin: 16px 0 7px;
+  font-weight: 650;
+}
+.platform-team-dialog input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #b8c5de;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font: inherit;
+}
+.platform-team-dialog p {
+  color: #51627d;
+  line-height: 1.5;
+}
+.platform-team-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.platform-team-dialog-actions .platform-team-danger-button {
+  background: #ac2730;
+  border-color: #ac2730;
+  color: white;
+}
+.platform-team button:focus-visible,
+.platform-team input:focus-visible {
+  outline: 3px solid #1473e6;
+  outline-offset: 2px;
+}
+.platform-team button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+@media (max-width: 680px) {
+  .platform-team-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .platform-team-dialog {
+    padding: 24px;
+  }
+}

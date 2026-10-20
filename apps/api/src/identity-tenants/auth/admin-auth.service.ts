@@ -19,7 +19,7 @@ export class AdminAuthService {
   async login(email: string, password: string, previousToken?: string) {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      select: { ...identitySelect, status: true, passwordHash: true },
+      select: { ...identitySelect, status: true, platformAccessStatus: true, passwordHash: true },
     });
     const valid = await verifyPassword(user?.passwordHash ?? (await this.dummy), password);
     // HU-30: el administrador de plataforma también inicia sesión; sus permisos los separan los guards
@@ -28,6 +28,7 @@ export class AdminAuthService {
       !valid ||
       !user ||
       user.status !== "ACTIVE" ||
+      user.platformAccessStatus !== "ACTIVE" ||
       (user.platformRole !== "OPERATOR" && user.platformRole !== "PLATFORM_ADMIN")
     )
       throw new UnauthorizedException("Credenciales incorrectas.");
@@ -63,7 +64,7 @@ export class AdminAuthService {
         expiresAt: true,
         revokedAt: true,
         createdAt: true,
-        user: { select: { ...identitySelect, status: true, passwordChangedAt: true } },
+        user: { select: { ...identitySelect, status: true, platformAccessStatus: true, passwordChangedAt: true } },
       },
     });
     if (
@@ -71,6 +72,8 @@ export class AdminAuthService {
       session.revokedAt ||
       session.expiresAt <= new Date() ||
       session.user.status !== "ACTIVE" ||
+      session.user.platformAccessStatus !== "ACTIVE" ||
+      (session.user.platformRole !== "OPERATOR" && session.user.platformRole !== "PLATFORM_ADMIN") ||
       (session.user.passwordChangedAt && session.createdAt <= session.user.passwordChangedAt)
     )
       throw new UnauthorizedException("La sesión no está disponible. Inicia sesión nuevamente.");
