@@ -49,7 +49,7 @@ import { InitialAdminRecoveryService } from "./provisioning/initial-admin-recove
   imports: [
     PrismaModule,
     EmailModule,
-    AuditModule,
+    forwardRef(() => AuditModule),
     PlanCatalogModule,
     FinancialIntegrationsModule,
     forwardRef(() => RecommendationsModule),

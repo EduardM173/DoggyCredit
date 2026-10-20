@@ -2,10 +2,12 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { NotFoundException } from "@nestjs/common";
 import { InstitutionsService } from "./institutions.service.js";
 import type { DatabaseUnitOfWork } from "../../infrastructure/prisma/database-unit-of-work.js";
+/* eslint-disable no-restricted-imports */
 import type {
   IntegrationHealthSummary,
   ProviderHealthReadService,
-} from "../../financial-integrations/public.js";
+} from "../../financial-integrations/health/provider-health-read.service.js";
+/* eslint-enable no-restricted-imports */
 
 describe("HU-22 InstitutionsService", () => {
   const mockTenant = {

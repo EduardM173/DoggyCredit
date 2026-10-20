@@ -1,3 +1,9 @@
+import type { AuditPageDto } from "./audit.dto.js";
+import type { AuditQueryDto, PlatformAuditQueryDto } from "./audit-query.dto.js";
+
+export * from "./audit.dto.js";
+export * from "./audit-query.dto.js";
+
 export interface RequestDecisionEvent {
   actorUserId: string;
   requestId: string;
@@ -77,7 +83,7 @@ export abstract class AuditWriter {
     currentEnabled: boolean;
     reason?: string;
   }): Promise<void>;
-    /** HU-23: transición de salud de un proveedor (una vez por episodio, sin PII). */
+  /** HU-23: transición de salud de un proveedor (una vez por episodio, sin PII). */
   abstract recordProviderHealthTransition(event: {
     providerId: string;
     providerCode: string;
@@ -96,6 +102,16 @@ export abstract class AuditWriter {
     action: "PRODUCT_CREATED" | "PRODUCT_UPDATED" | "PRODUCT_ACTIVATED" | "PRODUCT_DEACTIVATED";
     metadata?: Record<string, unknown>;
   }): Promise<void>;
+}
+
+export abstract class AuditReader {
+  abstract queryInstitutionAudit(
+    tenantId: string,
+    query: AuditQueryDto,
+    tenantSlug?: string,
+  ): Promise<AuditPageDto>;
+
+  abstract queryPlatformAudit(query: PlatformAuditQueryDto): Promise<AuditPageDto>;
 }
 
 export interface CommerceAuditEvent {

@@ -22,6 +22,7 @@ import { InstitutionSelectPage } from "./features/institution/InstitutionSelectP
 import { InstitutionHomePage } from "./features/institution/InstitutionHomePage";
 import { IntegrationsPage } from "./features/admin/IntegrationsPage";
 import { IntegrationDetailPage } from "./features/admin/IntegrationDetailPage";
+import { AdminActivityLogPage } from "./features/admin/ActivityLogPage";
 
 export const router = createBrowserRouter([
   { path: "/activar-cuenta", element: <ActivationPage /> },
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
       { path: "solicitudes/:id", element: <ReviewDetailPage /> },
       { path: "integraciones", element: <IntegrationsPage /> },
       { path: "integraciones/:code", element: <IntegrationDetailPage /> },
+      { path: "actividad", element: <AdminActivityLogPage /> },
     ],
   },
   {
@@ -63,6 +65,7 @@ export const router = createBrowserRouter([
   { path: "/:tenantSlug/productos", element: <InstitutionHomePage step="products" /> },
   { path: "/:tenantSlug/equipo", element: <InstitutionHomePage step="team" /> },
   { path: "/:tenantSlug/plan", element: <InstitutionHomePage step="plan" /> },
+  { path: "/:tenantSlug/actividad", element: <InstitutionHomePage step="activity" /> },
   { path: "/:tenantSlug/evaluaciones", element: <InstitutionHomePage step="evaluations" /> },
   { path: "/:tenantSlug/evaluaciones/nueva", element: <InstitutionHomePage step="new-evaluation" /> },
   { path: "/:tenantSlug/evaluaciones/:id", element: <InstitutionHomePage step="evaluation-detail" /> },

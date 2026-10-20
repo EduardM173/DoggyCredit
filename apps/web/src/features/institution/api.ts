@@ -538,3 +538,68 @@ export interface TenantPlanMeteringDto {
 export function fetchTenantPlanMetering(slug: string, signal?: AbortSignal) {
   return institutionApi<TenantPlanMeteringDto>(`/tenants/${encodeURIComponent(slug)}/plan-metering`, { signal });
 }
+
+export type AuditCategory =
+  | "EVALUATION"
+  | "CATALOG"
+  | "TEAM"
+  | "INSTITUTION"
+  | "OPERATIONS"
+  | "PLATFORM";
+
+export type AuditOutcome = "SUCCESS" | "FAILURE" | "INFO";
+
+export interface AuditActor {
+  type: "USER" | "SYSTEM" | "OPERATOR";
+  name: string;
+  email?: string | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  occurredAt: string;
+  action: string;
+  actionLabel: string;
+  category: AuditCategory;
+  outcome: AuditOutcome;
+  entityType: string;
+  entityLabel: string;
+  entityId?: string | null;
+  resourceLink?: string | null;
+  actor: AuditActor;
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface AuditPage {
+  items: AuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface AuditQuery {
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  category?: AuditCategory;
+  action?: string;
+  outcome?: AuditOutcome;
+}
+
+export function fetchInstitutionAudit(slug: string, query?: AuditQuery, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", String(query.page));
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query?.from) params.set("from", query.from);
+  if (query?.to) params.set("to", query.to);
+  if (query?.category) params.set("category", query.category);
+  if (query?.action) params.set("action", query.action);
+  if (query?.outcome) params.set("outcome", query.outcome);
+
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return institutionApi<AuditPage>(`/tenants/${encodeURIComponent(slug)}/audit${qs}`, { signal });
+}
+

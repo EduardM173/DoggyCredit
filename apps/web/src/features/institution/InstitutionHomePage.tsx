@@ -7,6 +7,7 @@ import {
   Check,
   Database,
   House,
+  History,
   Info,
   ListChecks,
   LockKeyhole,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { TeamPanel } from "./TeamPanel";
-import { AnalystHome } from "./AnalystHome";
+
 import { InstitutionDashboard } from "./InstitutionDashboard";
 import { PlanAndUsagePage } from "./PlanAndUsagePage";
 import { EvaluationWizard } from "./EvaluationWizard";
@@ -25,6 +26,7 @@ import { EvaluationsList } from "./EvaluationsList";
 import { EvaluationDetail } from "./EvaluationDetail";
 import { ClientDossier } from "./ClientDossier";
 import { ProductsCatalogPanel } from "./ProductsCatalogPanel";
+import { ActivityLogPage } from "./ActivityLogPage";
 import { institutionApi, InstitutionError, type InstitutionHome } from "./api";
 import "./institution.css";
 
@@ -39,7 +41,8 @@ type Step =
   | "new-evaluation"
   | "evaluation-detail"
   | "client-dossier"
-  | "plan";
+  | "plan"
+  | "activity";
 const types: Record<string, string> = {
   BANK: "Banco",
   FINANCIAL_INSTITUTION: "Financiera",
@@ -237,6 +240,13 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
                 Plan y consumo
               </Link>
               <Link
+                className={step === "activity" ? "institution-nav-active" : ""}
+                to={`${base}/actividad`}
+              >
+                <History size={20} />
+                Actividad
+              </Link>
+              <Link
                 className={
                   ["settings", "institution", "source", "products"].includes(step)
                     ? "institution-nav-active"
@@ -288,7 +298,26 @@ export function InstitutionHomePage({ step = "home" }: { step?: Step }) {
             </small>
           </div>
         </header>
-        {step === "plan" ? (
+        {step === "activity" ? (
+          !admin ? (
+            <main className="institution-dashboard" aria-label="Acceso denegado">
+              <div className="institution-breadcrumb">
+                <Link to={base}>Inicio</Link>
+                <ArrowRight size={16} /> <span>Actividad</span>
+              </div>
+              <p className="institution-eyebrow">ACCESO DENEGADO</p>
+              <h1>Acceso no autorizado</h1>
+              <p className="institution-lead">
+                Solo los administradores institucionales tienen permiso para consultar el registro de auditoría institucional.
+              </p>
+              <Link to={`${base}/evaluaciones`} className="activity-button-primary">
+                Ir a Evaluaciones
+              </Link>
+            </main>
+          ) : (
+            <ActivityLogPage slug={home.tenant.slug} tenantName={home.tenant.name} />
+          )
+        ) : step === "plan" ? (
           <PlanAndUsagePage
             slug={home.tenant.slug}
             role={home.membership.role}

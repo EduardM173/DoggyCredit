@@ -283,3 +283,66 @@ export const displayDate = (value: string | null) =>
         new Date(value),
       )
     : "No registrada";
+
+export type PlatformAuditCategory =
+  | "EVALUATION"
+  | "CATALOG"
+  | "TEAM"
+  | "INSTITUTION"
+  | "OPERATIONS"
+  | "PLATFORM";
+
+export type PlatformAuditOutcome = "SUCCESS" | "FAILURE" | "INFO";
+
+export interface PlatformAuditEvent {
+  id: string;
+  occurredAt: string;
+  action: string;
+  actionLabel: string;
+  category: PlatformAuditCategory;
+  outcome: PlatformAuditOutcome;
+  entityType: string;
+  entityLabel: string;
+  entityId?: string | null;
+  resourceLink?: string | null;
+  actor: {
+    type: "USER" | "SYSTEM" | "OPERATOR";
+    name: string;
+    email?: string | null;
+  };
+  summary: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface PlatformAuditPage {
+  items: PlatformAuditEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface PlatformAuditQuery {
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  category?: PlatformAuditCategory;
+  action?: string;
+  tenantId?: string;
+}
+
+export function fetchPlatformAudit(query?: PlatformAuditQuery, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  if (query?.page) params.set("page", String(query.page));
+  if (query?.pageSize) params.set("pageSize", String(query.pageSize));
+  if (query?.from) params.set("from", query.from);
+  if (query?.to) params.set("to", query.to);
+  if (query?.category) params.set("category", query.category);
+  if (query?.action) params.set("action", query.action);
+  if (query?.tenantId) params.set("tenantId", query.tenantId);
+
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return adminApi<PlatformAuditPage>(`/audit${qs}`, { signal });
+}
+

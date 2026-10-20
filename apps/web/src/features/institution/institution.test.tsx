@@ -18,6 +18,7 @@ const mount = (path: string) => {
       { path: "/iniciar-sesion", element: <InstitutionLoginPage /> },
       { path: "/elegir-institucion", element: <InstitutionSelectPage /> },
       { path: "/:tenantSlug", element: <InstitutionHomePage /> },
+      { path: "/:tenantSlug/actividad", element: <InstitutionHomePage step="activity" /> },
     ],
     { initialEntries: [path] },
   );
@@ -124,5 +125,40 @@ describe("HU-07 institutional interface", () => {
     await act(async () => router.navigate("/banco-y"));
     expect(screen.queryByText("123")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Comprobando acceso");
+  });
+
+  it("HU-24: shows Actividad in sidebar for admin and hides it for analyst", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/home")) {
+        return response({
+          user: { name: user.fullName },
+          tenant: { name: "Banco X", slug: "banco-x", taxId: "123", type: "BANK" },
+          membership: { role: "INSTITUTION_ADMIN", status: "ACTIVE" },
+          ready: true,
+        });
+      }
+      return response({});
+    });
+
+    mount("/banco-x");
+    expect(await screen.findByRole("link", { name: /Actividad/i })).toBeInTheDocument();
+  });
+
+  it("HU-24: analyst visiting /actividad is denied with unauthorized screen", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/home")) {
+        return response({
+          user: { name: "Carlos Analista" },
+          tenant: { name: "Banco X", slug: "banco-x", taxId: "123", type: "BANK" },
+          membership: { role: "ANALYST", status: "ACTIVE" },
+          ready: true,
+        });
+      }
+      return response({});
+    });
+
+    mount("/banco-x/actividad");
+    expect(await screen.findByText("Acceso no autorizado")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Actividad/i })).not.toBeInTheDocument();
   });
 });

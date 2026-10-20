@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, ArrowLeft, Building2, CreditCard, FileText, Inbox, LogOut, PlugZap } from "lucide-react";
+import { Activity, ArrowLeft, Building2, CreditCard, FileText, History, Inbox, LogOut, PlugZap } from "lucide-react";
 import { Brand } from "../../components/Brand";
 import { adminApi, AdminError, type IntegrationListItem, type Session } from "./api";
 
@@ -109,6 +109,10 @@ export function AdminLayout() {
               <NavLink to="/admin/bandeja-pruebas">
                 <Inbox size={21} />
                 Bandeja de pruebas
+              </NavLink>
+              <NavLink to="/admin/actividad">
+                <History size={21} />
+                Actividad
               </NavLink>
               <NavLink to="/admin/integraciones">
                 <Activity size={21} />

@@ -1,10 +1,357 @@
 import { Injectable } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import { DatabaseUnitOfWork } from "../infrastructure/prisma/database-unit-of-work.js";
-import { AuditWriter, type RequestDecisionEvent, type CommerceAuditEvent } from "./public.js";
+import {
+  AuditWriter,
+  AuditReader,
+  type RequestDecisionEvent,
+  type CommerceAuditEvent,
+  type AuditEventDto,
+  type AuditPageDto,
+  type AuditQueryDto,
+  type PlatformAuditQueryDto,
+  type AuditCategory,
+  type AuditOutcome,
+} from "./public.js";
+
+const CATEGORY_ACTIONS: Record<AuditCategory, string[]> = {
+  EVALUATION: ["EVALUATION_DRAFT_CREATED", "EVALUATION_PROCESSED"],
+  CATALOG: [
+    "PRODUCT_CREATED",
+    "PRODUCT_UPDATED",
+    "PRODUCT_ACTIVATED",
+    "PRODUCT_DEACTIVATED",
+    "INSTITUTION_PRODUCTS_CONFIRMED",
+  ],
+  TEAM: [
+    "ANALYST_INVITATION_CREATED",
+    "ANALYST_INVITATION_RESENT",
+    "ADMIN_INVITATION_CREATED",
+    "ADMIN_INVITATION_RESENT",
+    "MEMBERSHIP_ACTIVATED",
+    "MEMBERSHIP_SUSPENDED",
+    "MEMBERSHIP_REACTIVATED",
+    "MEMBERSHIP_REVOKED",
+    "INVITATION_CANCELLED",
+  ],
+  INSTITUTION: [
+    "INSTITUTION_INFORMATION_CONFIRMED",
+    "BANK_MOCK_ENABLED",
+    "BUREAU_MOCK_ENABLED",
+    "BUREAU_MOCK_DISABLED",
+    "INSTITUTION_PREPARED",
+  ],
+  OPERATIONS: [
+    "INSTITUTION_REQUEST_APPROVED",
+    "INSTITUTION_REQUEST_REJECTED",
+    "REQUEST_REJECTION_NOTICE_SENT",
+    "REQUEST_REJECTION_NOTICE_FAILED",
+    "CONTRACTING_ACCESS_ISSUED",
+    "CONTRACTING_PLAN_CONFIRMED",
+    "CONTRACTING_CONFIRMED",
+    "PAYMENT_PAID",
+    "PAYMENT_FAILED",
+    "TENANT_PROVISIONED",
+    "PROVISIONING_RETRY_REQUESTED",
+  ],
+  PLATFORM: [
+    "PROVIDER_GLOBALLY_ENABLED",
+    "PROVIDER_GLOBALLY_DISABLED",
+    "PROVIDER_DEGRADED",
+    "PROVIDER_RECOVERED",
+  ],
+};
+
+const ACTION_METADATA_WHITELIST = new Set([
+  "providerCode",
+  "previousEnabled",
+  "currentEnabled",
+  "reason",
+  "fromStatus",
+  "toStatus",
+  "finalStatus",
+  "planId",
+  "actorKind",
+  "from",
+  "to",
+  "episodeId",
+]);
+
+interface ActionInfo {
+  label: string;
+  category: AuditCategory;
+  entityLabel: string;
+  defaultOutcome: AuditOutcome;
+  summary: (metadata: Record<string, unknown> | null, entityId: string | null) => string;
+}
+
+const ACTION_DEFINITIONS: Record<string, ActionInfo> = {
+  EVALUATION_DRAFT_CREATED: {
+    label: "Borrador de evaluación iniciado",
+    category: "EVALUATION",
+    entityLabel: "Evaluación crediticia",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se inició un nuevo borrador de evaluación crediticia.",
+  },
+  EVALUATION_PROCESSED: {
+    label: "Evaluación crediticia procesada",
+    category: "EVALUATION",
+    entityLabel: "Evaluación crediticia",
+    defaultOutcome: "SUCCESS",
+    summary: (meta) => {
+      const status = typeof meta?.finalStatus === "string" ? meta.finalStatus : "procesada";
+      return `Evaluación crediticia completada con dictamen final: ${status}.`;
+    },
+  },
+  PRODUCT_CREATED: {
+    label: "Producto crediticio creado",
+    category: "CATALOG",
+    entityLabel: "Producto crediticio",
+    defaultOutcome: "SUCCESS",
+    summary: (_, id) => `Se creó un nuevo producto crediticio en el catálogo${id ? ` (ID: ${id})` : ""}.`,
+  },
+  PRODUCT_UPDATED: {
+    label: "Producto crediticio modificado",
+    category: "CATALOG",
+    entityLabel: "Producto crediticio",
+    defaultOutcome: "SUCCESS",
+    summary: (_, id) => `Se modificaron los parámetros y políticas del producto${id ? ` (ID: ${id})` : ""}.`,
+  },
+  PRODUCT_ACTIVATED: {
+    label: "Producto crediticio activado",
+    category: "CATALOG",
+    entityLabel: "Producto crediticio",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se habilitó el producto para participar en evaluaciones crediticias.",
+  },
+  PRODUCT_DEACTIVATED: {
+    label: "Producto crediticio desactivado",
+    category: "CATALOG",
+    entityLabel: "Producto crediticio",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se desactivó el producto del catálogo activo para evaluaciones.",
+  },
+  ANALYST_INVITATION_CREATED: {
+    label: "Invitación de analista enviada",
+    category: "TEAM",
+    entityLabel: "Invitación de acceso",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se generó y envió invitación para un nuevo analista de crédito.",
+  },
+  ANALYST_INVITATION_RESENT: {
+    label: "Invitación de analista reenviada",
+    category: "TEAM",
+    entityLabel: "Invitación de acceso",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se reenvió la invitación de acceso institucional al analista.",
+  },
+  ADMIN_INVITATION_CREATED: {
+    label: "Invitación de administrador enviada",
+    category: "TEAM",
+    entityLabel: "Invitación de acceso",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se emitió invitación para un administrador institucional.",
+  },
+  ADMIN_INVITATION_RESENT: {
+    label: "Invitación de administrador reenviada",
+    category: "TEAM",
+    entityLabel: "Invitación de acceso",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se reenvió la invitación de administración institucional.",
+  },
+  MEMBERSHIP_ACTIVATED: {
+    label: "Membresía institucional activada",
+    category: "TEAM",
+    entityLabel: "Membresía del equipo",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Un integrante activó exitosamente su cuenta institucional.",
+  },
+  MEMBERSHIP_SUSPENDED: {
+    label: "Membresía del equipo suspendida",
+    category: "TEAM",
+    entityLabel: "Membresía del equipo",
+    defaultOutcome: "INFO",
+    summary: () => "Se suspendió temporalmente el acceso del integrante.",
+  },
+  MEMBERSHIP_REACTIVATED: {
+    label: "Membresía del equipo reactivada",
+    category: "TEAM",
+    entityLabel: "Membresía del equipo",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se reactivaron los accesos del integrante en la institución.",
+  },
+  MEMBERSHIP_REVOKED: {
+    label: "Membresía revocada definitivamente",
+    category: "TEAM",
+    entityLabel: "Membresía del equipo",
+    defaultOutcome: "FAILURE",
+    summary: () => "Se revocó de forma permanente el acceso del integrante a la institución.",
+  },
+  INVITATION_CANCELLED: {
+    label: "Invitación de acceso cancelada",
+    category: "TEAM",
+    entityLabel: "Invitación de acceso",
+    defaultOutcome: "INFO",
+    summary: () => "Se canceló una invitación de acceso antes de su activación.",
+  },
+  INSTITUTION_INFORMATION_CONFIRMED: {
+    label: "Información institucional confirmada",
+    category: "INSTITUTION",
+    entityLabel: "Institución",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se revisaron y confirmaron los datos legales de la institución.",
+  },
+  BANK_MOCK_ENABLED: {
+    label: "Fuente bancaria habilitada",
+    category: "INSTITUTION",
+    entityLabel: "Fuente financiera",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se habilitó la integración con la fuente bancaria simulada.",
+  },
+  BUREAU_MOCK_ENABLED: {
+    label: "Fuente de buró habilitada",
+    category: "INSTITUTION",
+    entityLabel: "Fuente financiera",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se habilitó la fuente de historial crediticio del buró simulado.",
+  },
+  BUREAU_MOCK_DISABLED: {
+    label: "Fuente de buró deshabilitada",
+    category: "INSTITUTION",
+    entityLabel: "Fuente financiera",
+    defaultOutcome: "INFO",
+    summary: () => "Se deshabilitó temporalmente la consulta de buró para la institución.",
+  },
+  INSTITUTION_PRODUCTS_CONFIRMED: {
+    label: "Catálogo inicial confirmado",
+    category: "INSTITUTION",
+    entityLabel: "Catálogo de productos",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se confirmó la oferta de productos crediticios iniciales.",
+  },
+  INSTITUTION_PREPARED: {
+    label: "Preparación institucional completada",
+    category: "INSTITUTION",
+    entityLabel: "Institución",
+    defaultOutcome: "SUCCESS",
+    summary: () => "La institución finalizó todos los pasos requeridos para operar.",
+  },
+  INSTITUTION_REQUEST_APPROVED: {
+    label: "Solicitud institucional aprobada",
+    category: "OPERATIONS",
+    entityLabel: "Solicitud de acceso",
+    defaultOutcome: "SUCCESS",
+    summary: () => "El operador aprobó la solicitud de acceso para proceder a contratación.",
+  },
+  INSTITUTION_REQUEST_REJECTED: {
+    label: "Solicitud institucional rechazada",
+    category: "OPERATIONS",
+    entityLabel: "Solicitud de acceso",
+    defaultOutcome: "FAILURE",
+    summary: () => "El operador rechazó la solicitud institucional tras revisión de requisitos.",
+  },
+  REQUEST_REJECTION_NOTICE_SENT: {
+    label: "Aviso de rechazo enviado",
+    category: "OPERATIONS",
+    entityLabel: "Notificación",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se notificó formalmente por correo el resultado de la solicitud.",
+  },
+  REQUEST_REJECTION_NOTICE_FAILED: {
+    label: "Fallo de notificación de rechazo",
+    category: "OPERATIONS",
+    entityLabel: "Notificación",
+    defaultOutcome: "FAILURE",
+    summary: () => "Ocurrió un error al despachar el correo de rechazo de solicitud.",
+  },
+  CONTRACTING_ACCESS_ISSUED: {
+    label: "Enlace de contratación emitido",
+    category: "OPERATIONS",
+    entityLabel: "Contratación",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se emitió el enlace seguro de contratación para el representante legal.",
+  },
+  CONTRACTING_PLAN_CONFIRMED: {
+    label: "Plan comercial confirmado",
+    category: "OPERATIONS",
+    entityLabel: "Contratación",
+    defaultOutcome: "SUCCESS",
+    summary: (meta) => `Se confirmó la selección del plan comercial${meta?.planId ? ` (${meta.planId})` : ""}.`,
+  },
+  CONTRACTING_CONFIRMED: {
+    label: "Contratación completada",
+    category: "OPERATIONS",
+    entityLabel: "Contratación",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se perfeccionó el contrato institucional y se programó el aprovisionamiento.",
+  },
+  PAYMENT_PAID: {
+    label: "Pago de suscripción procesado",
+    category: "OPERATIONS",
+    entityLabel: "Pago de suscripción",
+    defaultOutcome: "SUCCESS",
+    summary: () => "Se confirmó el pago simulado de la suscripción institucional.",
+  },
+  PAYMENT_FAILED: {
+    label: "Pago de suscripción fallido",
+    category: "OPERATIONS",
+    entityLabel: "Pago de suscripción",
+    defaultOutcome: "FAILURE",
+    summary: () => "El intento de procesamiento de pago simulado no pudo completarse.",
+  },
+  TENANT_PROVISIONED: {
+    label: "Institución aprovisionada",
+    category: "OPERATIONS",
+    entityLabel: "Institución",
+    defaultOutcome: "SUCCESS",
+    summary: (meta) => `Aprovisionamiento automático exitoso${meta?.planId ? ` con plan ${meta.planId}` : ""}.`,
+  },
+  PROVISIONING_RETRY_REQUESTED: {
+    label: "Reintento de aprovisionamiento solicitado",
+    category: "OPERATIONS",
+    entityLabel: "Aprovisionamiento",
+    defaultOutcome: "INFO",
+    summary: () => "El operador autorizó el reintento de aprovisionamiento para la institución.",
+  },
+  PROVIDER_GLOBALLY_ENABLED: {
+    label: "Proveedor habilitado globalmente",
+    category: "PLATFORM",
+    entityLabel: "Proveedor externo",
+    defaultOutcome: "SUCCESS",
+    summary: (meta) => `Habilitación global del proveedor ${meta?.providerCode ?? "externo"}.`,
+  },
+  PROVIDER_GLOBALLY_DISABLED: {
+    label: "Corte global de proveedor",
+    category: "PLATFORM",
+    entityLabel: "Proveedor externo",
+    defaultOutcome: "FAILURE",
+    summary: (meta) =>
+      `Corte de emergencia del proveedor ${meta?.providerCode ?? "externo"}${meta?.reason ? `: ${meta.reason}` : ""}.`,
+  },
+  PROVIDER_DEGRADED: {
+    label: "Proveedor financiero degradado",
+    category: "PLATFORM",
+    entityLabel: "Proveedor externo",
+    defaultOutcome: "FAILURE",
+    summary: (meta) => `Se detectó degradación operativa en ${meta?.providerCode ?? "el proveedor externo"}.`,
+  },
+  PROVIDER_RECOVERED: {
+    label: "Proveedor financiero restablecido",
+    category: "PLATFORM",
+    entityLabel: "Proveedor externo",
+    defaultOutcome: "SUCCESS",
+    summary: (meta) => `Disponibilidad operativa restablecida en ${meta?.providerCode ?? "el proveedor externo"}.`,
+  },
+};
 
 @Injectable()
-export class AuditService extends AuditWriter {
+export class AuditService implements AuditWriter, AuditReader {
+  constructor(private readonly database: DatabaseUnitOfWork) {}
+
+  // --------------------------------------------------------------------------
+  // WRITE OPERATIONS (AuditWriter)
+  // --------------------------------------------------------------------------
+
   async recordTeamInvitation(event: {
     tenantId: string;
     actorUserId: string;
@@ -25,6 +372,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordTeamAccess(event: {
     tenantId: string;
     actorUserId: string;
@@ -44,6 +392,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordInstitutionPreparation(event: {
     tenantId: string;
     actorUserId: string;
@@ -65,6 +414,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordProviderAdministration(event: {
     actorUserId: string;
     providerId: string;
@@ -76,13 +426,11 @@ export class AuditService extends AuditWriter {
   }): Promise<void> {
     await this.database.client.auditLog.create({
       data: {
-        // Evento de plataforma: no pertenece a ninguna institución.
         tenantId: null,
         actorUserId: event.actorUserId,
         action: event.action,
         entityType: "IntegrationProvider",
         entityId: event.providerId,
-        // Sin URLs, claves ni datos de solicitantes: solo el cambio y su motivo.
         metadata: {
           providerCode: event.providerCode,
           previousEnabled: event.previousEnabled,
@@ -92,7 +440,8 @@ export class AuditService extends AuditWriter {
       },
     });
   }
-    async recordProviderHealthTransition(event: {
+
+  async recordProviderHealthTransition(event: {
     providerId: string;
     providerCode: string;
     action: "PROVIDER_DEGRADED" | "PROVIDER_RECOVERED";
@@ -107,7 +456,6 @@ export class AuditService extends AuditWriter {
         action: event.action,
         entityType: "IntegrationProvider",
         entityId: event.providerId,
-        // Lista blanca: sin PII, URLs, secretos ni payloads.
         metadata: {
           providerCode: event.providerCode,
           from: event.from,
@@ -134,6 +482,7 @@ export class AuditService extends AuditWriter {
     const episodeId = (last.metadata as { episodeId?: unknown } | null)?.episodeId;
     return typeof episodeId === "string" ? { episodeId, startedAt: last.createdAt } : null;
   }
+
   async recordMembershipActivation(event: {
     userId: string;
     tenantId: string;
@@ -151,6 +500,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordProvisioning(event: {
     tenantId: string;
     contractingId: string;
@@ -173,6 +523,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordCommerce(event: CommerceAuditEvent): Promise<void> {
     await this.database.client.auditLog.create({
       data: {
@@ -184,9 +535,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
-  constructor(private readonly database: DatabaseUnitOfWork) {
-    super();
-  }
+
   async recordRequestDecision(event: RequestDecisionEvent): Promise<void> {
     await this.database.client.auditLog.create({
       data: {
@@ -199,6 +548,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordRequestNotice(event: {
     actorUserId?: string;
     requestId: string;
@@ -217,6 +567,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordEvaluationDraft(event: {
     tenantId: string;
     actorUserId: string;
@@ -232,6 +583,7 @@ export class AuditService extends AuditWriter {
       },
     });
   }
+
   async recordEvaluationProcessed(event: {
     tenantId: string;
     actorUserId: string;
@@ -267,5 +619,251 @@ export class AuditService extends AuditWriter {
         metadata: (event.metadata as Prisma.InputJsonValue) ?? undefined,
       },
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // READ OPERATIONS (AuditReader) — HU-24
+  // --------------------------------------------------------------------------
+
+  async queryInstitutionAudit(
+    tenantId: string,
+    query: AuditQueryDto,
+    tenantSlug?: string,
+  ): Promise<AuditPageDto> {
+    // Aislamiento multi-tenant inquebrantable (CA-24.03): siempre filtra por tenantId autenticado.
+    const where: Prisma.AuditLogWhereInput = {
+      tenantId,
+    };
+
+    this.applyQueryFilters(where, query);
+
+    const page = Math.max(1, query.page || 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize || 20));
+
+    // Ejecución paginada con conteo autorizado (CA-24.11)
+    const [total, records] = await Promise.all([
+      this.database.client.auditLog.count({ where }),
+      this.database.client.auditLog.findMany({
+        where,
+        include: {
+          actor: {
+            select: { id: true, fullName: true, email: true },
+          },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const items = records.map((record) => this.mapToAuditEventDto(record, tenantSlug, false));
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  async queryPlatformAudit(query: PlatformAuditQueryDto): Promise<AuditPageDto> {
+    // Visibilidad operativa de plataforma (CA-24.04):
+    // Solo entidades operativas de plataforma y nunca expedientes individuales ni PII crediticia.
+    const allowedPlatformEntities = [
+      "InstitutionRequest",
+      "Contracting",
+      "Payment",
+      "Tenant",
+      "IntegrationProvider",
+      "TenantProvisioning",
+    ];
+
+    const where: Prisma.AuditLogWhereInput = {};
+
+    if (query.tenantId) {
+      where.tenantId = query.tenantId;
+      where.entityType = { in: allowedPlatformEntities };
+    } else {
+      where.OR = [{ tenantId: null }, { entityType: { in: allowedPlatformEntities } }];
+    }
+
+    this.applyQueryFilters(where, query);
+
+    const page = Math.max(1, query.page || 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize || 20));
+
+    const [total, records] = await Promise.all([
+      this.database.client.auditLog.count({ where }),
+      this.database.client.auditLog.findMany({
+        where,
+        include: {
+          actor: {
+            select: { id: true, fullName: true, email: true },
+          },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const items = records.map((record) => this.mapToAuditEventDto(record, undefined, true));
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // HELPERS (Sanitization, Labeling, Resource Links)
+  // --------------------------------------------------------------------------
+
+  private applyQueryFilters(where: Prisma.AuditLogWhereInput, query: AuditQueryDto): void {
+    if (query.action) {
+      where.action = query.action.trim();
+    } else if (query.category) {
+      const actions = CATEGORY_ACTIONS[query.category];
+      if (actions) {
+        where.action = { in: actions };
+      }
+    }
+
+    if (query.from || query.to) {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (query.from) {
+        const fromDate = new Date(query.from);
+        if (!isNaN(fromDate.getTime())) {
+          fromDate.setUTCHours(0, 0, 0, 0);
+          createdAt.gte = fromDate;
+        }
+      }
+      if (query.to) {
+        const toDate = new Date(query.to);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setUTCHours(23, 59, 59, 999);
+          createdAt.lte = toDate;
+        }
+      }
+      if (createdAt.gte || createdAt.lte) {
+        where.createdAt = createdAt;
+      }
+    }
+  }
+
+  private mapToAuditEventDto(
+    record: {
+      id: string;
+      createdAt: Date;
+      action: string;
+      entityType: string;
+      entityId: string | null;
+      metadata: Prisma.JsonValue | null;
+      actor: { id: string; fullName: string; email: string } | null;
+    },
+    tenantSlug?: string,
+    isPlatform = false,
+  ): AuditEventDto {
+    const rawMetadata =
+      record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+        ? (record.metadata as Record<string, unknown>)
+        : null;
+
+    const sanitizedMeta = this.sanitizeMetadata(rawMetadata);
+    const def = ACTION_DEFINITIONS[record.action];
+
+    const actionLabel = def?.label ?? record.action.replace(/_/g, " ").toLowerCase();
+    const category = def?.category ?? (record.entityType === "IntegrationProvider" ? "PLATFORM" : "OPERATIONS");
+    const entityLabel = def?.entityLabel ?? record.entityType;
+
+    let outcome: AuditOutcome = def?.defaultOutcome ?? "SUCCESS";
+    if (record.action.includes("FAILED") || record.action.includes("REJECTED") || record.action.includes("DISABLED") || record.action.includes("REVOKED")) {
+      outcome = "FAILURE";
+    } else if (rawMetadata?.finalStatus === "FAILED") {
+      outcome = "FAILURE";
+    }
+
+    const summary = def
+      ? def.summary(sanitizedMeta, record.entityId)
+      : `Acción ${record.action} sobre ${record.entityType}${record.entityId ? ` (${record.entityId})` : ""}.`;
+
+    // CA-24.10: Enlace a recurso según contexto de permisos
+    let resourceLink: string | null = null;
+    if (tenantSlug && !isPlatform) {
+      if (record.entityType === "Evaluation" && record.entityId) {
+        resourceLink = `/${tenantSlug}/evaluaciones/${record.entityId}`;
+      } else if (record.entityType === "FinancialProduct") {
+        resourceLink = `/${tenantSlug}/productos`;
+      } else if (record.entityType === "TenantMembership" || record.entityType === "MembershipInvitation") {
+        resourceLink = `/${tenantSlug}/equipo`;
+      } else if (record.entityType === "Tenant") {
+        resourceLink = `/${tenantSlug}/institucion`;
+      }
+    } else if (isPlatform) {
+      if (record.entityType === "InstitutionRequest" && record.entityId) {
+        resourceLink = `/admin/solicitudes/${record.entityId}`;
+      } else if (record.entityType === "Contracting") {
+        resourceLink = `/admin/contrataciones`;
+      } else if (record.entityType === "Tenant" && record.entityId) {
+        resourceLink = `/admin/instituciones/${record.entityId}`;
+      } else if (record.entityType === "IntegrationProvider") {
+        resourceLink = `/admin/proveedores`;
+      }
+    }
+
+    // Actor legible (CA-24.02)
+    const actorType = record.actor ? (isPlatform ? "OPERATOR" : "USER") : "SYSTEM";
+    const actorName = record.actor ? record.actor.fullName : "Sistema automático";
+    const actorEmail = record.actor ? record.actor.email : null;
+
+    return {
+      id: record.id,
+      occurredAt: record.createdAt.toISOString(),
+      action: record.action,
+      actionLabel,
+      category,
+      outcome,
+      entityType: record.entityType,
+      entityLabel,
+      entityId: record.entityId,
+      resourceLink,
+      actor: {
+        type: actorType,
+        name: actorName,
+        email: actorEmail,
+      },
+      summary,
+      metadata: sanitizedMeta,
+    };
+  }
+
+  /**
+   * CA-24.08 / CA-24.12: Sanitización de metadatos.
+   * Filtra estrictamente contraseñas, tokens completos, secretos, números de cuenta y respuestas de buró.
+   */
+  private sanitizeMetadata(
+    meta: Record<string, unknown> | null,
+  ): Record<string, unknown> | null {
+    if (!meta) return null;
+    const sanitized: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(meta)) {
+      if (!ACTION_METADATA_WHITELIST.has(key)) {
+        continue;
+      }
+      if (typeof value === "string") {
+        // Redacción si accidentalmente pareciera un token largo o secreto
+        if (value.length > 256 || /token|secret|bearer/i.test(key)) {
+          continue;
+        }
+      }
+      sanitized[key] = value;
+    }
+
+    return Object.keys(sanitized).length > 0 ? sanitized : null;
   }
 }
