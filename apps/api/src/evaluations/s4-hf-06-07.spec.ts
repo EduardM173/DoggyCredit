@@ -47,7 +47,15 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
   let writesOutsideUnitOfWork: string[];
   let mockDb: {
     client: {
-      evaluation: { findUnique: MockFn; findFirst: MockFn; create: MockFn; update: MockFn };
+      evaluation: {
+        findUnique: MockFn;
+        findFirst: MockFn;
+        create: MockFn;
+        update: MockFn;
+        updateMany: MockFn;
+      };
+      tenantSubscription: { findFirst: MockFn };
+      usageRecord: { create: MockFn };
       evaluationSourceResult: { upsert: MockFn };
       integrationProvider: { findUnique: MockFn };
     };
@@ -96,6 +104,16 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
             recommendations: [],
             ...data,
           })),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
+        },
+        tenantSubscription: {
+          findFirst: jest.fn<any>().mockResolvedValue({ id: "subscription-1" }),
+        },
+        usageRecord: {
+          create: jest.fn<any>().mockImplementation(async ({ data }: any) => {
+            if (!insideUnitOfWork) writesOutsideUnitOfWork.push("usageRecord.create");
+            return { ...data };
+          }),
         },
         evaluationSourceResult: {
           upsert: jest.fn<any>().mockImplementation(async ({ create }: any) => ({ ...create })),
@@ -323,6 +341,13 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
 
       expect(mockDb.run).toHaveBeenCalledTimes(1);
       expect(mockRecommender.evaluate).toHaveBeenCalledTimes(1);
+      expect(mockDb.client.usageRecord.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId: "tenant-a",
+          metric: "EVALUATION",
+          referenceId: "eval-1",
+        }),
+      });
       expect(writesOutsideUnitOfWork).toEqual([]);
     });
   });
@@ -378,6 +403,7 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
           purpose: CreditPurposeDto.WORKING_CAPITAL,
           requestedAmount: 50000,
           consentGiven: true,
+          idempotencyKey: "ops01-hf07-invalid-doc",
         }),
       ).rejects.toThrow(BadRequestException);
 
@@ -397,6 +423,7 @@ describe("S4-HF-06 / S4-HF-07 — EvaluationsService", () => {
         purpose: CreditPurposeDto.WORKING_CAPITAL,
         requestedAmount: 50000,
         consentGiven: true,
+        idempotencyKey: "ops01-hf07-company-case",
       });
 
       expect(res.status).toBe("DRAFT");

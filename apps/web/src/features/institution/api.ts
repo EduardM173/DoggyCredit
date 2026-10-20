@@ -162,8 +162,53 @@ export type CreateEvaluationPayload = {
   purpose: "WORKING_CAPITAL" | "GREEN_PROJECT" | "BUSINESS_INVESTMENT" | "EQUIPMENT" | "OTHER";
   requestedAmount: number;
   consentGiven: boolean;
-  idempotencyKey?: string;
+  idempotencyKey: string;
 };
+
+export async function evaluationOperationKey(
+  tenantSlug: string,
+  payload: Omit<CreateEvaluationPayload, "idempotencyKey">,
+) {
+  const canonicalPayload = JSON.stringify({
+    operation: "evaluation.create",
+    clientType: payload.clientType ?? "PERSON",
+    documentType: payload.documentType,
+    documentNumber: payload.documentNumber.trim(),
+    name: payload.name.trim().replace(/\s+/g, " "),
+    economicActivity: payload.economicActivity?.trim() || null,
+    purpose: payload.purpose,
+    requestedAmount: Number(payload.requestedAmount).toFixed(2),
+    consentGiven: payload.consentGiven,
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalPayload));
+  const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+  const storageKey = `doggycredit:evaluation-operation:${tenantSlug}`;
+
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as {
+      fingerprint?: string;
+      key?: string;
+    } | null;
+    if (saved?.fingerprint === fingerprint && saved.key) return saved.key;
+    const key = crypto.randomUUID();
+    sessionStorage.setItem(storageKey, JSON.stringify({ fingerprint, key }));
+    return key;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+export function clearEvaluationOperationKey(tenantSlug: string, key: string) {
+  const storageKey = `doggycredit:evaluation-operation:${tenantSlug}`;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null") as { key?: string } | null;
+    if (saved?.key === key) sessionStorage.removeItem(storageKey);
+  } catch {
+    // Storage may be unavailable in restricted browser contexts.
+  }
+}
 
 export async function fetchEvaluation(
   tenantSlug: string,

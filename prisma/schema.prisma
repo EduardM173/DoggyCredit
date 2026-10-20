@@ -621,7 +621,7 @@ model Evaluation {
   tenantId              String           @db.Uuid
   clientId              String           @db.Uuid
   createdByMembershipId String           @db.Uuid
-  idempotencyKey        String           @unique @db.VarChar(80)
+  idempotencyKey        String           @db.VarChar(80)
   requestFingerprint    String?          @db.VarChar(64)
   purpose               CreditPurpose
   requestedAmount       Decimal          @db.Decimal(14, 2)
@@ -644,6 +644,7 @@ model Evaluation {
   recommendations EvaluationRecommendation[]
 
   @@unique([tenantId, id])
+  @@unique([tenantId, idempotencyKey])
   @@index([tenantId, status, createdAt])
   @@index([tenantId, clientId, createdAt])
   @@index([tenantId, createdByMembershipId, createdAt])
@@ -753,12 +754,13 @@ model UsageRecord {
   quantity       Int         @default(1)
   referenceType  String?     @db.VarChar(60)
   referenceId    String?     @db.VarChar(80)
-  idempotencyKey String      @unique @db.VarChar(100)
+  idempotencyKey String      @db.VarChar(100)
   occurredAt     DateTime    @default(now()) @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId, metric, occurredAt])
+  @@unique([tenantId, idempotencyKey])
 }
 
 model AuditLog {
