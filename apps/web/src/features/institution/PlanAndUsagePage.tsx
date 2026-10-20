@@ -114,14 +114,14 @@ export function PlanAndUsagePage({ slug, role, tenantName }: PlanAndUsagePagePro
           <h1>Plan y consumo de {data.tenant.name}</h1>
           <div className="plan-metering-badges">
             <span
-              className={`plan-status-badge ${subscription.status.toLowerCase()}`}
-              title={`Estado de suscripción: ${subscription.status}`}
+              className={`plan-status-badge ${(subscription?.status ?? "NO_SUBSCRIPTION").toLowerCase()}`}
+              title={`Estado de suscripción: ${subscription?.status ?? "NO_SUBSCRIPTION"}`}
             >
-              {subscription.status === "ACTIVE" ? (
+              {subscription?.status === "ACTIVE" ? (
                 <>
                   <ShieldCheck size={14} aria-hidden="true" /> Suscripción Activa
                 </>
-              ) : subscription.status === "SUSPENDED" ? (
+              ) : subscription?.status === "SUSPENDED" ? (
                 <>
                   <ShieldAlert size={14} aria-hidden="true" /> Suscripción Suspendida
                 </>

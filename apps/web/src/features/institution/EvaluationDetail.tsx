@@ -210,7 +210,7 @@ export function EvaluationDetail({ slug }: { slug: string }) {
                       : "BORRADOR"}
             </span>
             <div style={{ fontSize: 18, fontWeight: 700, color: "#0b1f4d", marginTop: 6 }}>
-              Bs. {evaluation.requestedAmount.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+              Bs. {(evaluation.requestedAmount ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
             </div>
           </div>
         </div>
